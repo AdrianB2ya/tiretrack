@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { ingresar, revisarFormulario, validarCorreo } from "../sesion/ingreso";
+import { ingresar, revisarCodigo, revisarFormulario, validarCorreo } from "../sesion/ingreso";
 import { PantallaIngreso } from "../sesion/PantallaIngreso";
 import { ServicioSesion, type UsuarioSesion } from "../sesion/servicio";
 import { AlmacenSeguroMemoria } from "../sesion/almacen";
@@ -269,5 +269,141 @@ describe("pantalla", () => {
 
     fireEvent.click(screen.getByTestId("descartar-y-entrar"));
     expect(onDescartarYEntrar).toHaveBeenCalledOnce();
+  });
+});
+
+describe("doble factor", () => {
+  function clienteCon(status: number, cuerpo: unknown = {}) {
+    const fetchFalso = vi.fn().mockResolvedValue({ ok: status < 300, status, json: async () => cuerpo } as Response);
+    return { fetchFalso, config: { baseUrl: "https://api.test/v1", fetch: fetchFalso as unknown as typeof globalThis.fetch } };
+  }
+  const base = { email: "marcela@asistectire.com", password: "clave" };
+
+  it("pedir el código no es un error de credenciales", async () => {
+    // La contraseña era correcta: si se mostrara como "clave incorrecta",
+    // la persona la cambiaría sin motivo.
+    const { config } = clienteCon(401, { error: { codigo: "REQUIERE_2FA", mensaje: "Ingresa el código" } });
+    expect(await ingresar(config, base)).toEqual({ tipo: "requiere_codigo" });
+  });
+
+  it("un código rechazado se distingue de una clave mala", async () => {
+    const { config } = clienteCon(401, { error: { codigo: "CODIGO_2FA_INVALIDO", mensaje: "x" } });
+    expect((await ingresar(config, { ...base, codigo2fa: "123456" })).tipo).toBe("codigo_invalido");
+  });
+
+  it("envía el código sin los espacios con que lo muestran las apps", async () => {
+    const { fetchFalso, config } = clienteCon(200, { token: "t", refreshToken: "r", usuario: {} });
+    await ingresar(config, { ...base, codigo2fa: "123 456" });
+    const cuerpo = JSON.parse((fetchFalso.mock.calls[0]?.[1] as RequestInit).body as string);
+    expect(cuerpo.codigo2fa).toBe("123456");
+  });
+
+  it.each([["", "Escribe"], ["12345", "6 números"], ["abcdef", "6 números"]])(
+    "revisa el código antes de gastar un intento (%s)",
+    (codigo, mensaje) => {
+      expect(revisarCodigo(codigo)).toMatch(mensaje);
+    },
+  );
+
+  it("acepta el código con espacios", () => {
+    expect(revisarCodigo("123 456")).toBeNull();
+  });
+
+  describe("pantalla", () => {
+    const escribir = (etiqueta: string, valor: string) =>
+      fireEvent.change(screen.getByLabelText(etiqueta), { target: { value: valor } });
+
+    function montar(...respuestas: unknown[]) {
+      const onIngresar = vi.fn();
+      for (const r of respuestas) onIngresar.mockResolvedValueOnce(r);
+      const onDescartarYEntrar = vi.fn();
+      render(<PantallaIngreso onIngresar={onIngresar} onDescartarYEntrar={onDescartarYEntrar} />);
+      return { onIngresar, onDescartarYEntrar };
+    }
+
+    async function hastaElCodigo() {
+      escribir("Correo", base.email);
+      escribir("Contraseña", base.password);
+      fireEvent.click(screen.getByTestId("entrar"));
+      await screen.findByText("Código de verificación");
+    }
+
+    it("pide el código y entra con él, conservando correo y clave", async () => {
+      const { onIngresar } = montar({ tipo: "requiere_codigo" }, { tipo: "ok" });
+      await hastaElCodigo();
+      escribir("Código", "654321");
+      fireEvent.click(screen.getByTestId("verificar"));
+      await waitFor(() =>
+        expect(onIngresar).toHaveBeenLastCalledWith({ ...base, codigo2fa: "654321" }),
+      );
+    });
+
+    it("un código mal escrito no se envía: no gasta un intento", async () => {
+      const { onIngresar } = montar({ tipo: "requiere_codigo" });
+      await hastaElCodigo();
+      escribir("Código", "12345");
+      fireEvent.click(screen.getByTestId("verificar"));
+      expect(await screen.findByText("El código tiene 6 números")).toBeTruthy();
+      expect(onIngresar).toHaveBeenCalledTimes(1);
+    });
+
+    it("un código rechazado lo explica y deja escribir otro", async () => {
+      montar({ tipo: "requiere_codigo" }, { tipo: "codigo_invalido", mensaje: "Código incorrecto o vencido" });
+      await hastaElCodigo();
+      escribir("Código", "111111");
+      fireEvent.click(screen.getByTestId("verificar"));
+      expect(await screen.findByText("Ese código no sirvió")).toBeTruthy();
+      expect((screen.getByLabelText("Código") as HTMLInputElement).value).toBe("");
+    });
+
+    it("con empresa elegida, el código viaja junto con la empresa", async () => {
+      const { onIngresar } = montar(
+        { tipo: "elegir_empresa", empresas: [{ id: "e1", nombre: "Una" }, { id: "e2", nombre: "Otra" }] },
+        { tipo: "requiere_codigo" },
+        { tipo: "ok" },
+      );
+      escribir("Correo", base.email);
+      escribir("Contraseña", base.password);
+      fireEvent.click(screen.getByTestId("entrar"));
+      fireEvent.click(await screen.findByTestId("empresa-e2"));
+      await screen.findByText("Código de verificación");
+      escribir("Código", "654321");
+      fireEvent.click(screen.getByTestId("verificar"));
+      await waitFor(() =>
+        expect(onIngresar).toHaveBeenLastCalledWith({ ...base, empresaId: "e2", codigo2fa: "654321" }),
+      );
+    });
+
+    it("descartar en el paso del código conserva empresa Y código", async () => {
+      const { onDescartarYEntrar } = montar(
+        { tipo: "elegir_empresa", empresas: [{ id: "e1", nombre: "Una" }, { id: "e2", nombre: "Otra" }] },
+        { tipo: "requiere_codigo" },
+        { tipo: "trabajo_de_otro", mensaje: "Carlos tiene 3 cambios sin enviar" },
+      );
+      escribir("Correo", base.email);
+      escribir("Contraseña", base.password);
+      fireEvent.click(screen.getByTestId("entrar"));
+      fireEvent.click(await screen.findByTestId("empresa-e2"));
+      await screen.findByText("Código de verificación");
+      escribir("Código", "654321");
+      fireEvent.click(screen.getByTestId("verificar"));
+      fireEvent.click(await screen.findByTestId("descartar-y-entrar"));
+      expect(onDescartarYEntrar).toHaveBeenCalledWith({ ...base, empresaId: "e2", codigo2fa: "654321" });
+    });
+
+    it("descartar el trabajo de otro no pierde la empresa elegida", async () => {
+      // Antes enviaba solo correo y clave: con el correo en dos empresas,
+      // volvía a preguntar la empresa después de haber descartado.
+      const { onDescartarYEntrar } = montar(
+        { tipo: "elegir_empresa", empresas: [{ id: "e1", nombre: "Una" }, { id: "e2", nombre: "Otra" }] },
+        { tipo: "trabajo_de_otro", mensaje: "Carlos tiene 3 cambios sin enviar" },
+      );
+      escribir("Correo", base.email);
+      escribir("Contraseña", base.password);
+      fireEvent.click(screen.getByTestId("entrar"));
+      fireEvent.click(await screen.findByTestId("empresa-e2"));
+      fireEvent.click(await screen.findByTestId("descartar-y-entrar"));
+      expect(onDescartarYEntrar).toHaveBeenCalledWith({ ...base, empresaId: "e2" });
+    });
   });
 });

@@ -13,6 +13,8 @@ export interface Credenciales {
   readonly password: string;
   /** Solo cuando el correo existe en varias empresas y ya se eligió una. */
   readonly empresaId?: string;
+  /** Código de la app autenticadora, cuando el rol exige doble factor. */
+  readonly codigo2fa?: string;
 }
 
 export type ResultadoIngreso =
@@ -22,7 +24,27 @@ export type ResultadoIngreso =
   /** Credenciales, cuenta bloqueada o inactiva. El servidor no distingue. */
   | { tipo: "credenciales"; mensaje: string }
   /** No se llegó al servidor. Reintentar sirve; cambiar la clave no. */
-  | { tipo: "sin_conexion"; mensaje: string };
+  | { tipo: "sin_conexion"; mensaje: string }
+  /** Contraseña correcta; falta el código de la app autenticadora. */
+  | { tipo: "requiere_codigo" }
+  /** El código no sirvió: mal escrito o ya vencido (dura 30 segundos). */
+  | { tipo: "codigo_invalido"; mensaje: string };
+
+/** El código va sin espacios: las apps autenticadoras lo muestran "123 456". */
+export function limpiarCodigo(codigo: string): string {
+  return codigo.replace(/[ \t\n\r]+/g, "");
+}
+
+/**
+ * El código se revisa antes de enviarlo: cada intento fallido cuenta para el
+ * bloqueo de la cuenta, y gastar uno en un código de cinco dígitos es tirarlo.
+ */
+export function revisarCodigo(codigo: string): string | null {
+  const limpio = limpiarCodigo(codigo);
+  if (!limpio) return "Escribe el código de tu app autenticadora";
+  if (!/^[0-9]{6}$/.test(limpio)) return "El código tiene 6 números";
+  return null;
+}
 
 export function validarCorreo(email: string): boolean {
   const limpio = email.trim();
@@ -74,6 +96,7 @@ export async function ingresar(
         email: credenciales.email.trim().toLowerCase(),
         password: credenciales.password,
         ...(credenciales.empresaId ? { empresaId: credenciales.empresaId } : {}),
+        ...(credenciales.codigo2fa ? { codigo2fa: limpiarCodigo(credenciales.codigo2fa) } : {}),
       }),
       signal: control.signal,
     });
@@ -83,7 +106,16 @@ export async function ingresar(
       return { tipo: "elegir_empresa", empresas: cuerpo.empresas ?? [] };
     }
     if (r.status === 401 || r.status === 422) {
-      const cuerpo = (await r.json().catch(() => ({}))) as { error?: { mensaje?: string } };
+      const cuerpo = (await r.json().catch(() => ({}))) as { error?: { codigo?: string; mensaje?: string } };
+      // El doble factor no es un error de credenciales: la contraseña era
+      // correcta. Mezclarlos haría que alguien con la clave bien la cambie.
+      if (cuerpo.error?.codigo === "REQUIERE_2FA") return { tipo: "requiere_codigo" };
+      if (cuerpo.error?.codigo === "CODIGO_2FA_INVALIDO") {
+        return {
+          tipo: "codigo_invalido",
+          mensaje: "Código incorrecto o vencido. Espera a que tu app muestre uno nuevo y escríbelo",
+        };
+      }
       return { tipo: "credenciales", mensaje: cuerpo.error?.mensaje ?? "Correo o contraseña incorrectos" };
     }
     if (!r.ok) {

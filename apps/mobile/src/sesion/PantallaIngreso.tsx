@@ -2,7 +2,7 @@ import { useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Aviso, Boton, Campo } from "../diseno/componentes";
 import { colores, conOpacidad, espacio, radio, tactil, texto } from "../diseno/tokens";
-import { revisarFormulario, type ResultadoIngreso } from "./ingreso";
+import { revisarCodigo, revisarFormulario, type Credenciales, type ResultadoIngreso } from "./ingreso";
 
 /**
  * Pantalla de ingreso.
@@ -13,9 +13,9 @@ import { revisarFormulario, type ResultadoIngreso } from "./ingreso";
  */
 
 export interface PantallaIngresoProps {
-  onIngresar: (credenciales: { email: string; password: string; empresaId?: string }) => Promise<ResultadoIngreso | { tipo: "trabajo_de_otro"; mensaje: string }>;
+  onIngresar: (credenciales: Credenciales) => Promise<ResultadoIngreso | { tipo: "trabajo_de_otro"; mensaje: string }>;
   /** Descarta el trabajo sin enviar del usuario anterior, ya advertido. */
-  onDescartarYEntrar: (credenciales: { email: string; password: string; empresaId?: string }) => Promise<void>;
+  onDescartarYEntrar: (credenciales: Credenciales) => Promise<void>;
   entrando?: boolean;
 }
 
@@ -27,22 +27,55 @@ export function PantallaIngreso({ onIngresar, onDescartarYEntrar, entrando = fal
   const [empresas, setEmpresas] = useState<{ id: string; nombre: string }[] | null>(null);
   const [aviso, setAviso] = useState<{ tono: "peligro" | "advertencia"; titulo: string; detalle?: string } | null>(null);
   const [trabajoDeOtro, setTrabajoDeOtro] = useState<string | null>(null);
+  // Lo elegido en pasos anteriores se conserva: antes, "descartar y entrar"
+  // mandaba solo correo y clave y perdía la empresa elegida.
+  const [empresaElegida, setEmpresaElegida] = useState<string | null>(null);
+  const [pidiendoCodigo, setPidiendoCodigo] = useState(false);
+  const [codigo, setCodigo] = useState("");
+  const [codigoIntentado, setCodigoIntentado] = useState(false);
 
   const problemas = revisarFormulario({ email, password });
   const problemaDe = (campo: "email" | "password") =>
     intentado ? problemas.find((p) => p.campo === campo)?.mensaje : undefined;
 
-  const entrar = async (empresaId?: string) => {
+  const problemaCodigo = pidiendoCodigo ? revisarCodigo(codigo) : null;
+
+  /** Todo lo que hace falta para entrar, en un solo sitio. */
+  const credenciales = (empresaId: string | null = empresaElegida): Credenciales => ({
+    email,
+    password,
+    ...(empresaId ? { empresaId } : {}),
+    ...(pidiendoCodigo ? { codigo2fa: codigo } : {}),
+  });
+
+  const entrar = async (empresaId: string | null = empresaElegida) => {
     setIntentado(true);
     if (problemas.length > 0) return;
+    if (pidiendoCodigo) {
+      setCodigoIntentado(true);
+      if (problemaCodigo) return;
+    }
     setAviso(null);
     setTrabajoDeOtro(null);
+    if (empresaId !== empresaElegida) setEmpresaElegida(empresaId);
 
-    const r = await onIngresar({ email, password, ...(empresaId ? { empresaId } : {}) });
+    const r = await onIngresar(credenciales(empresaId));
     if (r.tipo === "ok") return;
 
     if (r.tipo === "elegir_empresa") {
       setEmpresas(r.empresas);
+      return;
+    }
+    if (r.tipo === "requiere_codigo") {
+      // La contraseña era correcta: no es un error, es el segundo paso.
+      setEmpresas(null);
+      setPidiendoCodigo(true);
+      return;
+    }
+    if (r.tipo === "codigo_invalido") {
+      setCodigo("");
+      setCodigoIntentado(false);
+      setAviso({ tono: "peligro", titulo: "Ese código no sirvió", detalle: r.mensaje });
       return;
     }
     if (r.tipo === "trabajo_de_otro") {
@@ -69,7 +102,10 @@ export function PantallaIngreso({ onIngresar, onDescartarYEntrar, entrando = fal
             <Pressable
               key={e.id}
               testID={`empresa-${e.id}`}
-              onPress={() => void entrar(e.id)}
+              onPress={() => {
+                setEmpresas(null);
+                void entrar(e.id);
+              }}
               style={estilos.opcionEmpresa}
             >
               <Text style={estilos.nombreEmpresa}>{e.nombre}</Text>
@@ -80,6 +116,72 @@ export function PantallaIngreso({ onIngresar, onDescartarYEntrar, entrando = fal
           </Boton>
         </ScrollView>
       </View>
+    );
+  }
+
+  if (pidiendoCodigo) {
+    return (
+      <KeyboardAvoidingView
+        style={estilos.pantalla}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <ScrollView contentContainerStyle={estilos.contenido} keyboardShouldPersistTaps="handled">
+          <Text style={estilos.titulo}>Código de verificación</Text>
+          <Text style={estilos.explicacion}>
+            Tu cuenta pide un segundo paso. Abre tu app autenticadora (Google Authenticator,
+            Authy…) y escribe el código de 6 números que muestra para TireTrack.
+          </Text>
+          <Text style={estilos.ayudaIzq}>Entrando como {email.trim().toLowerCase()}</Text>
+
+          <Campo
+            etiqueta="Código"
+            value={codigo}
+            onChangeText={setCodigo}
+            keyboardType="number-pad"
+            autoComplete="one-time-code"
+            textContentType="oneTimeCode"
+            maxLength={7}
+            placeholder="123456"
+            testID="codigo-2fa"
+            {...(codigoIntentado && problemaCodigo ? { error: problemaCodigo } : {})}
+          />
+          <Text style={estilos.ayudaIzq}>
+            El código cambia cada 30 segundos. Si está por cambiar, espera el siguiente.
+          </Text>
+
+          {aviso ? <Aviso tono={aviso.tono} titulo={aviso.titulo} {...(aviso.detalle ? { detalle: aviso.detalle } : {})} /> : null}
+
+          {trabajoDeOtro ? (
+            <View style={estilos.bloque}>
+              <Aviso tono="peligro" titulo="Hay trabajo sin enviar en este equipo" detalle={trabajoDeOtro} />
+              <Boton
+                tipo="peligro"
+                ancho
+                testID="descartar-y-entrar"
+                onPress={() => void onDescartarYEntrar(credenciales())}
+              >
+                Descartar ese trabajo y entrar
+              </Boton>
+            </View>
+          ) : null}
+
+          <Boton ancho testID="verificar" onPress={() => void entrar()} cargando={entrando}>
+            Verificar y entrar
+          </Boton>
+          <Boton
+            tipo="fantasma"
+            ancho
+            onPress={() => {
+              setPidiendoCodigo(false);
+              setCodigo("");
+              setCodigoIntentado(false);
+              setAviso(null);
+            }}
+          >
+            Volver
+          </Boton>
+        </ScrollView>
+      </KeyboardAvoidingView>
     );
   }
 
@@ -132,7 +234,7 @@ export function PantallaIngreso({ onIngresar, onDescartarYEntrar, entrando = fal
               tipo="peligro"
               ancho
               testID="descartar-y-entrar"
-              onPress={() => void onDescartarYEntrar({ email, password })}
+              onPress={() => void onDescartarYEntrar(credenciales())}
             >
               Descartar ese trabajo y entrar
             </Boton>
@@ -157,6 +259,8 @@ const estilos = StyleSheet.create({
   marca: { fontSize: 30, fontWeight: "800", color: colores.primario, textAlign: "center" },
   titulo: { ...texto.subtitulo, color: colores.texto },
   ayuda: { ...texto.ayuda, color: colores.textoTenue, textAlign: "center", marginBottom: espacio.lg },
+  ayudaIzq: { ...texto.ayuda, color: colores.textoTenue },
+  explicacion: { ...texto.cuerpo, color: colores.texto },
   verClave: { minHeight: tactil.minimo, justifyContent: "center" },
   textoVerClave: { ...texto.ayuda, color: colores.secundario },
   bloque: { gap: espacio.md },
