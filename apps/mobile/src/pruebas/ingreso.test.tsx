@@ -47,7 +47,7 @@ describe("llamada al servidor", () => {
     } as Response);
     return { fetchFalso, config: { baseUrl: "https://api.test/v1", fetch: fetchFalso as unknown as typeof globalThis.fetch } };
   }
-  const credenciales = { email: " Carlos@Aistectire.COM ", password: "clave" };
+  const credenciales = { email: " Carlos@Asistectire.COM ", password: "clave" };
 
   it("entrega los tokens al entrar", async () => {
     const { config } = clienteCon(200, { token: "t", refreshToken: "r", usuario: { id: "u1" } });
