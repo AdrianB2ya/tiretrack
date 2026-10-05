@@ -378,6 +378,8 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
       email,
       password,
       ...(typeof cuerpo["empresaId"] === "string" ? { empresaId: cuerpo["empresaId"] } : {}),
+      // Sin esto, quien tiene doble factor obligatorio no podía entrar nunca.
+      ...(typeof cuerpo["codigo2fa"] === "string" ? { codigo2fa: cuerpo["codigo2fa"] } : {}),
       ...(req.ip ? { ip: req.ip } : {}),
     });
     return respuestaDeAcceso(r, reply);

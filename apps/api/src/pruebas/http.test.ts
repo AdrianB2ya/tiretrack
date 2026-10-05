@@ -181,6 +181,26 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
       expect((await ingresar({ email: "x@y.com" })).statusCode).toBe(422);
     });
 
+    it("pasa al servicio TODO lo que el contrato de ingreso admite", async () => {
+      // La ruta arma la entrada campo por campo. Se le olvidó codigo2fa: el
+      // administrador y el superadmin —para quienes el doble factor es
+      // obligatorio— recibían REQUIERE_2FA para siempre, con código válido.
+      const recibido: Record<string, unknown>[] = [];
+      const espia = construirServidor({
+        pool, almacen: almacenFalso,
+        auth: { ...authFalso, login: async (e) => { recibido.push({ ...e }); return authFalso.login(e); } },
+        verificarToken: () => null,
+      });
+      await espia.inject({
+        method: "POST", url: "/auth/ingresar", headers: { "content-type": "application/json" },
+        payload: JSON.stringify({ email: "marcela@aistectire.com", password: "correcta", empresaId: SEMILLA.empresa, codigo2fa: "123456" }),
+      });
+      await espia.close();
+      expect(recibido[0]).toMatchObject({
+        email: "marcela@aistectire.com", password: "correcta", empresaId: SEMILLA.empresa, codigo2fa: "123456",
+      });
+    });
+
     it("si el correo está en dos empresas, pide elegir", async () => {
       const r = await ingresar({ email: "ana@dos-empresas.com", password: "correcta" });
       expect(r.statusCode).toBe(409);
