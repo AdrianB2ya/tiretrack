@@ -31,9 +31,12 @@ export default function PantallaPanel() {
   return (
     <View style={{ flex: 1, backgroundColor: colores.fondo }}>
       <BarraDeSesion />
-      <View style={{ paddingHorizontal: espacio.md, paddingTop: espacio.sm }}>
+      <View style={{ paddingHorizontal: espacio.md, paddingTop: espacio.sm, gap: espacio.sm }}>
         <Boton ancho testID="nueva-orden" onPress={() => router.push("/nueva-orden" as never)}>
           Programar una orden
+        </Boton>
+        <Boton ancho tipo="secundario" testID="flota" onPress={() => router.push("/flota" as never)}>
+          Clientes y vehículos
         </Boton>
       </View>
       <PanelCoordinador

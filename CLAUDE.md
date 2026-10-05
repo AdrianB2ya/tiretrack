@@ -257,7 +257,7 @@ Estado: `[x]` hecha · `[ ]` pendiente
 ### Fase 5 · Cliente y administración
 - [ ] 5.1 Portal del cliente
 - [ ] 5.2 Usuarios y sedes
-- [ ] 5.3 Clientes, vehículos, ejes
+- [x] 5.3 Clientes, sedes y vehículos (ruta `flota`). Plantillas de ejes: pendiente
 - [ ] 5.4 Auditoría
 
 ### Fase 6 · Informes
@@ -2504,6 +2504,25 @@ el servidor).
 - `TIPOS_OPERACION` es la única lista de tipos de la cola. La prueba de punta
   a punta que exige ruta en el servidor para cada tipo tenía su propia copia,
   y los tipos nuevos habrían quedado fuera sin que nadie lo notara.
+
+## Pantalla de flota (5.3)
+
+`src/flota/PantallaFlota.tsx` + `reglasFlota.ts`; ruta `app/flota.tsx`.
+
+- Entradas: "Clientes y vehículos" en el panel; y en la orden nueva, "¿No está
+  el cliente o la sede? Regístralos" — es donde el técnico lo necesita. Al
+  volver, la orden nueva recarga sus listas (`useFocusEffect`).
+- Los formularios se validan con **los mismos contratos del servidor**
+  (`zCrearCliente`, `zCrearSedeCliente`, `zCrearVehiculo`): lo que aquí
+  pasa, allá pasa; si no, la operación quedaría apartada.
+- **NIT repetido se bloquea** (único por empresa; se compara solo por
+  dígitos). **Nombre parecido con otro NIT se avisa**, no se bloquea.
+- Código de vehículo repetido en la misma sede se bloquea: se confunden al
+  dictarlos.
+- El técnico crea clientes y sedes; **no ve** cómo crear vehículos.
+- **Pendiente:** definir y versionar plantillas de ejes (solo administrador).
+  El servidor tiene la regla (`nuevaVersion`) pero no la ruta, y falta el
+  editor de ejes.
 
 ## Punto de retoma (2026-10-05)
 

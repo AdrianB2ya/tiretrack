@@ -43,6 +43,13 @@ export interface FormularioNuevaOrdenProps {
     codigoSede: string,
   ) => void;
   creando?: boolean;
+  /** El técnico llega a un cliente que no está registrado: tiene que poder crearlo. */
+  onRegistrarCliente?: () => void;
+  /**
+   * Cambia cuando la pantalla vuelve a primer plano: al regresar de
+   * registrar un cliente, la lista tiene que mostrarlo.
+   */
+  recarga?: number;
 }
 
 const TIPOS: { valor: TipoServicio; etiqueta: string }[] = [
@@ -55,7 +62,9 @@ const PRIORIDADES: { valor: Prioridad; etiqueta: string }[] = [
   { valor: "alta", etiqueta: "Alta" },
 ];
 
-export function FormularioNuevaOrden({ quien, hoy, fuentes, onCrear, creando = false }: FormularioNuevaOrdenProps) {
+export function FormularioNuevaOrden({
+  quien, hoy, fuentes, onCrear, creando = false, onRegistrarCliente, recarga = 0,
+}: FormularioNuevaOrdenProps) {
   const [f, setF] = useState<FormularioOrden>(() => formularioVacio(hoy, quien));
   const [intentado, setIntentado] = useState(false);
   const [sedes, setSedes] = useState<{ id: string; nombre: string; codigo: string }[] | null>(null);
@@ -71,15 +80,15 @@ export function FormularioNuevaOrden({ quien, hoy, fuentes, onCrear, creando = f
   useEffect(() => {
     void fuentes.sedes().then((s) => setSedes(s.filter((x) => quien.sedes.includes(x.id))));
     void fuentes.clientes().then(setClientes);
-  }, [fuentes, quien.sedes]);
+  }, [fuentes, quien.sedes, recarga]);
   useEffect(() => {
     if (f.clienteId) void fuentes.sedesDeCliente(f.clienteId).then(setSedesCliente);
     else setSedesCliente([]);
-  }, [fuentes, f.clienteId]);
+  }, [fuentes, f.clienteId, recarga]);
   useEffect(() => {
     if (f.sedeClienteId) void fuentes.vehiculos(f.sedeClienteId).then(setVehiculos);
     else setVehiculos([]);
-  }, [fuentes, f.sedeClienteId]);
+  }, [fuentes, f.sedeClienteId, recarga]);
   useEffect(() => {
     if (f.sedeId && !tecnicoCrea) void fuentes.tecnicos(f.sedeId).then(setTecnicos);
   }, [fuentes, f.sedeId, tecnicoCrea]);
@@ -137,6 +146,11 @@ export function FormularioNuevaOrden({ quien, hoy, fuentes, onCrear, creando = f
               onElegir={(id) => poner("clienteId", id)}
             />
           )}
+          {onRegistrarCliente ? (
+            <Boton tipo="fantasma" testID="registrar-cliente" onPress={onRegistrarCliente}>
+              ¿No está el cliente o la sede? Regístralos
+            </Boton>
+          ) : null}
         </Paso>
 
         {f.clienteId ? (

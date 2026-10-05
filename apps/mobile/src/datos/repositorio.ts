@@ -695,9 +695,9 @@ export class RepositorioLocal {
 
   // ── Cascada de la orden nueva: cliente → sede del cliente → vehículo ──
 
-  async clientes(): Promise<{ id: string; nombre: string }[]> {
-    const filas = await this.db.consultar<Record<string, unknown>>(`SELECT id, nombre FROM cliente ORDER BY nombre`);
-    return filas.map((f) => ({ id: String(f["id"]), nombre: String(f["nombre"]) }));
+  async clientes(): Promise<{ id: string; nombre: string; nit: string | null }[]> {
+    const filas = await this.db.consultar<Record<string, unknown>>(`SELECT id, nombre, nit FROM cliente ORDER BY nombre`);
+    return filas.map((f) => ({ id: String(f["id"]), nombre: String(f["nombre"]), nit: (f["nit"] as string) ?? null }));
   }
 
   async sedesDeCliente(clienteId: string): Promise<{ id: string; nombre: string }[]> {

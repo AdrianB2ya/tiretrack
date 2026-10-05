@@ -26,6 +26,7 @@ import type { OrdenParaLista } from "../ordenes/lista";
 import type { OrdenEnBandeja } from "../coordinador/bandeja";
 import type { CatalogoEditor } from "../ordenes/EditorPosicion";
 import type { FuentesNuevaOrden } from "../ordenes/FormularioNuevaOrden";
+import type { AccionesFlota, FuentesFlota } from "../flota/PantallaFlota";
 
 /**
  * Contexto de datos de la app.
@@ -79,6 +80,10 @@ export interface AccionesDatos {
   fuentesOrden: FuentesNuevaOrden;
   /** Guarda la orden nueva y la encola; si hay señal, sale enseguida. */
   crearOrden(o: Parameters<RepositorioLocal["guardarOrden"]>[0]): Promise<void>;
+  /** Clientes, sedes, vehículos y plantillas, para la pantalla de flota. */
+  fuentesFlota: FuentesFlota;
+  /** Crear en el celular y encolar; sale al sincronizar. */
+  accionesFlota: AccionesFlota;
 }
 
 export interface DatosOrden {
@@ -394,6 +399,38 @@ export function ProveedorDatos({
     [repo],
   );
 
+  const fuentesFlota = useMemo<FuentesFlota>(
+    () => ({
+      clientes: () => repo.clientes(),
+      sedesDeCliente: (id) => repo.sedesDeCliente(id),
+      vehiculos: (id) => repo.vehiculosDeSedeCliente(id),
+      plantillas: () => repo.configuracionesVigentes(),
+    }),
+    [repo],
+  );
+
+  const accionesFlota = useMemo<AccionesFlota>(
+    () => ({
+      // Como todo lo demás: inmediato en el celular; se envía por la cola.
+      crearCliente: async (c) => {
+        const id = await repo.crearClienteLocal(c);
+        void sincronizar();
+        return id;
+      },
+      crearSede: async (s) => {
+        const id = await repo.crearSedeClienteLocal(s);
+        void sincronizar();
+        return id;
+      },
+      crearVehiculo: async (v) => {
+        const id = await repo.crearVehiculoLocal(v);
+        void sincronizar();
+        return id;
+      },
+    }),
+    [repo, sincronizar],
+  );
+
   const crearOrden = useCallback<AccionesDatos["crearOrden"]>(
     async (o) => {
       await repo.guardarOrden(o);
@@ -429,12 +466,15 @@ export function ProveedorDatos({
       adjuntarFoto,
       fuentesOrden,
       crearOrden,
+      fuentesFlota,
+      accionesFlota,
     }),
     [
       cargando, ordenes, pendientesDeEnviar, sincronizando, ultimaSincronizacion,
       refrescar, sincronizar, cargarOrden, guardarMedicion, actualizarDatosOrden,
       firmar, cambiarEstado, catalogoPara, bandejaRevision, tecnicosDeSede,
       reasignar, medicionAnterior, fotosDe, fotosSinSubir, adjuntarFoto, fuentesOrden, crearOrden,
+      fuentesFlota, accionesFlota,
     ],
   );
 

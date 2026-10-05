@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { useRouter } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
 import { FormularioNuevaOrden } from "../src/ordenes/FormularioNuevaOrden";
 import { armarOrden, puedeCrearOrden, type QuienCrea } from "../src/ordenes/nuevaOrden";
 import { useDatos } from "../src/app/ProveedorDatos";
@@ -13,6 +13,9 @@ export default function RutaNuevaOrden() {
   const { fuentesOrden, crearOrden } = useDatos();
   const [creando, setCreando] = useState(false);
   const [hoy] = useState(() => new Date().toISOString().slice(0, 10));
+  // Al volver de registrar un cliente, recargar las listas.
+  const [recarga, setRecarga] = useState(0);
+  useFocusEffect(useCallback(() => setRecarga((n) => n + 1), []));
 
   const quien = useMemo<QuienCrea>(
     // Una sesión guardada antes de que el login trajera las sedes no las
@@ -29,6 +32,8 @@ export default function RutaNuevaOrden() {
       hoy={hoy}
       fuentes={fuentesOrden}
       creando={creando}
+      onRegistrarCliente={() => router.push("/flota" as never)}
+      recarga={recarga}
       onCrear={(f, vehiculo, codigoSede) => {
         setCreando(true);
         void (async () => {
