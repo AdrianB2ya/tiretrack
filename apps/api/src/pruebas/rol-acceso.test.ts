@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import pg from "pg";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { hayBaseDeDatos, conectarAislado, esquemaDe } from "./base";
+import { hayBaseDeDatos, conectarAislado, esquemaDe, conBloqueoGlobal } from "./base";
 
 /**
  * Aislamiento del rol de autenticación.
@@ -45,7 +45,10 @@ async function como(rol: string, sql: string, params: unknown[] = []) {
 describe.skipIf(!disponible)("rol de autenticación", () => {
   beforeAll(async () => {
     admin = await conectarAislado(import.meta.url);
+    await conBloqueoGlobal(admin, preparar);
+  }, 60_000);
 
+  async function preparar() {
     // Esquema mínimo con las piezas que la sección toca, más una tabla
     // operativa para comprobar que el rol de acceso NO la alcanza.
     await admin.query(`
@@ -72,8 +75,6 @@ describe.skipIf(!disponible)("rol de autenticación", () => {
           CREATE ROLE tiretrack_app NOLOGIN;
         END IF;
       END $$;
-      GRANT USAGE ON SCHEMA public TO tiretrack_app;
-      GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO tiretrack_app;
 
       CREATE OR REPLACE FUNCTION app_empresa_id() RETURNS text
         LANGUAGE sql STABLE AS $$ SELECT nullif(current_setting('app.empresa_id', true), '') $$;
@@ -111,7 +112,7 @@ describe.skipIf(!disponible)("rol de autenticación", () => {
 
     // Y ahora la sección REAL del script de producción.
     await admin.query(seccionDeRls("acceso"));
-  }, 60_000);
+  }
 
   afterAll(async () => {
     await admin?.end();

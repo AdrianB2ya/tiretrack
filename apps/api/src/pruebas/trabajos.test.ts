@@ -492,7 +492,8 @@ describe.skipIf(!disponible)("trabajos programados", () => {
   });
 });
 
-describe.skipIf(disponible)("trabajos programados", () => {
+// Solo existe sin base: con base, un "omitido" haría fallar la guarda del CI.
+if (!disponible) describe("trabajos programados", () => {
   it("omitidos: falta PostgreSQL", () => {
     expect(disponible).toBe(false);
   });

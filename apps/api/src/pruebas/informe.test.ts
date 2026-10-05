@@ -419,7 +419,8 @@ describe.skipIf(!disponible)("informe", () => {
   });
 });
 
-describe.skipIf(disponible)("informe", () => {
+// Solo existe sin base: con base, un "omitido" haría fallar la guarda del CI.
+if (!disponible) describe("informe", () => {
   it("omitido: falta PostgreSQL", () => {
     expect(disponible).toBe(false);
   });

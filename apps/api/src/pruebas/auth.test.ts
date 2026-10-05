@@ -454,7 +454,8 @@ describe.skipIf(!disponible)("autenticación", () => {
   });
 });
 
-describe.skipIf(disponible)("autenticación", () => {
+// Solo existe sin base: con base, un "omitido" haría fallar la guarda del CI.
+if (!disponible) describe("autenticación", () => {
   it("omitida: falta PostgreSQL", () => {
     expect(disponible).toBe(false);
   });

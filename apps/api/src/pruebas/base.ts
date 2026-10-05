@@ -44,6 +44,12 @@ export const EXIGE_BASE = process.env.PRUEBAS_EXIGEN_BASE === "1";
  *
  * Con un esquema por archivo, cada uno trabaja aislado y el paralelismo deja
  * de ser un riesgo. `search_path` hace que el resto del código no cambie.
+ *
+ * El `search_path` NO incluye `public`. Con `public` detrás, un
+ * `DROP TABLE IF EXISTS` sobre un esquema recién creado no encontraba la
+ * tabla propia y borraba la de `public` —la de la prueba de aislamiento—, y
+ * un `GRANT ... IN SCHEMA public` le daba permisos sobre la auditoría ajena.
+ * Con la base vacía, la suite fallaba distinto en cada corrida.
  */
 export function esquemaDe(rutaArchivo: string): string {
   const nombre = rutaArchivo.split("/").pop()?.replace(/\.test\.ts$/, "") ?? "pruebas";
@@ -56,7 +62,7 @@ export async function conectarAislado(rutaArchivo: string): Promise<pg.Client> {
   const cliente = new pg.Client({ connectionString: URL_PRUEBAS });
   await cliente.connect();
   await cliente.query(`CREATE SCHEMA IF NOT EXISTS "${esquema}"`);
-  await cliente.query(`SET search_path TO "${esquema}", public`);
+  await cliente.query(`SET search_path TO "${esquema}"`);
   return cliente;
 }
 
@@ -72,9 +78,29 @@ export async function poolAislado(rutaArchivo: string, max = 6): Promise<pg.Pool
 
   const pool = new pg.Pool({ connectionString: URL_PRUEBAS, max });
   pool.on("connect", (c) => {
-    void c.query(`SET search_path TO "${esquema}", public`);
+    void c.query(`SET search_path TO "${esquema}"`);
   });
   return pool;
+}
+
+/**
+ * Serializa la preparación que toca objetos COMPARTIDOS por toda la base:
+ * roles, permisos sobre `public`, funciones globales.
+ *
+ * El esquema por archivo no los aísla. Dos archivos concediendo a la vez sobre
+ * el mismo rol o esquema chocan en el catálogo ("tuple concurrently deleted")
+ * y la suite falla según quién llegue primero. El bloqueo es de sesión y se
+ * suelta siempre, aunque la preparación falle.
+ */
+const CLAVE_BLOQUEO_GLOBAL = 7_310_461;
+
+export async function conBloqueoGlobal<T>(cliente: pg.Client, fn: () => Promise<T>): Promise<T> {
+  await cliente.query("SELECT pg_advisory_lock($1)", [CLAVE_BLOQUEO_GLOBAL]);
+  try {
+    return await fn();
+  } finally {
+    await cliente.query("SELECT pg_advisory_unlock($1)", [CLAVE_BLOQUEO_GLOBAL]);
+  }
 }
 
 /** true si hay una base a la que conectarse. */
@@ -372,16 +398,18 @@ export class BaseDePruebas {
     //
     // Se toleran solo los errores de "no existe": el esquema de pruebas es
     // reducido y no tiene todas las tablas del esquema real.
-    for (const sentencia of dividirSQL(sql)) {
-      try {
-        await this.admin.query(sentencia);
-      } catch (e) {
-        const msg = (e as Error).message;
-        if (!/does not exist|no existe/i.test(msg)) {
-          throw new Error(`Falló al aplicar RLS: ${msg}\n--- sentencia ---\n${sentencia.slice(0, 300)}`);
+    await conBloqueoGlobal(this.admin, async () => {
+      for (const sentencia of dividirSQL(sql)) {
+        try {
+          await this.admin.query(sentencia);
+        } catch (e) {
+          const msg = (e as Error).message;
+          if (!/does not exist|no existe/i.test(msg)) {
+            throw new Error(`Falló al aplicar RLS: ${msg}\n--- sentencia ---\n${sentencia.slice(0, 300)}`);
+          }
         }
       }
-    }
+    });
 
     await this.verificarRLSActivo();
   }

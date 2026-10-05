@@ -859,7 +859,8 @@ describe.skipIf(!disponible)("órdenes de servicio", () => {
   });
 });
 
-describe.skipIf(disponible)("órdenes de servicio", () => {
+// Solo existe sin base: con base, un "omitido" haría fallar la guarda del CI.
+if (!disponible) describe("órdenes de servicio", () => {
   it("omitidas: falta PostgreSQL", () => {
     expect(disponible).toBe(false);
   });

@@ -511,7 +511,8 @@ describe.skipIf(!disponible)("flota", () => {
   });
 });
 
-describe.skipIf(disponible)("flota", () => {
+// Solo existe sin base: con base, un "omitido" haría fallar la guarda del CI.
+if (!disponible) describe("flota", () => {
   it("omitida: falta PostgreSQL", () => {
     expect(disponible).toBe(false);
   });
