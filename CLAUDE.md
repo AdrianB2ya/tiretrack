@@ -2373,7 +2373,11 @@ DATABASE_URL_TEST=postgresql://tiretrack:test@localhost:5432/tiretrack_test PRUE
 cd apps/api && node --env-file=.env --import tsx src/server.ts
 
 # App para Expo Go (la URL va SIN /api/v1: ver abajo)
-cd apps/mobile && EXPO_PUBLIC_API_URL=http://<IP-LAN>:4000 npx expo start --lan --go
+# --offline: app.json trae un projectId de EAS de relleno y, sin él, Expo
+# intenta firmar el manifiesto con una cuenta: Expo Go muestra "Something
+# went wrong". La IP va por REACT_NATIVE_PACKAGER_HOSTNAME (--lan y
+# --offline no se combinan).
+cd apps/mobile && EXPO_PUBLIC_API_URL=http://<IP-LAN>:4000 REACT_NATIVE_PACKAGER_HOSTNAME=<IP-LAN> npx expo start --go --offline
 ```
 
 **Pendiente de decisión:** la app (`_layout.tsx`, `eas.json`, `COMPILAR.md`)
