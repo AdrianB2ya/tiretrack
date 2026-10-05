@@ -1,0 +1,907 @@
+// ============================================================================
+// TireTrack — Esquema de base de datos
+// ============================================================================
+// Reglas estructurales que verifica apps/api/src/schema.test.ts:
+//   1. Toda tabla operativa lleva empresaId.
+//   2. Todo índice de tabla operativa empieza por empresaId: es el primer
+//      filtro de cualquier consulta.
+//   3. Dinero y mediciones en Decimal, nunca Float: Float produce errores de
+//      redondeo que terminan en una factura.
+//   4. Los ids son String generados en el CLIENTE, no @default(uuid()): es lo
+//      que permite capturar sin conexión y sincronizar sin duplicar.
+//   5. Nada se borra: hay columna de desactivación.
+//
+// Las llaves foráneas compuestas y los CHECK van en migrations/manual.sql:
+// Prisma no las genera y son las que hacen imposible cruzar datos entre
+// empresas.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// EMPRESA — el tenant
+// ════════════════════════════════════════════════════════════════════════════
+
+enum PlanSuscripcion {
+  trial
+  basico
+  profesional
+  enterprise
+}
+
+enum UnidadPresion {
+  psi
+  bar
+  kpa
+}
+
+enum UnidadProfundidad {
+  mm
+  in32
+}
+
+model Empresa {
+  id                String            @id
+  nombre            String
+  nit               String            @unique
+  nitSecundario     String?
+  plan              PlanSuscripcion   @default(trial)
+  unidadPresion     UnidadPresion     @default(psi)
+  unidadProfundidad UnidadProfundidad @default(mm)
+  moneda            String            @default("COP")
+  zonaHoraria       String            @default("America/Bogota")
+  activa            Boolean           @default(true)
+  creadoEn          DateTime          @default(now())
+  actualizadoEn     DateTime          @updatedAt
+  desactivadoEn     DateTime?
+
+  sedes           Sede[]
+  usuarios        Usuario[]
+  clientes        Cliente[]
+  configuraciones ConfiguracionEje[]
+  marcas          Marca[]
+  servicios       Servicio[]
+  tiposParche     TipoParche[]
+  ordenes         OrdenServicio[]
+  consecutivos    Consecutivo[]
+  recomendaciones Recomendacion[]
+  programaciones  ProgramacionRecurrente[]
+  auditorias      Auditoria[]
+
+  @@index([activa])
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// SEDES DE LA EMPRESA
+// ════════════════════════════════════════════════════════════════════════════
+
+model Sede {
+  id            String    @id
+  empresaId     String
+  empresa       Empresa   @relation(fields: [empresaId], references: [id])
+  nombre        String
+  /// Entra en el folio: OS-FUN-000123
+  codigo        String
+  direccion     String?
+  ciudad        String?
+  departamento  String?
+  nitSecundario String?
+  activa        Boolean   @default(true)
+  creadoEn      DateTime  @default(now())
+  actualizadoEn DateTime  @updatedAt
+  desactivadoEn DateTime?
+
+  usuarios       UsuarioSede[]
+  ordenes        OrdenServicio[]
+  consecutivos   Consecutivo[]
+  programaciones ProgramacionRecurrente[]
+
+  @@unique([empresaId, codigo])
+  /// Ancla de la FK compuesta que impide emitir una orden desde otra empresa
+  @@unique([id, empresaId])
+  @@index([empresaId, activa])
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// USUARIOS Y ACCESO
+// ════════════════════════════════════════════════════════════════════════════
+
+enum Rol {
+  superadmin
+  administrador
+  coordinador
+  tecnico
+  cliente
+}
+
+model Usuario {
+  id String @id
+  /// null SOLO para superadmin: es staff de plataforma, no de una empresa
+  empresaId    String?
+  empresa      Empresa? @relation(fields: [empresaId], references: [id])
+  nombre       String
+  cedula       String
+  email        String
+  telefono     String?
+  passwordHash String
+  rol          Rol      @default(tecnico)
+  /// Obligatorio cuando rol = cliente: limita lo que puede ver
+  clienteId    String?
+  cliente      Cliente? @relation(fields: [clienteId], references: [id])
+  activo       Boolean  @default(true)
+
+  passwordActualizadoEn DateTime  @default(now())
+  intentosFallidos      Int       @default(0)
+  bloqueadoHasta        DateTime?
+  dobleFactorActivo     Boolean   @default(false)
+  dobleFactorSecreto    String?
+  ultimoAcceso          DateTime?
+
+  creadoEn      DateTime  @default(now())
+  actualizadoEn DateTime  @updatedAt
+  desactivadoEn DateTime?
+
+  sedes               UsuarioSede[]
+  tokensRecuperacion  TokenRecuperacion[]
+  sesiones            SesionUsuario[]
+  suplantaciones      SesionSuplantacion[]  @relation("Suplantador")
+  ordenesAsignadas    OrdenServicio[]       @relation("TecnicoOrden")
+  ordenesCreadas      OrdenServicio[]       @relation("CreadorOrden")
+  ordenesAprobadas    OrdenServicio[]       @relation("AprobadorOrden")
+  medicionesCapturadas LlantaRegistro[]     @relation("CapturadorLlanta")
+  recomendaciones     Recomendacion[]
+
+  /// Email único POR empresa: la misma persona puede existir en dos tenants
+  @@unique([empresaId, email])
+  @@unique([empresaId, cedula])
+  @@index([empresaId, rol, activo])
+}
+
+/// Un técnico rota entre sedes: la relación es de muchos a muchos.
+model UsuarioSede {
+  usuarioId   String
+  usuario     Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  sedeId      String
+  sede        Sede     @relation(fields: [sedeId], references: [id], onDelete: Cascade)
+  esPrincipal Boolean  @default(false)
+  activa      Boolean  @default(true)
+  asignadoEn  DateTime @default(now())
+
+  @@id([usuarioId, sedeId])
+  /// Destino de la FK compuesta: impide asignar una orden a un técnico que
+  /// no pertenece a esa sede
+  @@unique([usuarioId, sedeId], name: "usuario_sede_uk")
+}
+
+/// Token de un solo uso. Se guarda el HASH, nunca el token en claro.
+model TokenRecuperacion {
+  id          String    @id
+  usuarioId   String
+  usuario     Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  tokenHash   String    @unique
+  expiraEn    DateTime
+  usadoEn     DateTime?
+  ipSolicitud String?
+  creadoEn    DateTime  @default(now())
+
+  @@index([usuarioId])
+}
+
+/// Permite revocar sesiones al cambiar contraseña o dar de baja al usuario.
+model SesionUsuario {
+  id          String    @id
+  usuarioId   String
+  usuario     Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  refreshHash String    @unique
+  dispositivo String?
+  ip          String?
+  expiraEn    DateTime
+  revocadaEn  DateTime?
+  creadoEn    DateTime  @default(now())
+
+  @@index([usuarioId, revocadaEn])
+}
+
+/// El superadmin no accede a datos operativos sin abrir una sesión de
+/// soporte con motivo, ticket y vencimiento. Todo lo que haga queda marcado.
+model SesionSuplantacion {
+  id            String    @id
+  superadminId  String
+  superadmin    Usuario   @relation("Suplantador", fields: [superadminId], references: [id])
+  empresaId     String
+  motivo        String
+  ticketSoporte String?
+  iniciadaEn    DateTime  @default(now())
+  expiraEn      DateTime
+  terminadaEn   DateTime?
+
+  @@index([empresaId, iniciadaEn])
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// CLIENTES Y SUS ACTIVOS
+// ════════════════════════════════════════════════════════════════════════════
+
+model Cliente {
+  id            String    @id
+  empresaId     String
+  empresa       Empresa   @relation(fields: [empresaId], references: [id])
+  nombre        String
+  /// Único POR empresa. El mismo NIT existe aparte en otra empresa:
+  /// los clientes NO se comparten entre empresas suscritas.
+  nit           String
+  nitSecundario String?
+  contacto      String?
+  telefono      String?
+  email         String?
+  activo        Boolean   @default(true)
+  creadoEn      DateTime  @default(now())
+  actualizadoEn DateTime  @updatedAt
+  desactivadoEn DateTime?
+
+  sedes           SedeCliente[]
+  ordenes         OrdenServicio[]
+  usuarios        Usuario[]
+  recomendaciones Recomendacion[]
+  programaciones  ProgramacionRecurrente[]
+
+  @@unique([empresaId, nit])
+  /// Ancla de la FK compuesta orden → cliente → empresa
+  @@unique([id, empresaId])
+  @@index([empresaId, activo])
+}
+
+model SedeCliente {
+  id            String    @id
+  clienteId     String
+  cliente       Cliente   @relation(fields: [clienteId], references: [id])
+  nombre        String
+  direccion     String?
+  ciudad        String?
+  departamento  String?
+  telefono      String?
+  nitSecundario String?
+  activa        Boolean   @default(true)
+  creadoEn      DateTime  @default(now())
+  actualizadoEn DateTime  @updatedAt
+  desactivadaEn DateTime?
+
+  vehiculos      Vehiculo[]
+  ordenes        OrdenServicio[]
+  programaciones ProgramacionRecurrente[]
+
+  /// Ancla de la FK compuesta orden → sedeCliente → cliente
+  @@unique([id, clienteId])
+  @@index([clienteId, activa])
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// CONFIGURACIÓN DE EJES — inmutable y versionada
+// ════════════════════════════════════════════════════════════════════════════
+
+/// Las plantillas NUNCA se editan: editar crea una versión nueva. La orden
+/// congela el id de la versión que usó, para que una orden de hace seis meses
+/// se siga dibujando con el diagrama que tenía ese día.
+model ConfiguracionEje {
+  id               String   @id
+  empresaId        String
+  empresa          Empresa  @relation(fields: [empresaId], references: [id])
+  nombre           String
+  version          Int      @default(1)
+  totalPosiciones  Int
+  vigente          Boolean  @default(true)
+  reemplazadaPorId String?
+  creadoEn         DateTime @default(now())
+
+  posiciones PosicionEje[]
+  vehiculos  Vehiculo[]
+  ordenes    OrdenServicio[]
+
+  @@unique([empresaId, nombre, version])
+  /// Ancla para que LlantaRegistro valide su posición contra la misma
+  /// configuración que congeló la orden
+  @@unique([id, empresaId])
+  @@index([empresaId, vigente])
+}
+
+enum LadoVehiculo {
+  izquierdo
+  derecho
+}
+
+/// Cada casilla del diagrama. Los umbrales viven aquí porque dependen del
+/// eje: una direccional trabaja a 110 PSI y una de tracción a 105.
+model PosicionEje {
+  id                 String           @id
+  configuracionEjeId String
+  configuracionEje   ConfiguracionEje @relation(fields: [configuracionEjeId], references: [id], onDelete: Cascade)
+  numero             Int
+  eje                Int
+  lado               LadoVehiculo
+  esInterna          Boolean          @default(false)
+  esDireccional      Boolean          @default(false)
+  tipoEje            String           @default("multiuso")
+  psiObjetivo        Decimal?         @db.Decimal(6, 2)
+  profundidadMinima  Decimal?         @db.Decimal(5, 2)
+
+  registros LlantaRegistro[]
+
+  @@unique([configuracionEjeId, numero])
+  @@index([configuracionEjeId])
+}
+
+enum EstadoVehiculo {
+  operativo
+  en_taller
+  alerta
+  fuera_servicio
+}
+
+/// El vehículo pertenece a la SEDE del cliente, no al cliente.
+model Vehiculo {
+  id                 String           @id
+  sedeClienteId      String
+  sedeCliente        SedeCliente      @relation(fields: [sedeClienteId], references: [id])
+  configuracionEjeId String
+  configuracionEje   ConfiguracionEje @relation(fields: [configuracionEjeId], references: [id])
+  codigo             String
+  placa              String?
+  nombre             String
+  tipo               String
+  marca              String?
+  modelo             String?
+  anio               Int?
+  kmActual           Int              @default(0)
+  ultimoPM           DateTime?
+  proximoPM          DateTime?
+  estado             EstadoVehiculo   @default(operativo)
+  activo             Boolean          @default(true)
+  creadoEn           DateTime         @default(now())
+  actualizadoEn      DateTime         @updatedAt
+  desactivadoEn      DateTime?
+
+  ordenes         OrdenServicio[]
+  recomendaciones Recomendacion[]
+  programaciones  ProgramacionRecurrente[]
+
+  @@unique([sedeClienteId, codigo])
+  @@index([sedeClienteId, activo])
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// CATÁLOGO DE LLANTAS — marca → diseño → medida
+// ════════════════════════════════════════════════════════════════════════════
+
+/// Ámbito híbrido: las globales (empresaId null) las mantiene la plataforma
+/// y las ve todo el mundo; las propias solo su empresa. Sin catálogo, en tres
+/// meses hay cuatro variantes de "Michelin" y el análisis por marca muere.
+model Marca {
+  id            String    @id
+  empresaId     String?
+  empresa       Empresa?  @relation(fields: [empresaId], references: [id])
+  nombre        String
+  esGlobal      Boolean   @default(false)
+  /// Creada por un técnico en campo: pendiente de revisión del administrador
+  creadaEnCampo Boolean   @default(false)
+  activa        Boolean   @default(true)
+  creadoEn      DateTime  @default(now())
+  desactivadoEn DateTime?
+
+  disenos Diseno[]
+
+  @@unique([empresaId, nombre])
+  @@index([empresaId, activa])
+}
+
+model Diseno {
+  id            String    @id
+  empresaId     String?
+  marcaId       String
+  marca         Marca     @relation(fields: [marcaId], references: [id])
+  nombre        String
+  /// direccional | traccion | arrastre | multiuso
+  tipoEje       String    @default("multiuso")
+  esGlobal      Boolean   @default(false)
+  creadaEnCampo Boolean   @default(false)
+  activo        Boolean   @default(true)
+  creadoEn      DateTime  @default(now())
+  desactivadoEn DateTime?
+
+  medidas DisenoMedida[]
+
+  @@unique([marcaId, nombre])
+  @@index([marcaId, activo])
+}
+
+/// La profundidad de fábrica vive en la MEDIDA, no en el diseño: un XZY-3 en
+/// 295/80R22.5 trae 16 mm y en 11R22.5 trae 14.5. Guardarla en el diseño hace
+/// que el porcentaje de desgaste salga mal en flotas con dos medidas.
+model DisenoMedida {
+  id                  String   @id
+  disenoId            String
+  diseno              Diseno   @relation(fields: [disenoId], references: [id], onDelete: Cascade)
+  medida              String
+  profundidadOriginal Decimal? @db.Decimal(5, 2)
+  creadoEn            DateTime @default(now())
+
+  @@unique([disenoId, medida])
+}
+
+model Servicio {
+  id        String   @id
+  empresaId String
+  empresa   Empresa  @relation(fields: [empresaId], references: [id])
+  codigo    String
+  nombre    String
+  /// Distingue los que se marcan por posición de los del vehículo completo
+  porLlanta Boolean  @default(true)
+  orden     Int      @default(0)
+  activo    Boolean  @default(true)
+  creadoEn  DateTime @default(now())
+
+  serviciosLlanta LlantaServicio[]
+
+  @@unique([empresaId, codigo])
+  @@index([empresaId, activo])
+}
+
+model TipoParche {
+  id        String   @id
+  empresaId String
+  empresa   Empresa  @relation(fields: [empresaId], references: [id])
+  nombre    String
+  activo    Boolean  @default(true)
+  creadoEn  DateTime @default(now())
+
+  registros LlantaRegistro[]
+
+  @@unique([empresaId, nombre])
+  @@index([empresaId, activo])
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// ORDEN DE SERVICIO
+// ════════════════════════════════════════════════════════════════════════════
+
+enum TipoServicio {
+  preventivo
+  correctivo
+}
+
+enum Prioridad {
+  baja
+  normal
+  alta
+}
+
+enum EstadoOrden {
+  borrador
+  programada
+  en_proceso
+  en_revision
+  pendiente_cliente
+  cerrada
+  anulada
+}
+
+model OrdenServicio {
+  /// UUID generado en el DISPOSITIVO, no en el servidor
+  id        String  @id
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+  sedeId    String
+  sede      Sede    @relation(fields: [sedeId], references: [id])
+
+  clienteId     String
+  cliente       Cliente     @relation(fields: [clienteId], references: [id])
+  sedeClienteId String
+  sedeCliente   SedeCliente @relation(fields: [sedeClienteId], references: [id])
+  vehiculoId    String
+  vehiculo      Vehiculo    @relation(fields: [vehiculoId], references: [id])
+
+  tecnicoId String  @map("tecnico_id")
+  tecnico   Usuario @relation("TecnicoOrden", fields: [tecnicoId], references: [id])
+
+  /// Versión de la plantilla de ejes CONGELADA al crear la orden
+  configuracionEjeId String
+  configuracionEje   ConfiguracionEje @relation(fields: [configuracionEjeId], references: [id])
+
+  /// Null hasta que sincroniza, en órdenes creadas sin señal
+  folio String?
+  /// Referencia temporal de las imprevistas: FUN-K7M2
+  codigoReferencia String?
+
+  tipo      TipoServicio
+  prioridad Prioridad    @default(normal)
+  estado    EstadoOrden  @default(borrador)
+  fecha     DateTime     @db.Date
+
+  kilometraje      Int?
+  hallazgos        String?
+  accion           String?
+  observaciones    String?
+  notaCoordinador  String?
+  motivoDevolucion String?
+  horasTrabajo     Decimal @default(0) @db.Decimal(6, 2)
+
+  sinConductor    Boolean @default(false)
+  conductorNombre String?
+  conductorCedula String?
+
+  // ── Firma: se ata a la versión. Si el contenido cambia después, deja de
+  //    amparar lo que quedó y hay que recapturarla.
+  firmaNombre    String?
+  firmaCedula    String?
+  firmaUrl       String?
+  firmaVersion   Int?
+  firmaFechaHora DateTime?
+  firmaCargo     String?
+  /// Segmentos del trazo serializados. Se guardan puntos, no una imagen:
+  /// ocupan menos y se redibujan a cualquier tamaño, incluido el PDF.
+  firmaTrazo     String?
+  /// Versión del texto de consentimiento aceptado (Ley 1581). Sin ella no hay
+  /// constancia de qué autorizó la persona.
+  firmaConsentimiento String?
+
+  // ── Congelado al cerrar: un documento no cambia solo
+  clienteNombre     String?
+  clienteNit        String?
+  sedeClienteNombre String?
+  vehiculoCodigo    String?
+  vehiculoPlaca     String?
+  tecnicoNombre     String?
+  tecnicoCedula     String?
+  congeladoEn       DateTime?
+
+  // ── Aprobación
+  aprobadoPorId    String?
+  aprobadoPor      Usuario?  @relation("AprobadorOrden", fields: [aprobadoPorId], references: [id])
+  aprobadoEn       DateTime?
+  autoAprobada     Boolean   @default(false)
+  enviadoClienteEn DateTime? @db.Date
+  limiteCliente    DateTime? @db.Date
+  cierreTacito     Boolean   @default(false)
+  motivoCierre     String?
+
+  /// Bloqueo optimista: sube en TODA escritura. Si el cliente envía una
+  /// versión vieja, se rechaza en vez de pisar el trabajo del otro usuario.
+  version Int @default(0)
+
+  /// Sube solo cuando cambia el CONTENIDO del servicio: mediciones,
+  /// kilometraje, hallazgos, acción. La firma se ata a este contador, no a
+  /// `version`: mover la orden de estado no debe invalidar una firma, porque
+  /// el documento que el cliente firmó no cambió.
+  versionContenido Int @default(0)
+
+  /// Idempotencia de la sincronización: reintentar no duplica la orden
+  clientRequestId String?
+  sincronizadoEn  DateTime?
+
+  creadoPorId   String
+  creadoPor     Usuario   @relation("CreadorOrden", fields: [creadoPorId], references: [id])
+  creadoEn      DateTime  @default(now())
+  actualizadoEn DateTime  @updatedAt
+  anuladaEn     DateTime?
+
+  llantas          LlantaRegistro[]
+  serviciosVehiculo OrdenServicioVehiculo[]
+  historial        OrdenEstadoHistorial[]
+  fotos            Foto[]
+  recomendaciones  Recomendacion[]
+
+  @@unique([empresaId, folio])
+  @@unique([empresaId, clientRequestId])
+  /// Ancla para que la posición de llanta se valide contra la configuración
+  /// que esta orden congeló
+  @@unique([id, configuracionEjeId])
+  @@index([empresaId, estado])
+  @@index([empresaId, tecnicoId, estado])
+  @@index([empresaId, clienteId, fecha])
+  @@index([empresaId, vehiculoId, estado])
+}
+
+/// Servicios que aplican al vehículo completo, no a una posición.
+model OrdenServicioVehiculo {
+  ordenId    String
+  orden      OrdenServicio @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  servicioId String
+
+  @@id([ordenId, servicioId])
+}
+
+/// Rastro de transiciones con motivo. El cliente no ve las devoluciones
+/// internas entre coordinador y técnico.
+model OrdenEstadoHistorial {
+  id             String        @id
+  ordenId        String
+  orden          OrdenServicio @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  estadoAnterior EstadoOrden?
+  estadoNuevo    EstadoOrden
+  usuarioId      String
+  motivo         String?
+  visibleCliente Boolean       @default(false)
+  creadoEn       DateTime      @default(now())
+
+  @@index([ordenId, creadoEn])
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// MEDICIÓN POR POSICIÓN
+// ════════════════════════════════════════════════════════════════════════════
+
+/// Tabla propia, no un objeto dentro de la orden: el técnico sincroniza
+/// posición por posición, y si se cae la señal a mitad de captura no puede
+/// perder todo lo anterior.
+model LlantaRegistro {
+  id      String        @id
+  ordenId String
+  orden   OrdenServicio @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+
+  /// Se repite aquí para poder validar la posición contra la configuración
+  /// que la orden congeló, con FK compuesta
+  configuracionEjeId String
+  posicion           Int
+  posicionEje        PosicionEje @relation(fields: [configuracionEjeId, posicion], references: [configuracionEjeId, numero])
+
+  marcaId      String?
+  disenoId     String?
+  medida       String?
+  numCalor     String?
+  serial       String?
+  /// Semana y año de fabricación: 3624. El vencimiento se calcula a 6 años
+  dot          String?
+  estadoLlanta String?
+
+  numParche    String?
+  tipoParcheId String?
+  tipoParche   TipoParche? @relation(fields: [tipoParcheId], references: [id])
+
+  psiEncontrada Decimal? @db.Decimal(6, 2)
+  psiCalibrado  Decimal? @db.Decimal(6, 2)
+  profundidad   Decimal? @db.Decimal(5, 2)
+
+  observaciones String?
+
+  /// Cuando el flanco está borrado o la llanta es interna. Sin esta salida
+  /// explícita el técnico inventaría un dato, y un dato inventado es peor
+  /// que uno faltante.
+  noIdentificada       Boolean @default(false)
+  motivoNoIdentificada String?
+  notaNoIdentificada   String?
+
+  // ── Llanta que SALE de la posición. Se autocompleta desde la última orden
+  //    que registró esta posición.
+  desPosicionOrigen Int?
+  desMarcaId        String?
+  desDisenoId       String?
+  desMedida         String?
+  desNumCalor       String?
+  desSerial         String?
+  desDot            String?
+  desProfundidad    Decimal? @db.Decimal(5, 2)
+  desDestino        String?
+  desDetalle        String?
+
+  /// Autoría de la medición. Sobrevive a la reasignación de la orden: si el
+  /// coordinador pasa la orden a otro técnico, esto no cambia.
+  capturadoPorId String
+  capturadoPor   Usuario  @relation("CapturadorLlanta", fields: [capturadoPorId], references: [id])
+  capturadoEn    DateTime @default(now())
+
+  version       Int      @default(0)
+  actualizadoEn DateTime @updatedAt
+
+  servicios LlantaServicio[]
+  fotos     Foto[]
+
+  @@unique([ordenId, posicion])
+  @@index([ordenId])
+  @@index([serial])
+  @@index([desSerial])
+}
+
+model LlantaServicio {
+  llantaRegistroId String
+  llantaRegistro   LlantaRegistro @relation(fields: [llantaRegistroId], references: [id], onDelete: Cascade)
+  servicioId       String
+  servicio         Servicio       @relation(fields: [servicioId], references: [id])
+
+  @@id([llantaRegistroId, servicioId])
+}
+
+/// Foto del trabajo completo O de una posición. Exactamente una de las dos
+/// FK debe estar presente: el CHECK va en migrations/manual.sql.
+model Foto {
+  id               String          @id
+  ordenId          String?
+  orden            OrdenServicio?  @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  llantaRegistroId String?
+  llantaRegistro   LlantaRegistro? @relation(fields: [llantaRegistroId], references: [id], onDelete: Cascade)
+  /// Ruta dentro del bucket. El archivo NUNCA pasa por la API: el
+  /// dispositivo sube directo con una URL firmada.
+  ruta             String
+  nombre           String
+  tamanoBytes      Int?
+  subidaPorId      String?
+  /// false hasta comprobar que el archivo llegó al bucket. Una foto sin
+  /// confirmar no existe para el usuario: el cliente puede decir que subió
+  /// sin haberlo hecho.
+  confirmada       Boolean         @default(false)
+  creadoEn         DateTime        @default(now())
+  subidaEn         DateTime?
+
+  @@index([ordenId])
+  @@index([llantaRegistroId])
+  @@index([confirmada, creadoEn])
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// RECOMENDACIONES — sobreviven al cierre de la orden
+// ════════════════════════════════════════════════════════════════════════════
+
+enum PrioridadRecomendacion {
+  urgente
+  proxima
+  seguimiento
+}
+
+enum EstadoRecomendacion {
+  abierta
+  ejecutada
+  descartada
+}
+
+/// Lo que el técnico encuentra y no ejecuta. Queda vivo en el vehículo y
+/// reaparece en la siguiente orden hasta que alguien la atienda: es la
+/// diferencia entre un formulario y un servicio.
+model Recomendacion {
+  id         String   @id
+  empresaId  String
+  empresa    Empresa  @relation(fields: [empresaId], references: [id])
+  clienteId  String
+  cliente    Cliente  @relation(fields: [clienteId], references: [id])
+  vehiculoId String
+  vehiculo   Vehiculo @relation(fields: [vehiculoId], references: [id])
+  posicion   Int?
+
+  texto      String
+  prioridad  PrioridadRecomendacion @default(proxima)
+  estado     EstadoRecomendacion    @default(abierta)
+
+  origenOrdenId String
+  origenOrden   OrdenServicio @relation(fields: [origenOrdenId], references: [id])
+  creadaPorId   String
+  creadaPor     Usuario       @relation(fields: [creadaPorId], references: [id])
+  creadaEn      DateTime      @default(now())
+
+  resueltaEn      DateTime?
+  resueltaOrdenId String?
+
+  @@index([empresaId, vehiculoId, estado])
+  @@index([empresaId, estado, prioridad])
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// PROGRAMACIÓN RECURRENTE
+// ════════════════════════════════════════════════════════════════════════════
+
+enum Frecuencia {
+  dias_habiles
+  dias_calendario
+  semanal
+  quincenal
+  mensual
+}
+
+model ProgramacionRecurrente {
+  id            String       @id
+  empresaId     String
+  empresa       Empresa      @relation(fields: [empresaId], references: [id])
+  sedeId        String
+  sede          Sede         @relation(fields: [sedeId], references: [id])
+  clienteId     String
+  cliente       Cliente      @relation(fields: [clienteId], references: [id])
+  sedeClienteId String
+  sedeCliente   SedeCliente  @relation(fields: [sedeClienteId], references: [id])
+  vehiculoId    String
+  vehiculo      Vehiculo     @relation(fields: [vehiculoId], references: [id])
+  tipo          TipoServicio
+  frecuencia    Frecuencia
+  cada          Int          @default(1)
+  inicio        DateTime     @db.Date
+  proxima       DateTime     @db.Date
+  activa        Boolean      @default(true)
+  creadoEn      DateTime     @default(now())
+  desactivadoEn DateTime?
+
+  @@index([empresaId, activa, proxima])
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// CONSECUTIVOS Y AUDITORÍA
+// ════════════════════════════════════════════════════════════════════════════
+
+/// Contador atómico por sede:
+///   UPDATE consecutivo SET valor = valor + 1 WHERE ... RETURNING valor;
+/// Nunca count()+1: dos técnicos simultáneos obtendrían el mismo folio.
+model Consecutivo {
+  id        String  @id
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+  sedeId    String
+  sede      Sede    @relation(fields: [sedeId], references: [id])
+  tipo      String  @default("OS")
+  prefijo   String  @default("OS")
+  valor     Int     @default(0)
+
+  @@unique([empresaId, sedeId, tipo])
+}
+
+enum AccionAuditoria {
+  crear
+  actualizar
+  deshabilitar
+  cambiar_estado
+  reasignar
+  aprobar
+  anular
+  login_exitoso
+  login_fallido
+  recuperar_password
+  suplantar_empresa
+  exportar_informe
+  exportar_listado
+}
+
+/// Toda salida de datos queda registrada: sin esto, una fuga no tiene rastro.
+model Auditoria {
+  id              String          @id
+  empresaId       String?
+  empresa         Empresa?        @relation(fields: [empresaId], references: [id])
+  usuarioId       String?
+  usuarioNombre   String?
+  rol             String?
+  entidad         String?
+  entidadId       String?
+  accion          AccionAuditoria
+  /// Diff o detalle: en exportaciones guarda folios, filtros y cantidad
+  detalle         Json?
+  ip              String?
+  userAgent       String?
+  /// true si ocurrió dentro de una sesión de soporte del superadmin
+  viaSuplantacion Boolean         @default(false)
+  creadoEn        DateTime        @default(now())
+
+  @@index([empresaId, entidad, entidadId])
+  @@index([empresaId, usuarioId, creadoEn])
+  @@index([empresaId, accion, creadoEn])
+}
+
+/// Operaciones ya aplicadas, por clave de idempotencia.
+///
+/// El celular reintenta cuando no recibe respuesta, y a veces la operación
+/// SÍ se aplicó y lo que se perdió fue la respuesta. Esta tabla evita
+/// aplicarla dos veces: la clave se reclama DENTRO de la misma transacción
+/// que el efecto, así que nunca queda una operación aplicada sin registrar,
+/// ni registrada sin aplicar.
+///
+/// Solo se guardan las exitosas. Un rechazo deshace la transacción entera,
+/// incluida la clave: si la causa se corrige, el reintento se aplica.
+model OperacionAplicada {
+  empresaId String
+  clave     String
+  /// Respuesta original, para devolverla igual si la operación se repite.
+  respuesta Json?
+  creadaEn  DateTime @default(now())
+
+  @@id([empresaId, clave])
+  @@index([creadaEn])
+}

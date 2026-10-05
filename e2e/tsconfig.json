@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "noEmit": true,
+    "composite": false,
+    "types": ["node", "vitest/globals"]
+  },
+  "include": ["**/*.ts", "../apps/api/src/**/*.ts", "../apps/mobile/src/datos/**/*.ts"]
+}

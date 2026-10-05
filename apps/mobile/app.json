@@ -1,0 +1,55 @@
+{
+  "expo": {
+    "name": "TireTrack",
+    "slug": "tiretrack",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "tiretrack",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "android": {
+      "package": "app.tiretrack.campo",
+      "versionCode": 1,
+      "permissions": [
+        "CAMERA",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#1A1D23"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "TireTrack usa la cámara para registrar el estado de las llantas en la orden de servicio.",
+          "photosPermission": "TireTrack accede a tus fotos solo si eliges una imagen ya tomada para adjuntarla a una orden."
+        }
+      ],
+      "expo-secure-store",
+      "expo-sqlite"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "ios": {
+      "bundleIdentifier": "app.tiretrack.campo",
+      "buildNumber": "1",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "TireTrack usa la cámara para registrar el estado de las llantas en la orden de servicio.",
+        "NSPhotoLibraryUsageDescription": "TireTrack accede a tus fotos solo si eliges una imagen ya tomada para adjuntarla a una orden."
+      }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "COMPLETAR-AL-CREAR-EL-PROYECTO-EN-EAS"
+      }
+    },
+    "updates": {
+      "enabled": false
+    }
+  }
+}

@@ -1,0 +1,97 @@
+name: Verificación
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verificar:
+    name: Tipos, estilo y pruebas
+    runs-on: ubuntu-latest
+
+    # PostgreSQL real, no un doble. Las pruebas de aislamiento comprueban que
+    # el MOTOR impida ver datos ajenos: con un doble se probaría a sí mismo.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: tiretrack
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: tiretrack_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U tiretrack"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL_TEST: postgresql://tiretrack:test@localhost:5432/tiretrack_test
+      # Sin esto, un fallo de conexión saltaba las pruebas de integración y el
+      # CI pasaba en verde sin haber probado nada contra la base.
+      PRUEBAS_EXIGEN_BASE: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Verificar tipos
+        run: npm run typecheck
+
+      - name: Estilo
+        run: npm run lint
+
+      - name: Pruebas
+        run: npm test
+
+      - name: Pruebas de componentes móviles
+        run: npm run test --workspace=apps/mobile
+
+      # Falla el pipeline si las pruebas de aislamiento se omitieron. Sin
+      # esto, un error de conexión las saltaría y el pipeline quedaría verde
+      # sin haber comprobado lo más importante.
+      - name: Confirmar que el aislamiento sí se probó
+        run: |
+          salida=$(npx vitest run apps/api/src/pruebas --reporter=json 2>/dev/null || true)
+          if echo "$salida" | grep -q '"status":"skipped"'; then
+            echo "Las pruebas de aislamiento se omitieron. El pipeline no puede pasar sin ellas."
+            exit 1
+          fi
+
+  validar-esquema:
+    name: Esquema Prisma
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      # Aquí sí hay red para los binarios de Prisma, que no están disponibles
+      # en el entorno de desarrollo asistido.
+      - name: Validar schema.prisma
+        working-directory: apps/api
+        run: npx prisma validate
+      - name: Comprobar que el esquema esté formateado
+        working-directory: apps/api
+        run: |
+          npx prisma format
+          if ! git diff --exit-code prisma/schema.prisma; then
+            echo "schema.prisma no está formateado. Corre: npx prisma format"
+            exit 1
+          fi
