@@ -245,7 +245,7 @@ Estado: `[x]` hecha · `[ ]` pendiente
 - [x] 3.7 Envío a revisión sin conexión
 
 ### Fase 4 · Coordinador
-- [ ] 4.1 Nueva orden en cascada (el servicio existe; no hay pantalla)
+- [x] 4.1 Nueva orden en cascada (ruta `nueva-orden`)
 - [x] 4.2 Bandeja de aprobación
 - [x] 4.3 Devolución y reasignación (ruta `orden/[id]/decidir`)
 - [ ] 4.4 Programación recurrente (el trabajo programado existe desde la 1.9; no hay pantalla)
@@ -2461,6 +2461,30 @@ descarga no se cae por eso.
 - Cada pantalla construida está montada en alguna ruta (pasó tres veces:
   firma, decisión, galería).
 - Cada `router.push/replace` apunta a un archivo de ruta que existe.
+
+## Nueva orden (4.1)
+
+`src/ordenes/nuevaOrden.ts` decide; `FormularioNuevaOrden.tsx` pinta; ruta
+`app/nueva-orden.tsx`. Todo sale de la base del celular: se crea sin señal.
+
+Dos entradas, una sola lógica:
+
+| Quién | Entra por | Nace | Técnico |
+|---|---|---|---|
+| Coordinador / administrador | "Programar una orden" en el panel | `programada` | el que elija, de la sede |
+| Técnico | "Nueva orden" en Mis órdenes | `en_proceso` | él mismo, diga lo que diga el formulario |
+
+- **Cascada** sede → cliente → sede del cliente → vehículo → técnico; cambiar
+  un nivel limpia los que dependen de él. Con una sola sede no se pregunta.
+- **Solo las sedes de quien crea** (decisión: el coordinador ve sus sedes).
+- **Toda orden nace con código de referencia** (`FUN-K7M2`): sin señal es lo
+  único que la identifica; el folio llega al sincronizar.
+- **Vehículo con orden abierta: avisa, no bloquea** (1.6).
+- La orden armada **pasa `zCrearOrden`**: hay una prueba por cada rol.
+- **Las instrucciones del coordinador no viajaban**: `ordenAContrato` omitía
+  `notaCoordinador` y el técnico nunca las veía.
+- Una sesión guardada antes de que el login trajera las sedes no las tiene:
+  el formulario lo explica (cerrar sesión y volver a entrar).
 
 ## Punto de retoma (2026-10-05)
 

@@ -93,6 +93,8 @@ export interface OrdenParaEnviar {
   readonly kilometraje?: number | null;
   readonly sinConductor?: boolean;
   readonly conductorNombre?: string | null;
+  /** Instrucciones del coordinador. No viajaban: el técnico nunca las veía. */
+  readonly notaCoordinador?: string | null;
 }
 
 /**
@@ -126,6 +128,7 @@ export function ordenAContrato(o: OrdenParaEnviar): CrearOrden {
     ["codigoReferencia", o.codigoReferencia],
     ["kilometraje", o.kilometraje],
     ["conductorNombre", o.conductorNombre],
+    ["notaCoordinador", o.notaCoordinador],
   ];
   for (const [clave, valor] of opcionales) {
     if (valor !== null && valor !== undefined && valor !== "") salida[clave] = valor;

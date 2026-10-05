@@ -5,7 +5,8 @@ import { PanelCoordinador, calcularIndicadores, type Accion } from "../src/coord
 import { useDatos } from "../src/app/ProveedorDatos";
 import { useUsuario } from "../src/app/ProveedorSesion";
 import { BarraDeSesion } from "../src/app/BarraDeSesion";
-import { colores } from "../src/diseno/tokens";
+import { colores, espacio } from "../src/diseno/tokens";
+import { Boton } from "../src/diseno/componentes";
 import type { OrdenLocal } from "../src/datos/repositorio";
 
 /** Panel del coordinador: lo que requiere su decisión hoy. */
@@ -30,6 +31,11 @@ export default function PantallaPanel() {
   return (
     <View style={{ flex: 1, backgroundColor: colores.fondo }}>
       <BarraDeSesion />
+      <View style={{ paddingHorizontal: espacio.md, paddingTop: espacio.sm }}>
+        <Boton ancho testID="nueva-orden" onPress={() => router.push("/nueva-orden" as never)}>
+          Programar una orden
+        </Boton>
+      </View>
       <PanelCoordinador
         indicadores={calcularIndicadores(locales, hoy, pendientesDeEnviar)}
         nombre={usuario.nombre}

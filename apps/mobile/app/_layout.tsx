@@ -36,6 +36,7 @@ export default function DisposicionRaiz() {
         <Stack.Screen name="revision" options={{ title: "Por revisar" }} />
         <Stack.Screen name="panel" options={{ title: "Panel" }} />
         <Stack.Screen name="cuenta" options={{ title: "Cuenta" }} />
+        <Stack.Screen name="nueva-orden" options={{ title: "Nueva orden" }} />
         <Stack.Screen name="orden/[id]/index" options={{ title: "Orden" }} />
         <Stack.Screen name="orden/[id]/reasignar" options={{ title: "Reasignar" }} />
         <Stack.Screen name="orden/[id]/decidir" options={{ title: "Revisar orden" }} />

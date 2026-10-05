@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { ListaOrdenes } from "../src/ordenes/ListaOrdenes";
 import { useDatos } from "../src/app/ProveedorDatos";
 import { BarraDeSesion } from "../src/app/BarraDeSesion";
+import { Boton } from "../src/diseno/componentes";
 import { colores, espacio, texto } from "../src/diseno/tokens";
 
 /**
@@ -33,6 +34,12 @@ export default function PantallaOrdenes() {
   return (
     <View style={estilos.pantalla}>
       <BarraDeSesion />
+      {/* La imprevista: el vehículo que llegó sin estar programado. */}
+      <View style={estilos.accion}>
+        <Boton ancho tipo="secundario" testID="nueva-orden" onPress={() => router.push("/nueva-orden" as never)}>
+          Nueva orden
+        </Boton>
+      </View>
       {pendientesDeEnviar > 0 ? (
         <View style={estilos.barraPendientes}>
           <Text style={estilos.textoPendientes}>
@@ -61,6 +68,7 @@ export default function PantallaOrdenes() {
 
 const estilos = StyleSheet.create({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
+  accion: { paddingHorizontal: espacio.md, paddingTop: espacio.sm },
   centrado: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colores.fondo },
   barraPendientes: {
     flexDirection: "row",

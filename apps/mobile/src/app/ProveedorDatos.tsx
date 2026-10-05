@@ -25,6 +25,7 @@ import { construirDiagrama, type Diagrama } from "../ordenes/diagrama";
 import type { OrdenParaLista } from "../ordenes/lista";
 import type { OrdenEnBandeja } from "../coordinador/bandeja";
 import type { CatalogoEditor } from "../ordenes/EditorPosicion";
+import type { FuentesNuevaOrden } from "../ordenes/FormularioNuevaOrden";
 
 /**
  * Contexto de datos de la app.
@@ -74,6 +75,10 @@ export interface AccionesDatos {
   fotosSinSubir(ordenId: string): Promise<number>;
   /** Registra la foto ya capturada y comprimida. Cambia el contenido: la firma lo nota. */
   adjuntarFoto(f: Parameters<RepositorioLocal["adjuntarFoto"]>[0]): Promise<string>;
+  /** Lo que el formulario de orden nueva lee de la base del celular. */
+  fuentesOrden: FuentesNuevaOrden;
+  /** Guarda la orden nueva y la encola; si hay señal, sale enseguida. */
+  crearOrden(o: Parameters<RepositorioLocal["guardarOrden"]>[0]): Promise<void>;
 }
 
 export interface DatosOrden {
@@ -377,6 +382,29 @@ export function ProveedorDatos({
     [repo, refrescar],
   );
 
+  const fuentesOrden = useMemo<FuentesNuevaOrden>(
+    () => ({
+      sedes: () => repo.sedes(),
+      clientes: () => repo.clientes(),
+      sedesDeCliente: (id) => repo.sedesDeCliente(id),
+      vehiculos: (id) => repo.vehiculosDeSedeCliente(id),
+      tecnicos: (id) => repo.tecnicosDeSede(id),
+      ordenesAbiertas: (id) => repo.ordenesAbiertasDeVehiculo(id),
+    }),
+    [repo],
+  );
+
+  const crearOrden = useCallback<AccionesDatos["crearOrden"]>(
+    async (o) => {
+      await repo.guardarOrden(o);
+      await refrescar();
+      // Como un cambio de estado: alguien la está esperando (el técnico
+      // asignado, o el coordinador si la creó el técnico).
+      void sincronizar();
+    },
+    [repo, refrescar, sincronizar],
+  );
+
   const valor = useMemo(
     () => ({
       cargando,
@@ -399,12 +427,14 @@ export function ProveedorDatos({
       fotosDe,
       fotosSinSubir,
       adjuntarFoto,
+      fuentesOrden,
+      crearOrden,
     }),
     [
       cargando, ordenes, pendientesDeEnviar, sincronizando, ultimaSincronizacion,
       refrescar, sincronizar, cargarOrden, guardarMedicion, actualizarDatosOrden,
       firmar, cambiarEstado, catalogoPara, bandejaRevision, tecnicosDeSede,
-      reasignar, medicionAnterior, fotosDe, fotosSinSubir, adjuntarFoto,
+      reasignar, medicionAnterior, fotosDe, fotosSinSubir, adjuntarFoto, fuentesOrden, crearOrden,
     ],
   );
 

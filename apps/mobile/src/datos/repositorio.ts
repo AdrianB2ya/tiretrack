@@ -269,6 +269,7 @@ export class RepositorioLocal {
     kilometraje?: number | null;
     sinConductor?: boolean;
     conductorNombre?: string | null;
+    notaCoordinador?: string | null;
     /** false cuando viene del servidor y no hay nada que enviar. */
     encolar?: boolean;
   }): Promise<void> {
@@ -277,15 +278,15 @@ export class RepositorioLocal {
         `INSERT OR REPLACE INTO orden
            (id, folio, codigo_referencia, sede_id, cliente_id, sede_cliente_id, vehiculo_id,
             tecnico_id, configuracion_eje_id, tipo, prioridad, estado, fecha,
-            client_request_id, kilometraje, sin_conductor, conductor_nombre,
+            client_request_id, kilometraje, sin_conductor, conductor_nombre, nota_coordinador,
             sincronizada, actualizada_en)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         [
           o.id, o.folio ?? null, o.codigoReferencia ?? null, o.sedeId, o.clienteId,
           o.sedeClienteId, o.vehiculoId, o.tecnicoId, o.configuracionEjeId, o.tipo,
           o.prioridad ?? "normal", o.estado, o.fecha,
           o.clientRequestId ?? o.id, o.kilometraje ?? null, aInt(o.sinConductor ?? false),
-          o.conductorNombre ?? null, aInt(o.encolar === false), this.ahora(),
+          o.conductorNombre ?? null, o.notaCoordinador ?? null, aInt(o.encolar === false), this.ahora(),
         ],
       );
 
@@ -608,6 +609,48 @@ export class RepositorioLocal {
       sedeId: String(f["sede_id"]),
       activo: aBool(f["activo"]),
     }));
+  }
+
+  // ── Cascada de la orden nueva: cliente → sede del cliente → vehículo ──
+
+  async clientes(): Promise<{ id: string; nombre: string }[]> {
+    const filas = await this.db.consultar<Record<string, unknown>>(`SELECT id, nombre FROM cliente ORDER BY nombre`);
+    return filas.map((f) => ({ id: String(f["id"]), nombre: String(f["nombre"]) }));
+  }
+
+  async sedesDeCliente(clienteId: string): Promise<{ id: string; nombre: string }[]> {
+    const filas = await this.db.consultar<Record<string, unknown>>(
+      `SELECT id, nombre FROM sede_cliente WHERE cliente_id = ? ORDER BY nombre`,
+      [clienteId],
+    );
+    return filas.map((f) => ({ id: String(f["id"]), nombre: String(f["nombre"]) }));
+  }
+
+  async vehiculosDeSedeCliente(sedeClienteId: string): Promise<VehiculoLocal[]> {
+    const filas = await this.db.consultar<Record<string, unknown>>(
+      `SELECT id, sede_cliente_id, configuracion_eje_id, codigo, placa, nombre, km_actual
+         FROM vehiculo WHERE sede_cliente_id = ? ORDER BY codigo`,
+      [sedeClienteId],
+    );
+    return filas.map((f) => ({
+      id: String(f["id"]),
+      sedeClienteId: String(f["sede_cliente_id"]),
+      configuracionEjeId: String(f["configuracion_eje_id"]),
+      codigo: String(f["codigo"]),
+      placa: (f["placa"] as string) ?? null,
+      nombre: String(f["nombre"]),
+      kmActual: Number(f["km_actual"] ?? 0),
+    }));
+  }
+
+  /** Órdenes abiertas del vehículo en el celular: se avisa, no se bloquea. */
+  async ordenesAbiertasDeVehiculo(vehiculoId: string): Promise<string[]> {
+    const filas = await this.db.consultar<Record<string, unknown>>(
+      `SELECT coalesce(folio, codigo_referencia, id) AS ref FROM orden
+        WHERE vehiculo_id = ? AND estado NOT IN ('cerrada', 'anulada')`,
+      [vehiculoId],
+    );
+    return filas.map((f) => String(f["ref"]));
   }
 
   /** Sedes de la empresa. Catálogo: se reemplaza entero al descargar. */
