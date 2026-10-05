@@ -43,7 +43,8 @@ const almacenFalso: Almacenamiento = {
 
 let pool: pg.Pool;
 let app: ReturnType<typeof construirServidor>;
-const ORDEN = "ord-http";
+// UUID, como lo genera el dispositivo: un id inventado no pasaría un contrato real.
+const ORDEN = "11111111-1111-4111-8111-0000000000bb";
 
 function pedir(opciones: {
   metodo?: "POST" | "PUT" | "PATCH";
@@ -515,6 +516,25 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
       expect(r.statusCode).toBe(200);
       expect(r.headers["content-type"]).toContain("text/csv");
       expect(r.headers["content-disposition"]).toContain("attachment");
+    });
+
+    it("exporta SOLO las órdenes elegidas a mano", async () => {
+      // La ruta validaba ordenIds y no lo pasaba al servicio: elegir tres
+      // órdenes exportaba la cartera entera del cliente.
+      await conUnaMedicion();
+      const otra = nuevoId();
+      const r = await traer(`/informe/exportar?ordenIds=${otra}`);
+      expect(r.statusCode).toBe(422);
+      expect(r.json().error.codigo).toBe("SIN_REGISTROS");
+      const propia = await traer(`/informe/exportar?ordenIds=${ORDEN}&ordenIds=${otra}`);
+      expect(propia.statusCode).toBe(200);
+    });
+
+    it("respeta el filtro por estado de la llanta", async () => {
+      await conUnaMedicion();
+      const r = await traer("/informe/exportar?estadoLlanta=inexistente");
+      expect(r.statusCode).toBe(422);
+      expect(r.json().error.codigo).toBe("SIN_REGISTROS");
     });
 
     it("avisa cuántas órdenes van sin cerrar, fuera de los datos", async () => {

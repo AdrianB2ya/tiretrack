@@ -592,7 +592,10 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
     }
     const ctx = posible;
     // Fechas imposibles o parámetros repetidos respondían 500.
-    const filtro = zFiltroInforme.safeParse(req.query ?? {});
+    // Una sola orden llega como texto, varias como lista: se normaliza.
+    const crudo = { ...((req.query ?? {}) as Record<string, unknown>) };
+    if (typeof crudo["ordenIds"] === "string") crudo["ordenIds"] = [crudo["ordenIds"]];
+    const filtro = zFiltroInforme.safeParse(crudo);
     if (!filtro.success) {
       const r = datosInvalidos(filtro.error.issues);
       return reply.status(r.status).send(r.cuerpo);
@@ -601,14 +604,10 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
 
     const r = await enTransaccion(op.pool, ctx, async (db) => ({
       confirmar: false,
-      valor: await new ServicioInforme(db, reloj).exportar(ctx, {
-        ...(q["clienteId"] ? { clienteId: q["clienteId"] } : {}),
-        ...(q["vehiculoId"] ? { vehiculoId: q["vehiculoId"] } : {}),
-        ...(q["serial"] ? { serial: q["serial"] } : {}),
-        ...(q["servicio"] ? { servicio: q["servicio"] } : {}),
-        ...(q["desde"] ? { desde: q["desde"] } : {}),
-        ...(q["hasta"] ? { hasta: q["hasta"] } : {}),
-      }),
+      // Todo el filtro, no una lista escrita a mano: esa lista omitía
+      // ordenIds y estadoLlanta, y elegir tres órdenes exportaba la cartera
+      // entera del cliente —y la auditoría registraba filtros que no eran—.
+      valor: await new ServicioInforme(db, reloj).exportar(ctx, sinIndefinidos(q)),
     }));
 
     if (!r.ok) return reply.status(estadoDe(r.veredicto)).send({ error: { codigo: r.veredicto.codigo, mensaje: r.veredicto.mensaje } });
