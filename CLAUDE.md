@@ -2337,57 +2337,98 @@ ejecutado nunca en hardware. Cámara, almacenamiento seguro, SQLite y tamaños
 táctiles están validados con adaptadores en Node. Las pruebas dicen que la
 lógica es correcta; no dicen que la app abra.
 
+## Revisión contra la base real (2026-10-05)
+
+Se crearon datos de prueba **por la API real**, como lo haría cada rol, y se
+recorrió el servidor con entradas malas. Apareció más que en todas las
+pruebas anteriores juntas.
+
+### Lo que encontró
+
+| Defecto | Efecto en producción |
+|---|---|
+| `actualizadoEn` (@updatedAt) sin valor: Prisma lo llena, el servidor escribe con SQL | **Crear una orden respondía 500** |
+| Nada tocaba `actualizadoEn` al cambiar una orden | **La descarga incremental nunca mandaba cambios**: una orden devuelta no llegaba al celular |
+| `now()` y `pg` escribían hora local; Prisma, UTC | Comparaciones corridas 5 h en un servidor fuera de UTC |
+| `confirmarDuplicada` fuera del contrato | Una orden para un vehículo con otra abierta se **rechazaba siempre** (la regla es avisar) |
+| Exportar omitía `ordenIds` y `estadoLlanta` | Elegir tres órdenes exportaba **la cartera entera** |
+| La ruta de ingreso omitía `codigo2fa` | Administrador y superadmin **no podían entrar** |
+| Código 2FA mal formado | 500 en el login, sin contar el intento |
+| Rutas sin su contrato (orden, flota) y consultas sin validar | 500 ante datos malos: el celular reintentaba para siempre |
+| La descarga lanzaba 7 consultas en paralelo sobre una conexión | Aviso de pg; transacción abortada si una fallaba |
+
+### La causa común: el esquema de pruebas no era producción
+
+Tres diferencias escondían los dos defectos más graves:
+
+- inventaba `DEFAULT now()` para `@updatedAt`;
+- usaba `timestamptz` donde la migración crea `timestamp(3)` sin zona;
+- le faltaban claves únicas que el código usa en `ON CONFLICT`.
+
+**Regla:** si el esquema de pruebas necesita algo que producción no tiene
+para que una prueba pase, el defecto está en producción, no en la prueba.
+
+### Guardas nuevas
+
+- `robustez.test.ts`: todas las rutas con cuerpos, ids y consultas malos;
+  cero 500. Reúne todos los fallos en una corrida.
+- `descarga.test.ts`: un cambio después de la última descarga llega en la
+  siguiente; ninguna consulta simultánea sobre la conexión.
+- `schema.test.ts`: toda tabla con `@updatedAt` tiene su disparador; toda
+  tabla del esquema aparece en `rls.sql`.
+- `db/utc.ts`: sesiones y `pg` en UTC, servidor y pruebas igual.
+
 ## Punto de retoma (2026-10-05)
 
-**Objetivo en curso:** probar la app en un teléfono con Expo Go contra el
-servidor local. El APK (7.1) va **después**, por decisión del usuario.
-Las pantallas de firma y fotos existen pero no están montadas en ninguna
-ruta; montarlas también va después.
+**Estado:** el usuario prueba la app en el teléfono con Expo Go (SDK 52).
+Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
+Firma y fotos siguen sin pantalla (después, por decisión del usuario).
 
-**Verificado en esta máquina** (Windows, PostgreSQL 16 local):
-
-- `npm run verify` con `PRUEBAS_EXIGEN_BASE=1`: raíz **800/800**, mobile
-  660/660, cero omitidas. Antes, 385 se saltaban.
-- Servidor contra la base `tiretrack`: `/salud` y `/listo` en 200, ingreso
-  del técnico y `/sincronizacion` a través de RLS, por la IP de la red local.
-- Metro construye el paquete de Android (antes no compilaba).
-- **No verificado:** la app abierta en el teléfono. Nada se ha ejecutado aún
-  en hardware.
+**Verificado:** `npm run verify` con base: raíz 814/814, mobile 691/691.
+Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):
 
-- `apps/api/.env`: conexiones con `tiretrack_app` / `tiretrack_auth` (con
-  LOGIN y clave local), `DIRECT_URL` con el dueño `tiretrack`/`test`, JWT
-  aleatorio, S3 de relleno (las fotos no funcionan en local).
+- `apps/api/.env`: roles `tiretrack_app` / `tiretrack_auth` con LOGIN y
+  clave local, `DIRECT_URL` con el dueño `tiretrack`/`test`.
 - Base de pruebas: `postgresql://tiretrack:test@localhost:5432/tiretrack_test`.
-- La semilla no asigna contraseñas a propósito; la del técnico de prueba
-  se puso a mano en la base local.
+- Usuarios por rol y datos de prueba: scripts `usuarios-prueba.mjs` y
+  `datos-prueba.mjs` en el directorio temporal de la sesión (no en el repo).
 
-**Siguientes comandos:**
+**Comandos:**
 
 ```bash
 # Pruebas con base (sin la variable, las de integración se saltan)
 DATABASE_URL_TEST=postgresql://tiretrack:test@localhost:5432/tiretrack_test PRUEBAS_EXIGEN_BASE=1 npm run verify
 
+# Migraciones (no interactivo: "migrate dev" se queda esperando)
+cd apps/api && npx prisma migrate deploy
+
 # Servidor
 cd apps/api && node --env-file=.env --import tsx src/server.ts
 
-# App para Expo Go (la URL va SIN /api/v1: ver abajo)
-# --offline: app.json trae un projectId de EAS de relleno y, sin él, Expo
-# intenta firmar el manifiesto con una cuenta: Expo Go muestra "Something
-# went wrong". La IP va por REACT_NATIVE_PACKAGER_HOSTNAME (--lan y
-# --offline no se combinan).
+# App para Expo Go. --offline: app.json trae un projectId de EAS de relleno
+# y, sin él, Expo intenta firmar el manifiesto con una cuenta ("Something
+# went wrong"). La IP va por REACT_NATIVE_PACKAGER_HOSTNAME.
 cd apps/mobile && EXPO_PUBLIC_API_URL=http://<IP-LAN>:4000 REACT_NATIVE_PACKAGER_HOSTNAME=<IP-LAN> npx expo start --go --offline
 ```
 
-**Pendiente de decisión:** la app (`_layout.tsx`, `eas.json`, `COMPILAR.md`)
-usa `.../api/v1` y el servidor monta las rutas sin prefijo. Con la
-configuración de `eas.json`, todo el tráfico daría 404 y la cola apartaría
-las operaciones. Hay que decidir de qué lado se corrige antes del APK.
+**Pendiente de decisión:**
+
+- La app usa `.../api/v1` (en `eas.json`) y el servidor monta sin prefijo.
+- El login no devuelve `sedes` ni `sedePrincipal`, que el contrato
+  `zUsuarioSesion` exige. Están en `UsuarioSede`, fuera de las cinco tablas
+  del rol `tiretrack_auth`: darle acceso es una decisión de seguridad.
+- La descarga incremental compara contra el instante en que se arma el
+  paquete: un cambio de una transacción que confirma justo después puede
+  quedar fuera. Un margen de solape lo cubriría (el celular ya tolera
+  repetidos).
+- El cliente no tiene pantalla: la app lo devuelve al ingreso sin
+  explicación, y el portal (5.1) no existe.
 
 **Inestabilidad sin cerrar:** en una de 14 corridas completas bajo carga
 fuerte, `aislamiento` y `rol-acceso` fallaron juntas al preparar. No se
-reprodujo en 6 intentos dirigidos y no se capturó el mensaje.
+reprodujo después.
 
 ## Decisiones abiertas
 
