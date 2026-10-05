@@ -240,14 +240,14 @@ Estado: `[x]` hecha · `[ ]` pendiente
 - [x] 3.2 Detalle de orden
 - [x] 3.3 Diagrama según configuración de ejes
 - [x] 3.4 Editor de posición a pantalla completa
-- [x] 3.5 Cámara con compresión (lógica, subida y `GaleriaFotos`; **sin ruta que la monte**)
-- [x] 3.6 Firma (`CapturaFirma`; **sin ruta que la monte**)
+- [x] 3.5 Cámara con compresión (en el editor de posición; ver "Flujo completo en la app")
+- [x] 3.6 Firma (ruta `orden/[id]/firma`)
 - [x] 3.7 Envío a revisión sin conexión
 
 ### Fase 4 · Coordinador
 - [ ] 4.1 Nueva orden en cascada (el servicio existe; no hay pantalla)
 - [x] 4.2 Bandeja de aprobación
-- [x] 4.3 Devolución y reasignación
+- [x] 4.3 Devolución y reasignación (ruta `orden/[id]/decidir`)
 - [ ] 4.4 Programación recurrente (el trabajo programado existe desde la 1.9; no hay pantalla)
 
 > Las secciones de abajo numeradas 4.x–6.x **no corresponden** a estas
@@ -2378,6 +2378,72 @@ para que una prueba pase, el defecto está en producción, no en la prueba.
   tabla del esquema aparece en `rls.sql`.
 - `db/utc.ts`: sesiones y `pg` en UTC, servidor y pruebas igual.
 
+## Flujo completo en la app (2026-10-05)
+
+Decisiones del usuario en esta ronda: **API bajo `/api/v1`**, el
+**coordinador ve solo sus sedes**, el **portal del cliente va dentro de la
+misma app** (rol cliente). Sin respuesta sobre las sedes en el login: se tomó
+la opción que no amplía los permisos del rol de acceso.
+
+### API bajo `/api/v1`
+
+Las rutas se montan en un plugin con `PREFIJO_API`; el manejador de errores
+queda en la raíz y las cubre todas. `/salud` y `/listo` siguen en la raíz:
+los consulta la infraestructura, no la app. Las pruebas llaman a la ruta real
+con el prefijo, y la de punta a punta usa la URL base con `/api/v1`, igual
+que la app instalada. Una prueba exige que sin prefijo responda 404.
+
+### El login devuelve las sedes
+
+`zUsuarioSesion` las exige. Viven en `UsuarioSede`, fuera de las cinco tablas
+del rol de acceso: se leen **con el rol de aplicación**, ya con la empresa
+conocida y bajo RLS. Sin empresa (superadmin), sin sedes. Una prueba pasa la
+respuesta por `zRespuestaLogin`.
+
+### El técnico completa una orden
+
+Antes **ninguna orden podía enviarse a revisión**: el envío exige kilometraje
+y firma, y ninguna pantalla los pedía.
+
+- **Kilometraje y hallazgos** (`FormularioDatosOrden`): acepta puntos de
+  miles; si el kilometraje retrocede respecto del último conocido, avisa y
+  pide confirmar una vez (regla del dominio `evaluarKilometraje`).
+- **Firma**: ruta que monta `CapturaFirma` (construida desde la 3.6).
+- **Detalle**: "Continuar captura" no hacía nada (`onPress` vacío); muestra
+  nombres de vehículo y cliente en vez de ids.
+
+### El coordinador decide
+
+`DecisionRevision` (4.1) no estaba montado y ningún botón llevaba a
+reasignar. Ahora: ruta `orden/[id]/decidir` desde la bandeja, y en el detalle
+"Aprobar o devolver" (en revisión) y "Reasignar" (abierta), solo para gestores.
+
+### Fotos
+
+Cámara y galería en el editor de posición (una vez guardada: la foto cuelga
+de la medición). Transporte real con `expo-file-system` (PUT a la URL
+firmada; 403 = URL vencida, sin respuesta = sin red). El subidor corre tras
+cada sincronización, por fuera de la cola. En local no suben: R2 tiene
+valores de relleno.
+
+### Defectos encontrados al construir
+
+| Defecto | Efecto |
+|---|---|
+| `accionesDisponibles` con `esTecnicoAsignado: true` fijo | El coordinador veía habilitado capturar en la orden de otro (clase 3.7 / 4.4) |
+| Consultas de órdenes con lista de columnas a mano | `accion` y la firma completa llegaban **siempre nulas** |
+| Descarga con `INSERT OR REPLACE` y el servidor sin mandar la firma | **Al volver a descargar una orden firmada, la firma desaparecía** |
+
+Ahora hay una sola lista (`COLUMNAS_ORDEN`) con una prueba que la compara con
+lo que lee `aOrden`; la descarga usa `ON CONFLICT DO UPDATE` y el servidor
+manda el resumen de la firma, la acción y el código de referencia.
+
+### Guardas nuevas
+
+- Cada pantalla construida está montada en alguna ruta (pasó tres veces:
+  firma, decisión, galería).
+- Cada `router.push/replace` apunta a un archivo de ruta que existe.
+
 ## Punto de retoma (2026-10-05)
 
 **Estado:** el usuario prueba la app en el teléfono con Expo Go (SDK 52).
@@ -2410,15 +2476,11 @@ cd apps/api && node --env-file=.env --import tsx src/server.ts
 # App para Expo Go. --offline: app.json trae un projectId de EAS de relleno
 # y, sin él, Expo intenta firmar el manifiesto con una cuenta ("Something
 # went wrong"). La IP va por REACT_NATIVE_PACKAGER_HOSTNAME.
-cd apps/mobile && EXPO_PUBLIC_API_URL=http://<IP-LAN>:4000 REACT_NATIVE_PACKAGER_HOSTNAME=<IP-LAN> npx expo start --go --offline
+cd apps/mobile && EXPO_PUBLIC_API_URL=http://<IP-LAN>:4000/api/v1 REACT_NATIVE_PACKAGER_HOSTNAME=<IP-LAN> npx expo start --go --offline
 ```
 
 **Pendiente de decisión:**
 
-- La app usa `.../api/v1` (en `eas.json`) y el servidor monta sin prefijo.
-- El login no devuelve `sedes` ni `sedePrincipal`, que el contrato
-  `zUsuarioSesion` exige. Están en `UsuarioSede`, fuera de las cinco tablas
-  del rol `tiretrack_auth`: darle acceso es una decisión de seguridad.
 - La descarga incremental compara contra el instante en que se arma el
   paquete: un cambio de una transacción que confirma justo después puede
   quedar fuera. Un margen de solape lo cubriría (el celular ya tolera
