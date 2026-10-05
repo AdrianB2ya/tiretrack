@@ -1,6 +1,9 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Rol } from "@tiretrack/domain";
 import type { ServicioSesion, UsuarioSesion } from "../sesion/servicio";
+
+type ServicioIniciar = ServicioSesion["iniciar"];
+type ServicioCerrar = ServicioSesion["cerrar"];
 
 /**
  * Sesión en la interfaz.
@@ -14,6 +17,14 @@ import type { ServicioSesion, UsuarioSesion } from "../sesion/servicio";
 export interface EstadoSesion {
   readonly cargando: boolean;
   readonly usuario: UsuarioSesion | null;
+  /**
+   * Abrir y cerrar pasan por aquí, no por el servicio directo. Antes la
+   * pantalla de ingreso hablaba con el servicio y el contexto no se enteraba:
+   * seguía sin usuario hasta reabrir la app, y el panel —que exige sesión—
+   * fallaba justo después de ingresar.
+   */
+  readonly iniciar: (...a: Parameters<ServicioIniciar>) => ReturnType<ServicioIniciar>;
+  readonly cerrar: (...a: Parameters<ServicioCerrar>) => ReturnType<ServicioCerrar>;
 }
 
 const Contexto = createContext<EstadoSesion | null>(null);
@@ -41,7 +52,29 @@ export function ProveedorSesion({
     };
   }, [servicio]);
 
-  const valor = useMemo(() => ({ cargando, usuario }), [cargando, usuario]);
+  const iniciar = useCallback<EstadoSesion["iniciar"]>(
+    async (datos, forzar) => {
+      const r = await servicio.iniciar(datos, forzar);
+      if (r.ok) setUsuario(datos.usuario);
+      return r;
+    },
+    [servicio],
+  );
+
+  // Si el servicio se niega —trabajo sin enviar—, la sesión sigue abierta.
+  const cerrar = useCallback<EstadoSesion["cerrar"]>(
+    async (forzar) => {
+      const r = await servicio.cerrar(forzar);
+      if (r.ok) setUsuario(null);
+      return r;
+    },
+    [servicio],
+  );
+
+  const valor = useMemo(
+    () => ({ cargando, usuario, iniciar, cerrar }),
+    [cargando, usuario, iniciar, cerrar],
+  );
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>;
 }
 

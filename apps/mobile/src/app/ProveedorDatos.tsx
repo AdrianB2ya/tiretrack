@@ -90,6 +90,13 @@ export interface ProveedorDatosProps {
   children: ReactNode;
   /** Cada cuánto intentar sincronizar en segundo plano. 0 lo desactiva. */
   intervaloSincronizacionMs?: number;
+  /**
+   * Quién tiene la sesión. Al cambiar, la lista se recarga: al cerrar sesión
+   * la base ya se vació, pero las órdenes seguían en memoria y el siguiente
+   * en entrar las habría visto. Al entrar alguien, se descarga enseguida: si
+   * no, la lista quedaba vacía hasta la siguiente vuelta de un minuto.
+   */
+  usuarioId?: string | null;
 }
 
 export function ProveedorDatos({
@@ -99,6 +106,7 @@ export function ProveedorDatos({
   descarga,
   children,
   intervaloSincronizacionMs = 60_000,
+  usuarioId,
 }: ProveedorDatosProps) {
   const repo = useMemo(() => new RepositorioLocal(db), [db]);
   const descargador = useMemo(() => new Descargador(repo), [repo]);
@@ -176,6 +184,14 @@ export function ProveedorDatos({
       if (montado.current) setSincronizando(false);
     }
   }, [motor, refrescar, descargador, descarga]);
+
+  const usuarioAnterior = useRef(usuarioId);
+  useEffect(() => {
+    if (usuarioId === undefined || usuarioAnterior.current === usuarioId) return;
+    usuarioAnterior.current = usuarioId;
+    void refrescar();
+    if (usuarioId) void sincronizar();
+  }, [usuarioId, refrescar, sincronizar]);
 
   /**
    * Sincronización periódica en segundo plano.

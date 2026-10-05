@@ -3,7 +3,7 @@ import { useRouter } from "expo-router";
 import { PantallaIngreso } from "../src/sesion/PantallaIngreso";
 import { ingresar, type Credenciales, type ResultadoIngreso } from "../src/sesion/ingreso";
 import { useServicios } from "../src/app/Arranque";
-import { destinoInicial } from "../src/app/ProveedorSesion";
+import { destinoInicial, useSesion } from "../src/app/ProveedorSesion";
 
 /**
  * Ingreso.
@@ -13,7 +13,9 @@ import { destinoInicial } from "../src/app/ProveedorSesion";
  */
 export default function PantallaIngresar() {
   const router = useRouter();
-  const { sesion, apiUrl } = useServicios();
+  const { apiUrl } = useServicios();
+  // Por el contexto, no por el servicio: así toda la app se entera de quién entró.
+  const { iniciar } = useSesion();
   const [entrando, setEntrando] = useState(false);
 
   const abrirSesion = useCallback(
@@ -23,7 +25,7 @@ export default function PantallaIngresar() {
         const r = await ingresar({ baseUrl: apiUrl }, c);
         if (r.tipo !== "ok") return r;
 
-        const abierta = await sesion.iniciar(
+        const abierta = await iniciar(
           { token: r.token, refreshToken: r.refreshToken, usuario: r.usuario },
           forzar,
         );
@@ -37,7 +39,7 @@ export default function PantallaIngresar() {
         setEntrando(false);
       }
     },
-    [apiUrl, sesion, router],
+    [apiUrl, iniciar, router],
   );
 
   return (

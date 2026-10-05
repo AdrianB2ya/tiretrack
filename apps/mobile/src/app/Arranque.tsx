@@ -8,7 +8,7 @@ import { ClienteHttp } from "../datos/clienteHttp";
 import { abrirAlmacenSeguro } from "../sesion/almacen";
 import { ServicioSesion } from "../sesion/servicio";
 import { ProveedorSesion } from "./ProveedorSesion";
-import { ProveedorDatos } from "./ProveedorDatos";
+import { DatosDeLaSesion } from "./DatosDeLaSesion";
 import { colores, espacio, texto } from "../diseno/tokens";
 
 /**
@@ -93,14 +93,14 @@ export function Arranque({ apiUrl, children }: { apiUrl: string; children: React
   return (
     <ContextoServicios.Provider value={{ sesion: servicios.sesion, apiUrl }}>
     <ProveedorSesion servicio={servicios.sesion}>
-      <ProveedorDatos
+      <DatosDeLaSesion
         db={servicios.db}
         sesion={servicios.sesion}
         motor={servicios.motor}
         descarga={servicios.cliente}
       >
         {children}
-      </ProveedorDatos>
+      </DatosDeLaSesion>
     </ProveedorSesion>
     </ContextoServicios.Provider>
   );
