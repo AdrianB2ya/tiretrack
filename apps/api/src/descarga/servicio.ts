@@ -47,6 +47,9 @@ export interface Paquete {
   };
   readonly configuraciones: {
     id: string;
+    nombre: string;
+    version: number;
+    vigente: boolean;
     posiciones: { numero: number; eje: number; lado: string; esInterna: boolean; tipoEje: string;
       psiObjetivo: number | null; profundidadMinima: number | null }[];
   }[];
@@ -283,7 +286,7 @@ export class ServicioDescarga {
    */
   private async configuraciones(): Promise<Paquete["configuraciones"]> {
     const r = await this.db.query<Record<string, unknown>>(
-      `SELECT c.id,
+      `SELECT c.id, c.nombre, c.version, c.vigente,
               p.numero, p.eje, p.lado, p."esInterna", p."tipoEje",
               p."psiObjetivo", p."profundidadMinima"
          FROM "ConfiguracionEje" c
@@ -293,7 +296,12 @@ export class ServicioDescarga {
     const porId = new Map<string, Paquete["configuraciones"][number]>();
     for (const f of r.rows) {
       const id = String(f["id"]);
-      if (!porId.has(id)) porId.set(id, { id, posiciones: [] });
+      // El nombre hace falta para elegir la plantilla al registrar un vehículo.
+      if (!porId.has(id)) {
+        porId.set(id, {
+          id, nombre: String(f["nombre"]), version: Number(f["version"]), vigente: Boolean(f["vigente"]), posiciones: [],
+        });
+      }
       porId.get(id)?.posiciones.push({
         numero: Number(f["numero"]),
         eje: Number(f["eje"]),

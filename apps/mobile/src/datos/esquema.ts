@@ -380,6 +380,28 @@ export const MIGRACIONES: readonly Migracion[] = [
       );
     `,
   },
+  {
+    version: 10,
+    nombre: "flota creada en campo y nombre de las plantillas",
+    sql: `
+      -- La descarga reemplazaba clientes, sedes y vehículos enteros: lo creado
+      -- en el celular sin señal desaparecía en la siguiente descarga, y las
+      -- órdenes que lo usaban quedaban huérfanas. Lo marcado aquí no se borra
+      -- hasta que el servidor lo devuelva como suyo.
+      ALTER TABLE cliente ADD COLUMN creada_local INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE sede_cliente ADD COLUMN creada_local INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE vehiculo ADD COLUMN creada_local INTEGER NOT NULL DEFAULT 0;
+
+      -- Las plantillas tenían posiciones pero no nombre: no había cómo elegir
+      -- "Tractocamión 6x4" al registrar un vehículo.
+      CREATE TABLE configuracion_eje (
+        id       TEXT PRIMARY KEY,
+        nombre   TEXT NOT NULL,
+        version  INTEGER NOT NULL DEFAULT 1,
+        vigente  INTEGER NOT NULL DEFAULT 1
+      );
+    `,
+  },
 ];
 
 export const VERSION_ESQUEMA = MIGRACIONES[MIGRACIONES.length - 1]?.version ?? 0;

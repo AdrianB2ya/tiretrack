@@ -3,6 +3,9 @@ import {
   zAdjuntarFoto,
   zCambiarEstado,
   zComandoActualizarOrden,
+  zCrearCliente,
+  zCrearSedeCliente,
+  zCrearVehiculo,
   zCrearDiseno,
   zCrearMarca,
   zCrearOrden,
@@ -299,6 +302,22 @@ describe("comandos contra sus contratos", () => {
     await repo.crearDisenoLocal(marca.id, "FS591", tipoEje);
     const r = zCrearDiseno.safeParse(await ultimaDe("crear_diseno"));
     expect(r.success ? [] : r.error.issues.map((i) => `${i.path}: ${i.message}`)).toEqual([]);
+  });
+
+  // La flota creada en campo: el técnico llega a una sede no registrada.
+  it("cliente, sede y vehículo creados en el celular cumplen sus contratos", async () => {
+    const clienteId = await repo.crearClienteLocal({ nombre: " Transportes Nuevo ", nit: "900.555.111-2" });
+    const sedeId = await repo.crearSedeClienteLocal({ clienteId, nombre: "Patio Ciénaga" });
+    await repo.crearVehiculoLocal({
+      sedeClienteId: sedeId, configuracionEjeId: nuevoId(), codigo: "TN-01", nombre: "Tractocamión 1", tipo: "Tractocamión",
+    });
+    const errores = (r: { success: boolean; error?: { issues: { path: unknown[]; message: string }[] } }) =>
+      r.success ? [] : (r.error?.issues ?? []).map((i) => `${i.path.join(".")}: ${i.message}`);
+    expect(errores(zCrearCliente.safeParse(await ultimaDe("crear_cliente")))).toEqual([]);
+    expect(errores(zCrearSedeCliente.safeParse(await ultimaDe("crear_sede_cliente")))).toEqual([]);
+    expect(errores(zCrearVehiculo.safeParse(await ultimaDe("crear_vehiculo")))).toEqual([]);
+    // Sin campos vacíos: el contrato espera ausencia, no null.
+    expect(await ultimaDe("crear_vehiculo")).not.toHaveProperty("placa");
   });
 
   it("adjuntar una foto cumple el contrato", async () => {

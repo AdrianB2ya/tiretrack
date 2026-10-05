@@ -36,6 +36,10 @@ export interface PaqueteDescargado {
   };
   readonly configuraciones: {
     id: string;
+    /** Opcionales: un servidor anterior no los manda. */
+    nombre?: string;
+    version?: number;
+    vigente?: boolean;
     posiciones: {
       numero: number; eje: number; lado: string; esInterna: boolean; tipoEje: string;
       psiObjetivo: number | null; profundidadMinima: number | null;
@@ -100,6 +104,14 @@ export class Descargador {
           c.id,
           c.posiciones.map((p) => ({ ...p, lado: p.lado as "izquierdo" | "derecho" })),
         );
+      }
+      // Los nombres, si el servidor los manda: sin ellos no se puede elegir la
+      // plantilla al registrar un vehículo.
+      const conNombre = paquete.configuraciones.filter((c) => typeof c.nombre === "string");
+      if (conNombre.length > 0) {
+        await this.repo.guardarConfiguraciones(conNombre.map((c) => ({
+          id: c.id, nombre: c.nombre as string, version: c.version ?? 1, vigente: c.vigente ?? true,
+        })));
       }
 
       for (const orden of paquete.ordenes) {

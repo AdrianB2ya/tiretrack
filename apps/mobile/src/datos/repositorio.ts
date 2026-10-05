@@ -182,17 +182,23 @@ export interface OrdenDescargada {
   firmaVersion: number | null; firmaFechaHora: string | null;
 }
 
-export type TipoOperacion =
-  | "crear_orden"
-  | "actualizar_orden"
-  | "guardar_medicion"
-  | "cambiar_estado"
-  | "crear_marca"
-  | "crear_diseno"
-  | "reasignar"
-  | "adjuntar_foto"
-  | "firmar"
-  | "subir_foto";
+/** Quita lo vacío: el contrato espera ausencia, no null ni "" (tarea 5.1). */
+function sinVacios(o: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined && v !== null && v !== ""));
+}
+
+/**
+ * Tipos de operación de la cola, en una sola lista. La prueba de punta a
+ * punta la recorre contra el servidor real: un tipo nuevo sin ruta se nota
+ * ahí. Antes esa prueba tenía su propia lista y los tipos nuevos quedaban
+ * fuera sin que nadie lo notara.
+ */
+export const TIPOS_OPERACION = [
+  "crear_orden", "actualizar_orden", "guardar_medicion", "cambiar_estado",
+  "crear_marca", "crear_diseno", "reasignar", "adjuntar_foto", "firmar", "subir_foto",
+  "crear_cliente", "crear_sede_cliente", "crear_vehiculo",
+] as const;
+export type TipoOperacion = (typeof TIPOS_OPERACION)[number];
 
 export interface OperacionPendiente {
   readonly id: string;
@@ -559,29 +565,30 @@ export class RepositorioLocal {
   }): Promise<void> {
     await this.enTransaccion(async () => {
       if (datos.clientes) {
-        await this.db.ejecutar(`DELETE FROM cliente`);
+        // Lo creado en campo y aún no confirmado no se borra (ver migración 10).
+        await this.db.ejecutar(`DELETE FROM cliente WHERE creada_local = 0`);
         for (const c of datos.clientes) {
-          await this.db.ejecutar(`INSERT INTO cliente (id, nombre, nit) VALUES (?,?,?)`, [
+          await this.db.ejecutar(`INSERT OR REPLACE INTO cliente (id, nombre, nit, creada_local) VALUES (?,?,?,0)`, [
             c.id, c.nombre, c.nit,
           ]);
         }
       }
       if (datos.sedes) {
-        await this.db.ejecutar(`DELETE FROM sede_cliente`);
+        await this.db.ejecutar(`DELETE FROM sede_cliente WHERE creada_local = 0`);
         for (const s of datos.sedes) {
           await this.db.ejecutar(
-            `INSERT INTO sede_cliente (id, cliente_id, nombre) VALUES (?,?,?)`,
+            `INSERT OR REPLACE INTO sede_cliente (id, cliente_id, nombre, creada_local) VALUES (?,?,?,0)`,
             [s.id, s.clienteId, s.nombre],
           );
         }
       }
       if (datos.vehiculos) {
-        await this.db.ejecutar(`DELETE FROM vehiculo`);
+        await this.db.ejecutar(`DELETE FROM vehiculo WHERE creada_local = 0`);
         for (const v of datos.vehiculos) {
           await this.db.ejecutar(
-            `INSERT INTO vehiculo
-               (id, sede_cliente_id, configuracion_eje_id, codigo, placa, nombre, km_actual)
-             VALUES (?,?,?,?,?,?,?)`,
+            `INSERT OR REPLACE INTO vehiculo
+               (id, sede_cliente_id, configuracion_eje_id, codigo, placa, nombre, km_actual, creada_local)
+             VALUES (?,?,?,?,?,?,?,0)`,
             [v.id, v.sedeClienteId, v.configuracionEjeId, v.codigo, v.placa, v.nombre, v.kmActual],
           );
         }
@@ -609,6 +616,81 @@ export class RepositorioLocal {
       sedeId: String(f["sede_id"]),
       activo: aBool(f["activo"]),
     }));
+  }
+
+  // ── Flota creada en el celular ───────────────────────────────────────────
+  //
+  // Como todo lo demás: guardar y encolar en la misma transacción. El técnico
+  // llega a una sede que no estaba registrada y tiene que poder trabajar.
+
+  async crearClienteLocal(c: { nombre: string; nit: string; contacto?: string; telefono?: string }): Promise<string> {
+    const id = nuevoId();
+    await this.enTransaccion(async () => {
+      await this.db.ejecutar(
+        `INSERT INTO cliente (id, nombre, nit, creada_local) VALUES (?,?,?,1)`,
+        [id, c.nombre.trim(), c.nit.trim()],
+      );
+      await this.encolar("crear_cliente", id, null, sinVacios({
+        id, nombre: c.nombre.trim(), nit: c.nit.trim(), contacto: c.contacto?.trim(), telefono: c.telefono?.trim(),
+      }));
+    });
+    return id;
+  }
+
+  async crearSedeClienteLocal(s: { clienteId: string; nombre: string; ciudad?: string; direccion?: string }): Promise<string> {
+    const id = nuevoId();
+    await this.enTransaccion(async () => {
+      await this.db.ejecutar(
+        `INSERT INTO sede_cliente (id, cliente_id, nombre, creada_local) VALUES (?,?,?,1)`,
+        [id, s.clienteId, s.nombre.trim()],
+      );
+      await this.encolar("crear_sede_cliente", id, null, sinVacios({
+        id, clienteId: s.clienteId, nombre: s.nombre.trim(), ciudad: s.ciudad?.trim(), direccion: s.direccion?.trim(),
+      }));
+    });
+    return id;
+  }
+
+  async crearVehiculoLocal(v: {
+    sedeClienteId: string; configuracionEjeId: string; codigo: string; placa?: string;
+    nombre: string; tipo: string; kmActual?: number;
+  }): Promise<string> {
+    const id = nuevoId();
+    await this.enTransaccion(async () => {
+      await this.db.ejecutar(
+        `INSERT INTO vehiculo
+           (id, sede_cliente_id, configuracion_eje_id, codigo, placa, nombre, km_actual, creada_local)
+         VALUES (?,?,?,?,?,?,?,1)`,
+        [id, v.sedeClienteId, v.configuracionEjeId, v.codigo.trim(), v.placa?.trim() || null, v.nombre.trim(), v.kmActual ?? 0],
+      );
+      await this.encolar("crear_vehiculo", id, null, sinVacios({
+        id, sedeClienteId: v.sedeClienteId, configuracionEjeId: v.configuracionEjeId,
+        codigo: v.codigo.trim(), placa: v.placa?.trim(), nombre: v.nombre.trim(), tipo: v.tipo.trim(),
+        kmActual: v.kmActual ?? 0,
+      }));
+    });
+    return id;
+  }
+
+  /** Plantillas de ejes para elegir al registrar un vehículo: solo las vigentes. */
+  async configuracionesVigentes(): Promise<{ id: string; nombre: string; posiciones: number }[]> {
+    const filas = await this.db.consultar<Record<string, unknown>>(
+      `SELECT c.id, c.nombre, (SELECT count(*) FROM posicion_eje p WHERE p.configuracion_eje_id = c.id) AS posiciones
+         FROM configuracion_eje c WHERE c.vigente = 1 ORDER BY c.nombre`,
+    );
+    return filas.map((f) => ({ id: String(f["id"]), nombre: String(f["nombre"]), posiciones: Number(f["posiciones"]) }));
+  }
+
+  async guardarConfiguraciones(cfgs: readonly { id: string; nombre: string; version: number; vigente: boolean }[]): Promise<void> {
+    await this.enTransaccion(async () => {
+      await this.db.ejecutar(`DELETE FROM configuracion_eje`);
+      for (const c of cfgs) {
+        await this.db.ejecutar(
+          `INSERT INTO configuracion_eje (id, nombre, version, vigente) VALUES (?,?,?,?)`,
+          [c.id, c.nombre, c.version, aInt(c.vigente)],
+        );
+      }
+    });
   }
 
   // ── Cascada de la orden nueva: cliente → sede del cliente → vehículo ──

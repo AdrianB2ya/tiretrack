@@ -43,6 +43,9 @@ const RUTAS: Record<TipoOperacion, (op: OperacionPendiente) => { metodo: string;
   crear_marca: () => ({ metodo: "POST", ruta: "/catalogo/marcas" }),
   crear_diseno: () => ({ metodo: "POST", ruta: "/catalogo/disenos" }),
   adjuntar_foto: (op) => ({ metodo: "POST", ruta: `/ordenes/${op.ordenId}/fotos` }),
+  crear_cliente: () => ({ metodo: "POST", ruta: "/flota/clientes" }),
+  crear_sede_cliente: () => ({ metodo: "POST", ruta: "/flota/sedes" }),
+  crear_vehiculo: () => ({ metodo: "POST", ruta: "/flota/vehiculos" }),
 };
 
 /** Marca interna: la respuesta fue 401, hay que intentar renovar. */

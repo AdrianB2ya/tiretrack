@@ -344,3 +344,36 @@ describe("técnicos y sedes de la empresa", () => {
     expect(await repo.marcaDeDescarga()).not.toBeNull();
   });
 });
+
+describe("flota creada en campo", () => {
+  it("un cliente creado sin señal sobrevive a la descarga", async () => {
+    // La descarga reemplazaba la flota entera: lo creado en el celular se
+    // borraba y las órdenes que lo usaban quedaban huérfanas.
+    const id = await repo.crearClienteLocal({ nombre: "Transportes Nuevo", nit: "900555111" });
+    await descargador.descargar(servidorCon(unPaquete()));
+    expect((await repo.clientes()).map((c) => c.id)).toContain(id);
+  });
+
+  it("cuando el servidor lo devuelve, queda como suyo", async () => {
+    const id = await repo.crearClienteLocal({ nombre: "Transportes Nuevo", nit: "900555111" });
+    const conElCliente = unPaquete();
+    await descargador.descargar(servidorCon({
+      ...conElCliente,
+      flota: { ...conElCliente.flota, clientes: [...conElCliente.flota.clientes, { id, nombre: "Transportes Nuevo", nit: "900555111" }] },
+    }));
+    // La siguiente descarga ya no lo trae (p. ej. se desactivó): ahora sí se va.
+    await descargador.descargar(servidorCon(unPaquete()));
+    expect((await repo.clientes()).map((c) => c.id)).not.toContain(id);
+  });
+
+  it("guarda el nombre de las plantillas para elegirlas al registrar un vehículo", async () => {
+    const p = unPaquete();
+    await descargador.descargar(servidorCon({
+      ...p,
+      configuraciones: p.configuraciones.map((c) => ({ ...c, nombre: "Tractocamión 6x4", version: 1, vigente: true })),
+    }));
+    const cfgs = await repo.configuracionesVigentes();
+    expect(cfgs[0]?.nombre).toBe("Tractocamión 6x4");
+    expect(cfgs[0]?.posiciones).toBeGreaterThan(0);
+  });
+});

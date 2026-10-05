@@ -12,7 +12,7 @@ import type { Almacenamiento } from "../apps/api/src/fotos/almacenamiento";
 // El cliente REAL del celular
 import { abrirBaseEnMemoria } from "../apps/mobile/src/datos/conexionNode";
 import { migrar, type Conexion } from "../apps/mobile/src/datos/base";
-import { RepositorioLocal } from "../apps/mobile/src/datos/repositorio";
+import { RepositorioLocal, TIPOS_OPERACION } from "../apps/mobile/src/datos/repositorio";
 import { ClienteHttp } from "../apps/mobile/src/datos/clienteHttp";
 import { MotorSincronizacion } from "../apps/mobile/src/datos/sincronizacion";
 import { Descargador } from "../apps/mobile/src/datos/descarga";
@@ -381,11 +381,8 @@ describe.skipIf(!disponible)("jornada completa de punta a punta", () => {
      * comprueba que la operación funcione, sino que la ruta exista: basta con
      * que la respuesta no sea 404 por ruta inexistente.
      */
-    const TIPOS = [
-      "crear_orden", "actualizar_orden", "guardar_medicion", "cambiar_estado",
-      "firmar", "subir_foto", "reasignar", "crear_marca", "crear_diseno",
-      "adjuntar_foto",
-    ] as const;
+    // La lista del celular, no una copia: un tipo nuevo queda cubierto solo.
+    const TIPOS = TIPOS_OPERACION;
 
     it("ninguna cae en una ruta que no existe", async () => {
       const cliente = construirCliente();
@@ -413,6 +410,20 @@ describe.skipIf(!disponible)("jornada completa de punta a punta", () => {
       expect(r.rechazadas).toBe(0);
       const filas = await pool.query(`SELECT nombre FROM "Marca" WHERE id = $1`, [marca.id]);
       expect(filas.rows[0]?.nombre).toBe("Recauchadora Fundación");
+    });
+
+    it("un cliente y su sede registrados en campo llegan al servidor", async () => {
+      // El técnico llega a una sede que no estaba registrada: la crea sin
+      // señal y sigue trabajando. Debe llegar, en orden, al sincronizar.
+      const clienteId = await repo.crearClienteLocal({ nombre: "Transportes Ciénaga", nit: "900.777.333-1" });
+      const sedeId = await repo.crearSedeClienteLocal({ clienteId, nombre: "Patio Ciénaga" });
+      const r = await motor.sincronizar();
+
+      expect(r.rechazadas).toBe(0);
+      const c = await pool.query(`SELECT nombre FROM "Cliente" WHERE id = $1`, [clienteId]);
+      const s = await pool.query(`SELECT "clienteId" FROM "SedeCliente" WHERE id = $1`, [sedeId]);
+      expect(c.rows[0]?.nombre).toBe("Transportes Ciénaga");
+      expect(s.rows[0]?.clienteId).toBe(clienteId);
     });
   });
 });

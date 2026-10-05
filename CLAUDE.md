@@ -2486,6 +2486,25 @@ Dos entradas, una sola lógica:
 - Una sesión guardada antes de que el login trajera las sedes no las tiene:
   el formulario lo explica (cerrar sesión y volver a entrar).
 
+## Flota creada en campo (5.3, datos)
+
+El técnico crea clientes y sedes porque es operativo: llega a una sede que
+no estaba registrada. Tiene que funcionar **sin señal**, así que son
+operaciones de la cola: `crear_cliente`, `crear_sede_cliente`,
+`crear_vehiculo` (este último, solo administrador y coordinador; lo valida
+el servidor).
+
+- **La descarga borraba lo creado en campo.** Reemplazaba clientes, sedes y
+  vehículos enteros: lo creado sin señal desaparecía y las órdenes que lo
+  usaban quedaban huérfanas. Migración 10: columna `creada_local`; la
+  descarga solo reemplaza lo que vino del servidor.
+- **Las plantillas de ejes no tenían nombre en el celular**: no había cómo
+  elegir "Tractocamión 6x4" al registrar un vehículo. La descarga lo trae
+  (opcional, por compatibilidad) y se guarda en `configuracion_eje`.
+- `TIPOS_OPERACION` es la única lista de tipos de la cola. La prueba de punta
+  a punta que exige ruta en el servidor para cada tipo tenía su propia copia,
+  y los tipos nuevos habrían quedado fuera sin que nadie lo notara.
+
 ## Punto de retoma (2026-10-05)
 
 **Estado:** el usuario prueba la app en el teléfono con Expo Go (SDK 52).
