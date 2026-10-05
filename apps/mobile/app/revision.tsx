@@ -44,7 +44,9 @@ export default function PantallaRevision() {
         // El rol viene de la sesión: un rol fijo aquí mostraría las mismas
         // acciones a un técnico que a un coordinador.
         ctx={{ usuarioId: usuario.id, rol: usuario.rol }}
-        onAbrir={(ordenId) => router.push(`/orden/${ordenId}` as never)}
+        // A la decisión, no al detalle del técnico: desde ahí no se podía
+        // aprobar ni devolver.
+        onAbrir={(ordenId) => router.push(`/orden/${ordenId}/decidir` as never)}
       />
     </View>
   );

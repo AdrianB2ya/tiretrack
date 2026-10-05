@@ -7,6 +7,7 @@ import { useDatos, type DatosOrden } from "../../../src/app/ProveedorDatos";
 import { useUsuario } from "../../../src/app/ProveedorSesion";
 import { accionesDisponibles, requisitosParaEnviar, resumirFirma } from "../../../src/ordenes/detalle";
 import { siguienteSinCapturar } from "../../../src/ordenes/diagrama";
+import { estaAbierta, puedeAprobar, type EstadoOrden } from "@tiretrack/domain";
 import { colores, espacio, estadosOrden, texto } from "../../../src/diseno/tokens";
 
 /**
@@ -63,6 +64,10 @@ export default function PantallaDetalle() {
   const firma = resumirFirma(orden);
   // Continuar donde quedó: la primera posición sin capturar.
   const siguiente = siguienteSinCapturar(diagrama, 0);
+  // El coordinador no captura: decide. Sin estos accesos no podía aprobar,
+  // devolver ni reasignar desde la app.
+  const gestor = puedeAprobar(usuario.rol);
+  const abierta = estaAbierta(orden.estado as EstadoOrden);
 
   return (
     <ScrollView style={estilos.pantalla} contentContainerStyle={estilos.contenido}>
@@ -146,6 +151,17 @@ export default function PantallaDetalle() {
       >
         Revisar y enviar
       </Boton>
+
+      {gestor && orden.estado === "en_revision" ? (
+        <Boton ancho testID="decidir" onPress={() => router.push(`/orden/${orden.id}/decidir` as never)}>
+          Aprobar o devolver
+        </Boton>
+      ) : null}
+      {gestor && abierta ? (
+        <Boton ancho tipo="fantasma" testID="reasignar" onPress={() => router.push(`/orden/${orden.id}/reasignar` as never)}>
+          Reasignar a otro técnico
+        </Boton>
+      ) : null}
     </ScrollView>
   );
 }

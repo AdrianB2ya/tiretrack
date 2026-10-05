@@ -48,6 +48,60 @@ describe("lo que se empaqueta en la app", () => {
   });
 });
 
+describe("pantallas construidas y conectadas", () => {
+  const rutas = () => fuentes(join(raiz, "app")).map((f) => readFileSync(f, "utf8")).join("\n");
+
+  it("cada pantalla construida está montada en alguna ruta", () => {
+    // Pasó tres veces: firma, decisión del coordinador y galería existían,
+    // probadas, y ninguna ruta las montaba. En el teléfono no había forma de
+    // firmar, aprobar ni devolver.
+    const pantallas = [
+      "CapturaFirma", "DecisionRevision", "FormularioDatosOrden", "PantallaCuenta",
+      "PantallaEnvio", "PantallaIngreso", "BandejaRevision", "ListaOrdenes",
+    ];
+    const codigo = rutas();
+    expect(pantallas.filter((p) => !new RegExp(`<${p}\\b`).test(codigo))).toEqual([]);
+  });
+
+  it("cada destino de navegación tiene su archivo de ruta", () => {
+    // Un push a una ruta inexistente no falla al compilar: se descubre en el
+    // teléfono, con una pantalla de "no encontrado".
+    const codigo = [...fuentes(join(raiz, "app")), ...fuentes(join(raiz, "src"))]
+      .filter((f) => !f.includes(`${sep}pruebas${sep}`))
+      .map((f) => readFileSync(f, "utf8"))
+      .join("\n");
+    const destinos = [...codigo.matchAll(/router\.(?:push|replace)\(\s*[`"]([^`"]+)[`"]/g)].map((m) => m[1] as string);
+    expect(destinos.length).toBeGreaterThan(5);
+    const faltantes = destinos.filter((d) => {
+      const ruta = d.replace(/\$\{[^}]+\}/g, "[x]").replace(/^\//, "");
+      const partes = ruta.split("/").map((s) => (s === "[x]" ? null : s));
+      // /orden/[x]/datos → app/orden/[id]/datos.tsx o .../datos/index.tsx
+      const candidatas = [partes, [...partes, "index"]].map((ps) => {
+        let dir = join(raiz, "app");
+        for (const [i, p] of ps.entries()) {
+          const final = i === ps.length - 1;
+          if (p === null) {
+            // Segmento dinámico: carpeta [id]/ en medio, archivo [numero].tsx al final.
+            const patron = final ? /^\[.+\]\.tsx$/ : /^\[.+\]$/;
+            const dinamico = readdirSync(dir).find((n) => patron.test(n));
+            if (!dinamico) return null;
+            if (final) return join(dir, dinamico);
+            dir = join(dir, dinamico);
+          } else if (final) {
+            return join(dir, `${p}.tsx`);
+          } else {
+            dir = join(dir, p);
+            if (!existsSync(dir)) return null;
+          }
+        }
+        return null;
+      });
+      return !candidatas.some((c) => c !== null && existsSync(c));
+    });
+    expect(faltantes).toEqual([]);
+  });
+});
+
 describe("cabecera nativa", () => {
   it("no lleva botones: en Android con la arquitectura nueva no reciben los toques", () => {
     // react-native-screens 4.4 (SDK 52): "Cuenta" en headerRight se veía y no

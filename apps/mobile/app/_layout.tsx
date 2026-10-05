@@ -38,6 +38,7 @@ export default function DisposicionRaiz() {
         <Stack.Screen name="cuenta" options={{ title: "Cuenta" }} />
         <Stack.Screen name="orden/[id]/index" options={{ title: "Orden" }} />
         <Stack.Screen name="orden/[id]/reasignar" options={{ title: "Reasignar" }} />
+        <Stack.Screen name="orden/[id]/decidir" options={{ title: "Revisar orden" }} />
         <Stack.Screen name="orden/[id]/enviar" options={{ title: "Enviar a revisión" }} />
         <Stack.Screen name="orden/[id]/datos" options={{ title: "Kilometraje y hallazgos" }} />
         <Stack.Screen name="orden/[id]/firma" options={{ title: "Firma", gestureEnabled: false }} />
