@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 /**
  * Genera el esquema de pruebas a partir del `schema.prisma` REAL.
@@ -26,7 +26,9 @@ const TIPOS: Record<string, string> = {
   String: "text",
   Int: "integer",
   Boolean: "boolean",
-  DateTime: "timestamptz",
+  // Lo mismo que la migración real: Prisma crea timestamp(3) SIN zona. Con
+  // timestamptz las pruebas comparaban bien fechas que en producción no.
+  DateTime: "timestamp(3)",
   Decimal: "numeric",
   Json: "jsonb",
   Float: "double precision",
@@ -115,10 +117,10 @@ function tipoSql(tipo: string, linea: string, enums: Map<string, string[]>): str
  * los identificadores los genera el dispositivo.
  */
 function valorPorDefecto(linea: string, tipo: string): string | null {
-  // `@updatedAt` no tiene valor por defecto en el esquema: lo pone Prisma al
-  // escribir. En SQL directo quedaría vacío y violaría el NOT NULL, así que
-  // se le da el mismo valor que Prisma usaría.
-  if (/@updatedAt\b/.test(linea)) return "now()";
+  // `@updatedAt` NO recibe valor por defecto aquí. Antes se le inventaba un
+  // now() que producción no tenía: las pruebas pasaban mientras crear una
+  // orden fallaba en la base real. Lo pone el disparador de
+  // prisma/actualizado-en.sql, el mismo que en producción.
   // `now()` lleva paréntesis: un patrón que corta en el primer ")" lee
   // "now(" y descarta el valor por defecto sin avisar.
   const d = /@default\((now\(\)|[^)]*)\)/.exec(linea)?.[1];
@@ -169,6 +171,10 @@ export function ddlDePrueba(tablas: readonly string[], opciones: OpcionesEsquema
     for (const extra of opciones.extras?.[tabla] ?? []) columnas.push(`  ${extra}`);
     partes.push(`CREATE TABLE "${tabla}" (\n${columnas.join(",\n")}\n);`);
   }
+
+  // El mismo disparador que la migración: si una tabla con @updatedAt no
+  // quedara cubierta, las pruebas fallarían igual que producción.
+  partes.push(readFileSync(join(dirname(rutaEsquema()), "actualizado-en.sql"), "utf-8"));
 
   return partes.join("\n");
 }

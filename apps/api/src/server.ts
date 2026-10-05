@@ -4,6 +4,7 @@ import { construirServidor } from "./http/servidor";
 import { ServicioAuth } from "./acceso/servicio";
 import { RepositorioPg } from "./acceso/repositorio";
 import { AlmacenamientoS3 } from "./fotos/almacenamiento";
+import { configurarUtc, OPCIONES_SESION_UTC } from "./db/utc";
 
 /**
  * Arranque del servidor.
@@ -31,9 +32,11 @@ export interface Servicios {
 }
 
 export async function arrancar(config: Config): Promise<Servicios> {
-  const pool = new pg.Pool({ connectionString: config.DATABASE_URL, max: 20 });
+  // Toda marca de tiempo en UTC, como la guarda Prisma (ver db/utc.ts).
+  configurarUtc();
+  const pool = new pg.Pool({ connectionString: config.DATABASE_URL, max: 20, options: OPCIONES_SESION_UTC });
   // El de acceso es pequeño: solo atiende ingresos y renovaciones.
-  const poolAuth = new pg.Pool({ connectionString: config.DATABASE_URL_AUTH, max: 5 });
+  const poolAuth = new pg.Pool({ connectionString: config.DATABASE_URL_AUTH, max: 5, options: OPCIONES_SESION_UTC });
 
   const auth = new ServicioAuth(new RepositorioPg(poolAuth), { jwtSecret: config.JWT_SECRET });
 

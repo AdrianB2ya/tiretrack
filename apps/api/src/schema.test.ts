@@ -174,6 +174,16 @@ describe("aislamiento entre empresas", () => {
     }
   });
 
+  it("toda tabla con @updatedAt tiene su disparador en actualizado-en.sql", () => {
+    // Prisma llena @updatedAt solo cuando ÉL escribe; el servidor escribe con
+    // SQL directo. Una tabla nueva con @updatedAt fuera del disparador vuelve
+    // a romper la inserción y la descarga incremental.
+    const sql = readFileSync(join(aqui, "../prisma/actualizado-en.sql"), "utf8");
+    const conUpdatedAt = modelos.filter((m) => /@updatedAt\b/.test(m.cuerpo)).map((m) => m.nombre);
+    expect(conUpdatedAt.length).toBeGreaterThan(0);
+    for (const t of conUpdatedAt) expect(sql, `${t} sin disparador`).toContain(`'${t}'`);
+  });
+
   it("el correo del usuario es único por empresa", () => {
     // La misma persona puede trabajar para dos empresas suscritas.
     expect(modelo("Usuario")?.cuerpo).toMatch(/@@unique\(\[empresaId,\s*email\]\)/);

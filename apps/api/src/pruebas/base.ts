@@ -2,6 +2,11 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import pg from "pg";
+import { configurarUtc, OPCIONES_SESION_UTC } from "../db/utc";
+
+// Las pruebas con la misma convención de fechas que el servidor: si no, una
+// prueba en una máquina con otra zona horaria vería algo distinto a producción.
+configurarUtc();
 
 /**
  * Utilidades para las pruebas de aislamiento.
@@ -59,7 +64,7 @@ export function esquemaDe(rutaArchivo: string): string {
 /** Conecta con el esquema propio del archivo ya preparado y activo. */
 export async function conectarAislado(rutaArchivo: string): Promise<pg.Client> {
   const esquema = esquemaDe(rutaArchivo);
-  const cliente = new pg.Client({ connectionString: URL_PRUEBAS });
+  const cliente = new pg.Client({ connectionString: URL_PRUEBAS, options: OPCIONES_SESION_UTC });
   await cliente.connect();
   await cliente.query(`CREATE SCHEMA IF NOT EXISTS "${esquema}"`);
   await cliente.query(`SET search_path TO "${esquema}"`);
@@ -71,12 +76,12 @@ export async function poolAislado(rutaArchivo: string, max = 6): Promise<pg.Pool
   const esquema = esquemaDe(rutaArchivo);
 
   // El esquema tiene que existir antes de la primera consulta.
-  const preparacion = new pg.Client({ connectionString: URL_PRUEBAS });
+  const preparacion = new pg.Client({ connectionString: URL_PRUEBAS, options: OPCIONES_SESION_UTC });
   await preparacion.connect();
   await preparacion.query(`CREATE SCHEMA IF NOT EXISTS "${esquema}"`);
   await preparacion.end();
 
-  const pool = new pg.Pool({ connectionString: URL_PRUEBAS, max });
+  const pool = new pg.Pool({ connectionString: URL_PRUEBAS, max, options: OPCIONES_SESION_UTC });
   pool.on("connect", (c) => {
     void c.query(`SET search_path TO "${esquema}"`);
   });
@@ -193,7 +198,7 @@ export class BaseDePruebas {
   }
 
   async iniciar(): Promise<void> {
-    this.admin = new pg.Client({ connectionString: URL_PRUEBAS });
+    this.admin = new pg.Client({ connectionString: URL_PRUEBAS, options: OPCIONES_SESION_UTC });
     await this.admin.connect();
 
     // Toda la preparación va bajo el bloqueo global, no solo el rls.sql: esto
@@ -209,7 +214,7 @@ export class BaseDePruebas {
 
     // La aplicación se conecta con un rol distinto al dueño: sin eso, FORCE
     // ROW LEVEL SECURITY no tendría efecto y las políticas se saltarían.
-    this.app = new pg.Client({ connectionString: URL_PRUEBAS });
+    this.app = new pg.Client({ connectionString: URL_PRUEBAS, options: OPCIONES_SESION_UTC });
     await this.app.connect();
     await this.app.query("SET ROLE tiretrack_app");
   }
