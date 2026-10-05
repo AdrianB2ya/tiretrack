@@ -162,6 +162,18 @@ describe("aislamiento entre empresas", () => {
     }
   });
 
+  it("toda tabla del esquema tiene su política en rls.sql", () => {
+    // El rol de aplicación recibe permisos sobre TODA tabla nueva por defecto:
+    // una tabla que rls.sql no nombra queda legible para cualquier empresa.
+    // Así quedó SesionSuplantacion hasta que se aplicó la migración real.
+    const rls = readFileSync(join(aqui, "../prisma/rls.sql"), "utf8");
+    for (const m of modelos) {
+      expect(rls, `${m.nombre} no aparece en rls.sql`).toMatch(
+        new RegExp(`["']${m.nombre}["']`),
+      );
+    }
+  });
+
   it("el correo del usuario es único por empresa", () => {
     // La misma persona puede trabajar para dos empresas suscritas.
     expect(modelo("Usuario")?.cuerpo).toMatch(/@@unique\(\[empresaId,\s*email\]\)/);

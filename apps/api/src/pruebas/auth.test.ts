@@ -3,6 +3,7 @@ import pg from "pg";
 import jwt from "jsonwebtoken";
 import { generateSecret, generateSync } from "otplib";
 import { hayBaseDeDatos, conectarAislado } from "./base";
+import { ddlDePrueba } from "./generar-esquema";
 import { RepositorioPg } from "../acceso/repositorio";
 import { ServicioAuth, hashear } from "../acceso/servicio";
 
@@ -31,66 +32,19 @@ describe.skipIf(!disponible)("autenticación", () => {
   beforeAll(async () => {
     db = await conectarAislado(import.meta.url);
 
-    await db.query(`
-      DROP TABLE IF EXISTS "Auditoria", "TokenRecuperacion", "SesionUsuario", "Usuario", "Empresa" CASCADE;
-
-      CREATE TABLE "Empresa" (
-        id text PRIMARY KEY,
-        nombre text NOT NULL,
-        nit text UNIQUE NOT NULL
-      );
-
-      CREATE TABLE "Usuario" (
-        id text PRIMARY KEY,
-        "empresaId" text REFERENCES "Empresa"(id),
-        "clienteId" text,
-        nombre text NOT NULL,
-        cedula text NOT NULL,
-        email text NOT NULL,
-        "passwordHash" text NOT NULL,
-        rol text NOT NULL,
-        activo boolean NOT NULL DEFAULT true,
-        "intentosFallidos" integer NOT NULL DEFAULT 0,
-        "bloqueadoHasta" timestamptz,
-        "dobleFactorActivo" boolean NOT NULL DEFAULT false,
-        "dobleFactorSecreto" text,
-        "ultimoAcceso" timestamptz,
-        "passwordActualizadoEn" timestamptz NOT NULL DEFAULT now(),
-        "desactivadoEn" timestamptz,
-        UNIQUE ("empresaId", email)
-      );
-
-      CREATE TABLE "SesionUsuario" (
-        id text PRIMARY KEY,
-        "usuarioId" text NOT NULL REFERENCES "Usuario"(id),
-        "refreshHash" text UNIQUE NOT NULL,
-        dispositivo text,
-        ip text,
-        "expiraEn" timestamptz NOT NULL,
-        "revocadaEn" timestamptz,
-        "creadoEn" timestamptz NOT NULL DEFAULT now()
-      );
-
-      CREATE TABLE "TokenRecuperacion" (
-        id text PRIMARY KEY,
-        "usuarioId" text NOT NULL REFERENCES "Usuario"(id),
-        "tokenHash" text UNIQUE NOT NULL,
-        "expiraEn" timestamptz NOT NULL,
-        "usadoEn" timestamptz,
-        "ipSolicitud" text,
-        "creadoEn" timestamptz NOT NULL DEFAULT now()
-      );
-
-      CREATE TABLE "Auditoria" (
-        id text PRIMARY KEY,
-        "empresaId" text,
-        "usuarioId" text,
-        accion text NOT NULL,
-        detalle jsonb,
-        ip text,
-        "creadoEn" timestamptz NOT NULL DEFAULT now()
-      );
-    `);
+    // Generado desde schema.prisma, no escrito a mano. A mano, "accion" era
+    // text y en la base real es el enum AccionAuditoria: el repositorio lo
+    // insertaba con un cast a text, cada login fallaba con un 500 contra
+    // PostgreSQL real y estas pruebas pasaban.
+    await db.query(
+      ddlDePrueba(["Empresa", "Usuario", "SesionUsuario", "TokenRecuperacion", "Auditoria"], {
+        extras: {
+          Usuario: ['UNIQUE ("empresaId", email)'],
+          SesionUsuario: ['UNIQUE ("refreshHash")'],
+          TokenRecuperacion: ['UNIQUE ("tokenHash")'],
+        },
+      }),
+    );
 
     repo = new RepositorioPg(db);
     servicio = new ServicioAuth(repo, { jwtSecret: "secreto-de-pruebas" }, () => reloj);

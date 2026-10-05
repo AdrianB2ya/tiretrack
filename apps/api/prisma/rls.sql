@@ -152,7 +152,10 @@ BEGIN
     'Sede', 'Cliente', 'ConfiguracionEje', 'Servicio', 'TipoParche',
     'OrdenServicio', 'Recomendacion', 'ProgramacionRecurrente', 'Consecutivo',
     -- Sin aislar, una empresa podría ver o bloquear las claves de otra.
-    'OperacionAplicada'
+    'OperacionAplicada',
+    -- Faltaba: con los permisos por defecto del rol de aplicación, cualquier
+    -- empresa leía las suplantaciones de las demás, con motivo y ticket.
+    'SesionSuplantacion'
   ]
   LOOP
     -- Se salta lo que no exista. Sin esto el bucle es atómico: una sola

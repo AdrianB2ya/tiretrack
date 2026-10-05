@@ -71,11 +71,18 @@ export interface RepositorioAcceso {
   registrarAuditoria(a: {
     empresaId?: string | null;
     usuarioId?: string | null;
-    accion: string;
+    accion: AccionAcceso;
     detalle?: unknown;
     ip?: string | undefined;
   }): Promise<void>;
 }
+
+/**
+ * Acciones que registra el módulo de acceso. Son valores del enum
+ * `AccionAuditoria` de la base: con `string`, una acción que no existe
+ * compilaba y fallaba recién al insertar.
+ */
+export type AccionAcceso = "login_exitoso" | "login_fallido" | "recuperar_password";
 
 /**
  * Implementación sobre PostgreSQL.
@@ -207,13 +214,15 @@ export class RepositorioPg implements RepositorioAcceso {
   async registrarAuditoria(a: {
     empresaId?: string | null;
     usuarioId?: string | null;
-    accion: string;
+    accion: AccionAcceso;
     detalle?: unknown;
     ip?: string | undefined;
   }): Promise<void> {
+    // La columna es el enum AccionAuditoria. El cast a text que había aquí
+    // hacía fallar TODO login contra la base real.
     await this.db.query(
       `INSERT INTO "Auditoria" (id, "empresaId", "usuarioId", accion, detalle, ip)
-       VALUES (gen_random_uuid()::text, $1, $2, $3::text, $4, $5)`,
+       VALUES (gen_random_uuid()::text, $1, $2, $3::"AccionAuditoria", $4, $5)`,
       [
         a.empresaId ?? null,
         a.usuarioId ?? null,

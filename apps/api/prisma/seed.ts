@@ -11,11 +11,32 @@ import { CATALOGO_SERVICIOS } from "@tiretrack/domain";
  * Los ids son fijos y legibles a propósito: facilitan depurar y hacen que
  * volver a sembrar sea idempotente.
  */
+import { createHash } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-const EMPRESA = "emp-aistectire";
+/**
+ * UUID determinista a partir de un nombre legible.
+ *
+ * Los contratos exigen UUID en todo id (`zId`): con ids como "sede-fun" o
+ * "veh-ca12", toda operación del celular que los referencie —crear una orden
+ * sobre ese vehículo, por ejemplo— se rechazaba y quedaba apartada. Es el
+ * mismo defecto que la tarea 5.8 corrigió en la semilla de pruebas.
+ *
+ * Determinista (UUID v5) para que volver a sembrar siga siendo idempotente,
+ * y con el nombre legible en el código para poder depurar.
+ */
+const ESPACIO_SEMILLA = "tiretrack-semilla";
+function uid(nombre: string): string {
+  const h = createHash("sha1").update(`${ESPACIO_SEMILLA}:${nombre}`).digest();
+  h[6] = (h[6]! & 0x0f) | 0x50; // versión 5
+  h[8] = (h[8]! & 0x3f) | 0x80; // variante RFC 4122
+  const x = h.subarray(0, 16).toString("hex");
+  return `${x.slice(0, 8)}-${x.slice(8, 12)}-${x.slice(12, 16)}-${x.slice(16, 20)}-${x.slice(20)}`;
+}
+
+const EMPRESA = uid("emp-aistectire");
 
 /** Configuraciones de eje con sus umbrales por tipo. */
 const CONFIGURACIONES = [
@@ -172,10 +193,10 @@ async function main() {
   ];
   for (const s of sedes) {
     await prisma.sede.upsert({
-      where: { id: s.id },
+      where: { id: uid(s.id) },
       update: {},
       create: {
-        id: s.id,
+        id: uid(s.id),
         empresaId: EMPRESA,
         nombre: s.nombre,
         codigo: s.codigo,
@@ -185,12 +206,12 @@ async function main() {
     });
     // Un consecutivo por sede: el folio es atómico por sede, no por empresa
     await prisma.consecutivo.upsert({
-      where: { empresaId_sedeId_tipo: { empresaId: EMPRESA, sedeId: s.id, tipo: "OS" } },
+      where: { empresaId_sedeId_tipo: { empresaId: EMPRESA, sedeId: uid(s.id), tipo: "OS" } },
       update: {},
       create: {
-        id: `con-${s.codigo.toLowerCase()}`,
+        id: uid(`con-${s.codigo.toLowerCase()}`),
         empresaId: EMPRESA,
-        sedeId: s.id,
+        sedeId: uid(s.id),
         tipo: "OS",
         prefijo: "OS",
         valor: 0,
@@ -207,10 +228,10 @@ async function main() {
   ];
   for (const u of usuarios) {
     await prisma.usuario.upsert({
-      where: { id: u.id },
+      where: { id: uid(u.id) },
       update: {},
       create: {
-        id: u.id,
+        id: uid(u.id),
         empresaId: EMPRESA,
         nombre: u.nombre,
         cedula: u.cedula,
@@ -223,9 +244,9 @@ async function main() {
     });
     for (const sedeId of u.sedes) {
       await prisma.usuarioSede.upsert({
-        where: { usuarioId_sedeId: { usuarioId: u.id, sedeId } },
+        where: { usuarioId_sedeId: { usuarioId: uid(u.id), sedeId: uid(sedeId) } },
         update: {},
-        create: { usuarioId: u.id, sedeId, esPrincipal: sedeId === u.principal },
+        create: { usuarioId: uid(u.id), sedeId: uid(sedeId), esPrincipal: sedeId === u.principal },
       });
     }
   }
@@ -234,10 +255,10 @@ async function main() {
   for (const cfg of CONFIGURACIONES) {
     const total = cfg.ejes.reduce((n, e) => n + e.izq.length + e.der.length, 0);
     await prisma.configuracionEje.upsert({
-      where: { id: cfg.id },
+      where: { id: uid(cfg.id) },
       update: {},
       create: {
-        id: cfg.id,
+        id: uid(cfg.id),
         empresaId: EMPRESA,
         nombre: cfg.nombre,
         version: 1,
@@ -248,11 +269,11 @@ async function main() {
     for (const e of cfg.ejes) {
       const crear = async (numero: number, lado: "izquierdo" | "derecho", interna: boolean) => {
         await prisma.posicionEje.upsert({
-          where: { configuracionEjeId_numero: { configuracionEjeId: cfg.id, numero } },
+          where: { configuracionEjeId_numero: { configuracionEjeId: uid(cfg.id), numero } },
           update: {},
           create: {
-            id: `${cfg.id}-p${numero}`,
-            configuracionEjeId: cfg.id,
+            id: uid(`${cfg.id}-p${numero}`),
+            configuracionEjeId: uid(cfg.id),
             numero,
             eje: e.eje,
             lado,
@@ -273,23 +294,23 @@ async function main() {
   // ── Catálogo global: marca → diseño → medida ──────────────────────────────
   for (const m of CATALOGO_GLOBAL) {
     await prisma.marca.upsert({
-      where: { id: m.id },
+      where: { id: uid(m.id) },
       update: {},
-      create: { id: m.id, nombre: m.nombre, esGlobal: true, empresaId: null },
+      create: { id: uid(m.id), nombre: m.nombre, esGlobal: true, empresaId: null },
     });
     for (const d of m.disenos) {
       await prisma.diseno.upsert({
-        where: { id: d.id },
+        where: { id: uid(d.id) },
         update: {},
-        create: { id: d.id, marcaId: m.id, nombre: d.nombre, tipoEje: d.tipoEje, esGlobal: true },
+        create: { id: uid(d.id), marcaId: uid(m.id), nombre: d.nombre, tipoEje: d.tipoEje, esGlobal: true },
       });
       for (const me of d.medidas) {
         await prisma.disenoMedida.upsert({
-          where: { disenoId_medida: { disenoId: d.id, medida: me.medida } },
+          where: { disenoId_medida: { disenoId: uid(d.id), medida: me.medida } },
           update: {},
           create: {
-            id: `${d.id}-${me.medida.replace(/\W/g, "")}`,
-            disenoId: d.id,
+            id: uid(`${d.id}-${me.medida.replace(/\W/g, "")}`),
+            disenoId: uid(d.id),
             medida: me.medida,
             profundidadOriginal: me.prof,
           },
@@ -303,7 +324,7 @@ async function main() {
       where: { empresaId_codigo: { empresaId: EMPRESA, codigo: s.codigo } },
       update: {},
       create: {
-        id: `srv-${s.codigo.toLowerCase()}`,
+        id: uid(`srv-${s.codigo.toLowerCase()}`),
         empresaId: EMPRESA,
         codigo: s.codigo,
         nombre: s.nombre,
@@ -317,16 +338,16 @@ async function main() {
     await prisma.tipoParche.upsert({
       where: { empresaId_nombre: { empresaId: EMPRESA, nombre } },
       update: {},
-      create: { id: `par-${i + 1}`, empresaId: EMPRESA, nombre },
+      create: { id: uid(`par-${i + 1}`), empresaId: EMPRESA, nombre },
     });
   }
 
   // ── Un cliente con dos sedes y vehículos ──────────────────────────────────
   await prisma.cliente.upsert({
-    where: { id: "cli-reyna" },
+    where: { id: uid("cli-reyna") },
     update: {},
     create: {
-      id: "cli-reyna",
+      id: uid("cli-reyna"),
       empresaId: EMPRESA,
       nombre: "Transportes Reyna",
       nit: "800.112.334-1",
@@ -342,11 +363,11 @@ async function main() {
   ];
   for (const sc of sedesCliente) {
     await prisma.sedeCliente.upsert({
-      where: { id: sc.id },
+      where: { id: uid(sc.id) },
       update: {},
       create: {
-        id: sc.id,
-        clienteId: "cli-reyna",
+        id: uid(sc.id),
+        clienteId: uid("cli-reyna"),
         nombre: sc.nombre,
         ciudad: sc.ciudad,
         departamento: sc.dep,
@@ -361,12 +382,12 @@ async function main() {
   ];
   for (const v of vehiculos) {
     await prisma.vehiculo.upsert({
-      where: { id: v.id },
+      where: { id: uid(v.id) },
       update: {},
       create: {
-        id: v.id,
-        sedeClienteId: v.sc,
-        configuracionEjeId: v.cfg,
+        id: uid(v.id),
+        sedeClienteId: uid(v.sc),
+        configuracionEjeId: uid(v.cfg),
         codigo: v.codigo,
         placa: v.placa,
         nombre: v.nombre,
@@ -378,12 +399,12 @@ async function main() {
 
   // El usuario del cliente es EXTERNO: solo ve lo de su propio clienteId
   await prisma.usuario.upsert({
-    where: { id: "usr-cliente" },
+    where: { id: uid("usr-cliente") },
     update: {},
     create: {
-      id: "usr-cliente",
+      id: uid("usr-cliente"),
       empresaId: EMPRESA,
-      clienteId: "cli-reyna",
+      clienteId: uid("cli-reyna"),
       nombre: "Luis Reyna",
       cedula: "77221004",
       email: "luis@transportesreyna.com",
