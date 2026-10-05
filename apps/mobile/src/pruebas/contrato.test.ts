@@ -2,6 +2,9 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   zAdjuntarFoto,
   zCambiarEstado,
+  zComandoActualizarOrden,
+  zCrearDiseno,
+  zCrearMarca,
   zCrearOrden,
   zFirma,
   zMedicionLlanta,
@@ -267,6 +270,35 @@ describe("comandos contra sus contratos", () => {
   it("la reasignación cumple el contrato", async () => {
     await repo.reasignar(ORDEN, nuevoId(), "Cambio de turno");
     expect(zReasignar.safeParse(await ultimaDe("reasignar")).success).toBe(true);
+  });
+
+  // Estas tres no se validaban en el servidor: un cuerpo malo respondía 500.
+  // Ahora sí se validan, y estas pruebas aseguran que validar no rechace el
+  // trabajo real del técnico.
+  it("corregir kilometraje, hallazgos y acción cumple el contrato, sin versión", async () => {
+    await repo.actualizarDatosOrden(ORDEN, { kilometraje: 78_950, hallazgos: "Desgaste irregular en eje 2", accion: "Rotación" });
+    const datos = await ultimaDe("actualizar_orden");
+    const r = zComandoActualizarOrden.safeParse(datos);
+    expect(r.success ? [] : r.error.issues.map((i) => `${i.path}: ${i.message}`)).toEqual([]);
+    expect(datos).not.toHaveProperty("version");
+  });
+
+  it("corregir solo un dato también cumple", async () => {
+    await repo.actualizarDatosOrden(ORDEN, { kilometraje: 80_000 });
+    expect(zComandoActualizarOrden.safeParse(await ultimaDe("actualizar_orden")).success).toBe(true);
+  });
+
+  it("una marca creada en campo cumple el contrato", async () => {
+    await repo.crearMarcaLocal("  Firestone  ");
+    const r = zCrearMarca.safeParse(await ultimaDe("crear_marca"));
+    expect(r.success ? [] : r.error.issues.map((i) => `${i.path}: ${i.message}`)).toEqual([]);
+  });
+
+  it.each(["direccional", "traccion", "arrastre"])("un diseño creado en campo para un eje %s cumple el contrato", async (tipoEje) => {
+    const marca = await repo.crearMarcaLocal("Firestone");
+    await repo.crearDisenoLocal(marca.id, "FS591", tipoEje);
+    const r = zCrearDiseno.safeParse(await ultimaDe("crear_diseno"));
+    expect(r.success ? [] : r.error.issues.map((i) => `${i.path}: ${i.message}`)).toEqual([]);
   });
 
   it("adjuntar una foto cumple el contrato", async () => {

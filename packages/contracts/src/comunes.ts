@@ -55,6 +55,23 @@ export const zFechaISO = z
   }, "Esa fecha no existe");
 
 export const zTextoCorto = z.string().trim().min(1).max(120);
+/**
+ * Instante ISO 8601 en UTC, como los que emite el servidor
+ * (`2026-10-05T02:56:34.881Z`). Se valida por componentes, igual que
+ * `zFechaISO`: `2026-02-31T…` debe rechazarse, no convertirse en silencio.
+ * Sin esto, un `desde` mal formado llegaba a PostgreSQL y el servidor
+ * respondía 500 —"reintenta"— a un dato que nunca iba a servir.
+ */
+export const zInstante = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/, "Formato esperado: AAAA-MM-DDTHH:MM:SSZ")
+  .refine((v) => {
+    const fecha = new Date(v);
+    if (Number.isNaN(fecha.getTime())) return false;
+    // Ida y vuelta: si JavaScript corrigió algún componente, no existía.
+    return fecha.toISOString().slice(0, 19) === v.slice(0, 19);
+  }, "Ese instante no existe");
+
 export const zTextoLargo = z.string().trim().max(2000);
 
 /** Motivo obligatorio: en blanco no cuenta como motivo. */

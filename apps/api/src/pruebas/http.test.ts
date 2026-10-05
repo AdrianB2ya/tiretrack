@@ -475,7 +475,8 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
       const r = await pedir({
         ruta: "/flota/vehiculos",
         cuerpo: {
-          sedeClienteId: SEMILLA.sedeCliente, configuracionEjeId: SEMILLA.configuracion,
+          // El id lo genera el cliente: el contrato lo exige.
+          id: nuevoId(), sedeClienteId: SEMILLA.sedeCliente, configuracionEjeId: SEMILLA.configuracion,
           codigo: "CA-99", nombre: "Nuevo", tipo: "tractocamion",
         },
       });
@@ -487,7 +488,8 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
         ruta: "/flota/vehiculos",
         token: "tok-coordinador",
         cuerpo: {
-          sedeClienteId: SEMILLA.sedeCliente, configuracionEjeId: SEMILLA.configuracion,
+          // El id lo genera el cliente: el contrato lo exige.
+          id: nuevoId(), sedeClienteId: SEMILLA.sedeCliente, configuracionEjeId: SEMILLA.configuracion,
           codigo: "CA-99", nombre: "Volqueta 9", tipo: "volqueta",
         },
       });

@@ -1,12 +1,32 @@
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import type pg from "pg";
+import { z } from "zod";
 import {
   zAdjuntarFoto,
   zCambiarEstado,
+  zComandoActualizarOrden,
+  zCrearCliente,
+  zCrearDiseno,
+  zCrearMarca,
   zCrearOrden,
+  zCrearSedeCliente,
+  zCrearVehiculo,
+  zFiltroInforme,
   zFirma,
+  zInstante,
   zReasignar,
 } from "@tiretrack/contracts";
+
+/**
+ * Quita las claves con valor undefined. Zod marca lo opcional como
+ * `T | undefined`; los servicios declaran sus entradas sin esa posibilidad.
+ */
+function sinIndefinidos<T extends Record<string, unknown>>(o: T): { [K in keyof T]: Exclude<T[K], undefined> } {
+  return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as never;
+}
+
+/** Consulta de la descarga: `desde` es la marca `hasta` que entregó el servidor. */
+const zConsultaDescarga = z.object({ desde: zInstante.optional() });
 import { ROLES, type Rol, type Veredicto } from "@tiretrack/domain";
 import type { Claims, ResultadoLogin } from "../acceso/servicio";
 import { RepositorioOrdenesPg } from "../ordenes/repositorio";
@@ -416,7 +436,13 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
       return reply.status(403).send({ error: { codigo: posible.motivo, mensaje: "Esta sesión no descarga datos de campo" } });
     }
     const ctx = posible;
-    const desde = (req.query as { desde?: string } | undefined)?.desde;
+    // Un desde mal formado llegaba a PostgreSQL y respondía 500.
+    const consulta = zConsultaDescarga.safeParse(req.query ?? {});
+    if (!consulta.success) {
+      const r = datosInvalidos(consulta.error.issues);
+      return reply.status(r.status).send(r.cuerpo);
+    }
+    const desde = consulta.data.desde;
 
     const paquete = await enTransaccion(op.pool, ctx, async (db) => ({
       confirmar: false,
@@ -442,7 +468,9 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
   }));
 
   app.patch("/ordenes/:id", operacion(async (s, ctx, req) => {
-    const r = await s.ordenes.actualizarDatos(ctx, params(req).id as string, COMANDO, req.body as Record<string, never>);
+    const p = zComandoActualizarOrden.safeParse(req.body);
+    if (!p.success) return datosInvalidos(p.error.issues);
+    const r = await s.ordenes.actualizarDatos(ctx, params(req).id as string, COMANDO, sinIndefinidos(p.data));
     if (!r.ok) return rechazo(r.veredicto);
     return { status: 200, cuerpo: { versionContenido: r.valor.versionContenido } };
   }));
@@ -523,22 +551,25 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
   })));
 
   app.post("/flota/clientes", operacion(async (s, ctx, req) => {
-    const r = await s.flota.crearCliente(ctx, req.body as { nombre: string; nit: string });
+    const p = zCrearCliente.safeParse(req.body);
+    if (!p.success) return datosInvalidos(p.error.issues);
+    const r = await s.flota.crearCliente(ctx, sinIndefinidos(p.data));
     if (!r.ok) return rechazo(r.veredicto);
     return { status: 201, cuerpo: r.valor };
   }));
 
   app.post("/flota/sedes", operacion(async (s, ctx, req) => {
-    const r = await s.flota.crearSedeCliente(ctx, req.body as { clienteId: string; nombre: string });
+    const p = zCrearSedeCliente.safeParse(req.body);
+    if (!p.success) return datosInvalidos(p.error.issues);
+    const r = await s.flota.crearSedeCliente(ctx, sinIndefinidos(p.data));
     if (!r.ok) return rechazo(r.veredicto);
     return { status: 201, cuerpo: r.valor };
   }));
 
   app.post("/flota/vehiculos", operacion(async (s, ctx, req) => {
-    const r = await s.flota.crearVehiculo(
-      ctx,
-      req.body as { sedeClienteId: string; configuracionEjeId: string; codigo: string; nombre: string; tipo: string },
-    );
+    const p = zCrearVehiculo.safeParse(req.body);
+    if (!p.success) return datosInvalidos(p.error.issues);
+    const r = await s.flota.crearVehiculo(ctx, sinIndefinidos(p.data));
     if (!r.ok) return rechazo(r.veredicto);
     return { status: 201, cuerpo: r.valor };
   }));
@@ -560,7 +591,13 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
       return reply.status(403).send({ error: { codigo: posible.motivo, mensaje: "Esta sesión no exporta informes" } });
     }
     const ctx = posible;
-    const q = (req.query ?? {}) as Record<string, string | undefined>;
+    // Fechas imposibles o parámetros repetidos respondían 500.
+    const filtro = zFiltroInforme.safeParse(req.query ?? {});
+    if (!filtro.success) {
+      const r = datosInvalidos(filtro.error.issues);
+      return reply.status(r.status).send(r.cuerpo);
+    }
+    const q = filtro.data;
 
     const r = await enTransaccion(op.pool, ctx, async (db) => ({
       confirmar: false,
@@ -592,13 +629,12 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
   // un 404 y quedaban apartadas: la marca nunca llegaba al servidor.
 
   app.post("/catalogo/marcas", operacion(async (s, ctx, req) => {
-    const cuerpo = (req.body ?? {}) as { id?: string; nombre?: string };
-    if (typeof cuerpo.nombre !== "string" || !cuerpo.nombre.trim()) {
-      return datosInvalidos([{ path: ["nombre"], message: "Falta el nombre de la marca" }]);
-    }
+    // creadaEnCampo se ignora aunque venga: lo decide el ROL (tarea 1.4).
+    const p = zCrearMarca.safeParse(req.body);
+    if (!p.success) return datosInvalidos(p.error.issues);
     const r = await s.catalogo.crearMarca(ctx, {
-      nombre: cuerpo.nombre,
-      ...(cuerpo.id ? { id: cuerpo.id } : {}),
+      nombre: p.data.nombre,
+      id: p.data.id,
       // El técnico ya decidió en el celular, donde vio las parecidas. Volver
       // a preguntarle desde el servidor no tiene a quién preguntarle: la
       // operación se envía cuando él ya no está mirando.
@@ -609,15 +645,13 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
   }));
 
   app.post("/catalogo/disenos", operacion(async (s, ctx, req) => {
-    const cuerpo = (req.body ?? {}) as { id?: string; marcaId?: string; nombre?: string; tipoEje?: string };
-    if (typeof cuerpo.marcaId !== "string" || typeof cuerpo.nombre !== "string" || !cuerpo.nombre.trim()) {
-      return datosInvalidos([{ path: ["nombre"], message: "Faltan la marca o el nombre del diseño" }]);
-    }
+    const p = zCrearDiseno.safeParse(req.body);
+    if (!p.success) return datosInvalidos(p.error.issues);
     const r = await s.catalogo.crearDiseno(ctx, {
-      marcaId: cuerpo.marcaId,
-      nombre: cuerpo.nombre,
-      ...(cuerpo.id ? { id: cuerpo.id } : {}),
-      ...(cuerpo.tipoEje ? { tipoEje: cuerpo.tipoEje } : {}),
+      marcaId: p.data.marcaId,
+      nombre: p.data.nombre,
+      id: p.data.id,
+      tipoEje: p.data.tipoEje,
       forzar: true,
     });
     if (!r.ok) return rechazo(r.veredicto);

@@ -157,6 +157,25 @@ export const zActualizarOrden = z.object({
 export type ActualizarOrden = z.infer<typeof zActualizarOrden>;
 
 /**
+ * Corrección de datos de la orden desde el celular: un COMANDO.
+ *
+ * No lleva `version`: las operaciones del dispositivo se validan con las
+ * reglas del negocio al aplicarse (tarea 5.4); exigirla haría chocar una
+ * jornada sin señal consigo misma. `zActualizarOrden` queda para la edición
+ * en línea, donde la persona decide sobre lo que vio.
+ *
+ * Antes la ruta no validaba nada: un cuerpo mal formado respondía 500 y el
+ * celular lo reintentaba para siempre.
+ */
+export const zComandoActualizarOrden = z.object({
+  kilometraje: zKilometraje.optional(),
+  hallazgos: zTextoLargo.optional(),
+  accion: zTextoLargo.optional(),
+  horasTrabajo: z.number().min(0).max(99).optional(),
+});
+export type ComandoActualizarOrden = z.infer<typeof zComandoActualizarOrden>;
+
+/**
  * Firma de quien recibe.
  *
  * `versionContenido` es la versión del CONTENIDO que la persona vio al
