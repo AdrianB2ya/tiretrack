@@ -2333,6 +2333,29 @@ ejecutado nunca en hardware. Cámara, almacenamiento seguro, SQLite y tamaños
 táctiles están validados con adaptadores en Node. Las pruebas dicen que la
 lógica es correcta; no dicen que la app abra.
 
+## Punto de retoma (2026-10-04)
+
+**Objetivo en curso:** ninguna tarea a medias. Lo documentado llega hasta la
+6.10 (empaquetado preparado); lo siguiente es **7.1, primer APK instalable**.
+Ojo: las casillas del "Plan de tareas" están desactualizadas (3.5 en adelante
+figura pendiente aunque está hecho y documentado arriba) y la numeración de
+las secciones ya no coincide con la del plan. Conviene reconciliarlas.
+
+**Verificado en esta máquina:** `npm run verify` sale con código 0:
+typecheck (paquetes, api, e2e, mobile), lint, y pruebas: raíz 421 pasan y
+**385 se saltan**; mobile 657 pasan. Las saltadas son las de PostgreSQL: aquí
+no hay base de pruebas. **No están verificadas localmente**; solo corren en CI.
+Nada se ha ejecutado aún en un teléfono.
+
+**Siguiente comando** (requiere cuenta de Expo y red, ver `COMPILAR.md`):
+
+```bash
+cd apps/mobile && eas login && eas build -p android --profile campo
+```
+
+Para cubrir las pruebas de base en local, antes: definir
+`DATABASE_URL_TEST`, `PRUEBAS_EXIGEN_BASE=1` y volver a correr `npm run verify`.
+
 ## Decisiones abiertas
 
 - **Señal de presencia en la orden** (propuesta del usuario): mostrar "Carlos
