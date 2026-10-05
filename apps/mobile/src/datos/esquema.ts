@@ -351,6 +351,35 @@ export const MIGRACIONES: readonly Migracion[] = [
       );
     `,
   },
+  {
+    version: 9,
+    nombre: "técnico por sede y sedes de la empresa",
+    sql: `
+      -- La clave era solo el id: un técnico en dos sedes chocaba al guardar
+      -- ("UNIQUE constraint failed"), y como la descarga es todo o nada, el
+      -- celular de un coordinador con dos sedes no descargaba nunca.
+      CREATE TABLE tecnico_nuevo (
+        id       TEXT NOT NULL,
+        nombre   TEXT NOT NULL,
+        sede_id  TEXT NOT NULL,
+        activo   INTEGER NOT NULL DEFAULT 1,
+        PRIMARY KEY (id, sede_id)
+      );
+      INSERT INTO tecnico_nuevo (id, nombre, sede_id, activo)
+        SELECT id, nombre, sede_id, activo FROM tecnico;
+      DROP TABLE tecnico;
+      ALTER TABLE tecnico_nuevo RENAME TO tecnico;
+      CREATE INDEX idx_tecnico_sede ON tecnico (sede_id);
+
+      -- Sedes de la empresa (FUN, VDP…): una orden nueva necesita la sede, y
+      -- la creada sin señal necesita su código para la referencia FUN-K7M2.
+      CREATE TABLE sede (
+        id      TEXT PRIMARY KEY,
+        nombre  TEXT NOT NULL,
+        codigo  TEXT NOT NULL
+      );
+    `,
+  },
 ];
 
 export const VERSION_ESQUEMA = MIGRACIONES[MIGRACIONES.length - 1]?.version ?? 0;

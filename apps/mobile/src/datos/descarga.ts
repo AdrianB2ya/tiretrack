@@ -1,4 +1,4 @@
-import type { OrdenDescargada, RepositorioLocal } from "./repositorio";
+import type { OrdenDescargada, RepositorioLocal, SedeLocal } from "./repositorio";
 
 /**
  * Descarga de datos al dispositivo.
@@ -42,6 +42,8 @@ export interface PaqueteDescargado {
     }[];
   }[];
   readonly tecnicos: { id: string; nombre: string; sedeId: string; activo: boolean }[];
+  /** Opcional: un servidor anterior no las manda, y no por eso falla la descarga. */
+  readonly sedes?: SedeLocal[];
 }
 
 export interface ClienteDescarga {
@@ -92,6 +94,7 @@ export class Descargador {
       });
       await this.repo.guardarFlota(paquete.flota);
       await this.repo.guardarTecnicos(paquete.tecnicos);
+      if (paquete.sedes) await this.repo.guardarSedes(paquete.sedes);
       for (const c of paquete.configuraciones) {
         await this.repo.guardarPosicionesEje(
           c.id,

@@ -51,6 +51,8 @@ export interface Paquete {
       psiObjetivo: number | null; profundidadMinima: number | null }[];
   }[];
   readonly tecnicos: { id: string; nombre: string; sedeId: string; activo: boolean }[];
+  /** Sedes de la empresa: la orden nueva las necesita, y su código arma la referencia sin señal. */
+  readonly sedes: { id: string; nombre: string; codigo: string }[];
 }
 
 export interface OrdenDescargada {
@@ -123,8 +125,9 @@ export class ServicioDescarga {
     const flota = await this.flota();
     const configuraciones = await this.configuraciones();
     const tecnicos = await this.tecnicos(ctx);
+    const sedes = await this.sedes();
 
-    return { hasta, incremental: Boolean(desde), ordenes, mediciones, catalogo, flota, configuraciones, tecnicos };
+    return { hasta, incremental: Boolean(desde), ordenes, mediciones, catalogo, flota, configuraciones, tecnicos, sedes };
   }
 
   /**
@@ -311,6 +314,9 @@ export class ServicioDescarga {
          FROM "Usuario" u
          JOIN "UsuarioSede" us ON us."usuarioId" = u.id
         WHERE us."sedeId" IN (SELECT "sedeId" FROM "UsuarioSede" WHERE "usuarioId" = $1)
+          -- Solo técnicos: antes venían todos los usuarios de la sede, y el
+          -- coordinador o el administrador aparecían como opción al reasignar.
+          AND u.rol::text = 'tecnico'
         ORDER BY u.nombre`,
       [ctx.usuarioId],
     );
@@ -318,6 +324,13 @@ export class ServicioDescarga {
       id: String(f["id"]), nombre: String(f["nombre"]),
       sedeId: String(f["sedeId"]), activo: Boolean(f["activo"]),
     }));
+  }
+
+  private async sedes(): Promise<Paquete["sedes"]> {
+    const r = await this.db.query<Record<string, unknown>>(
+      `SELECT id, nombre, codigo FROM "Sede" WHERE activa ORDER BY nombre`,
+    );
+    return r.rows.map((f) => ({ id: String(f["id"]), nombre: String(f["nombre"]), codigo: String(f["codigo"]) }));
   }
 }
 

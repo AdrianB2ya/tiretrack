@@ -139,6 +139,12 @@ export interface FotoLocal {
   readonly ultimoError: string | null;
 }
 
+export interface SedeLocal {
+  readonly id: string;
+  readonly nombre: string;
+  readonly codigo: string;
+}
+
 /** Foto como la muestra la galería. */
 export interface FotoEnGaleria {
   readonly id: string;
@@ -602,6 +608,23 @@ export class RepositorioLocal {
       sedeId: String(f["sede_id"]),
       activo: aBool(f["activo"]),
     }));
+  }
+
+  /** Sedes de la empresa. Catálogo: se reemplaza entero al descargar. */
+  async sedes(): Promise<SedeLocal[]> {
+    const filas = await this.db.consultar<Record<string, unknown>>(
+      `SELECT id, nombre, codigo FROM sede ORDER BY nombre`,
+    );
+    return filas.map((f) => ({ id: String(f["id"]), nombre: String(f["nombre"]), codigo: String(f["codigo"]) }));
+  }
+
+  async guardarSedes(sedes: readonly SedeLocal[]): Promise<void> {
+    await this.enTransaccion(async () => {
+      await this.db.ejecutar(`DELETE FROM sede`);
+      for (const s of sedes) {
+        await this.db.ejecutar(`INSERT INTO sede (id, nombre, codigo) VALUES (?,?,?)`, [s.id, s.nombre, s.codigo]);
+      }
+    });
   }
 
   async guardarTecnicos(tecnicos: readonly TecnicoLocal[]): Promise<void> {

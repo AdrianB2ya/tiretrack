@@ -94,6 +94,22 @@ describe.skipIf(!disponible)("descarga", () => {
     }
   });
 
+  it("los técnicos son solo técnicos, y las sedes viajan con su código", async () => {
+    // Venían todos los usuarios de la sede: el coordinador aparecía como
+    // técnico al reasignar.
+    await pool.query(`INSERT INTO "UsuarioSede" ("usuarioId","sedeId") VALUES ($1,$2)`, [SEMILLA.coordinador, SEMILLA.sede]);
+    const cliente = await pool.connect();
+    try {
+      const p = await new ServicioDescarga(cliente, () => new Date()).paquete(ctx as never);
+      const ids = p.tecnicos.map((t) => t.id);
+      expect(ids).toContain(SEMILLA.tecnico);
+      expect(ids).not.toContain(SEMILLA.coordinador);
+      expect(p.sedes.find((s) => s.id === SEMILLA.sede)?.codigo).toBeTruthy();
+    } finally {
+      cliente.release();
+    }
+  });
+
   it("arma el paquete sin consultas simultáneas sobre la misma conexión", async () => {
     const cliente = await pool.connect();
     try {

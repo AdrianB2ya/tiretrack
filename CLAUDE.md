@@ -2442,6 +2442,20 @@ Ahora hay una sola lista (`COLUMNAS_ORDEN`) con una prueba que la compara con
 lo que lee `aOrden`; la descarga usa `ON CONFLICT DO UPDATE` y el servidor
 manda el resumen de la firma, la acción y el código de referencia.
 
+### Técnicos por sede (migración 9)
+
+La tabla local `tecnico` tenía como clave solo el id: un técnico en dos
+sedes chocaba al guardarse, y como la descarga es todo o nada, **el celular
+de un coordinador con dos sedes no descargaba nunca**. Además el servidor
+mandaba como "técnicos" a todos los usuarios de la sede, coordinador y
+administrador incluidos, que aparecían como opción al reasignar.
+
+La migración 9 cambia la clave a `(id, sede_id)` y crea la tabla `sede`
+(sedes de la empresa con su código), que la descarga ahora trae: la orden
+nueva necesita la sede, y la creada sin señal, su código para la referencia.
+`sedes` es opcional en el paquete: un servidor anterior no la manda y la
+descarga no se cae por eso.
+
 ### Guardas nuevas
 
 - Cada pantalla construida está montada en alguna ruta (pasó tres veces:

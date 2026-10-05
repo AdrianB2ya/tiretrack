@@ -312,3 +312,35 @@ describe("cuando algo sale mal", () => {
     expect(servidor.desdes).toHaveLength(1);
   });
 });
+
+describe("técnicos y sedes de la empresa", () => {
+  it("un técnico en dos sedes se guarda en las dos, y la descarga no se cae", async () => {
+    // La clave era solo el id: el segundo registro chocaba, la descarga
+    // fallaba entera y el coordinador con dos sedes nunca recibía datos.
+    const r = await descargador.descargar(servidorCon(unPaquete({
+      tecnicos: [
+        { id: "u-tec1", nombre: "Carlos", sedeId: "sede-fun", activo: true },
+        { id: "u-tec1", nombre: "Carlos", sedeId: "sede-ct01", activo: true },
+      ],
+    })));
+    expect(r.sinConexion).toBe(false);
+    // La marca solo avanza si se aplicó todo: es la prueba de que no se cayó.
+    expect(await repo.marcaDeDescarga()).not.toBeNull();
+    expect((await repo.tecnicosDeSede("sede-fun")).map((t) => t.id)).toEqual(["u-tec1"]);
+    expect((await repo.tecnicosDeSede("sede-ct01")).map((t) => t.id)).toEqual(["u-tec1"]);
+  });
+
+  it("guarda las sedes de la empresa, con su código", async () => {
+    await descargador.descargar(servidorCon(unPaquete({
+      sedes: [{ id: "sede-fun", nombre: "Sede Fundación", codigo: "FUN" }],
+    })));
+    expect(await repo.sedes()).toEqual([{ id: "sede-fun", nombre: "Sede Fundación", codigo: "FUN" }]);
+  });
+
+  it("un servidor que no manda sedes no rompe la descarga", async () => {
+    const r = await descargador.descargar(servidorCon(unPaquete()));
+    expect(r.sinConexion).toBe(false);
+    // La marca solo avanza si se aplicó todo: es la prueba de que no se cayó.
+    expect(await repo.marcaDeDescarga()).not.toBeNull();
+  });
+});
