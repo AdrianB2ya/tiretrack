@@ -102,12 +102,14 @@ export class ServicioDescarga {
     const ordenes = await this.ordenesDe(ctx, desde);
     const mediciones = ordenes.length > 0 ? await this.medicionesDe(ordenes.map((o) => o.id)) : [];
 
-    const [catalogo, flota, configuraciones, tecnicos] = await Promise.all([
-      this.catalogo(),
-      this.flota(),
-      this.configuraciones(),
-      this.tecnicos(ctx),
-    ]);
+    // De a una, no en paralelo: todas van por la MISMA conexión de la
+    // transacción. pg las encolaba igual —sin ganar nada— y avisa que dejará
+    // de hacerlo; y si una fallaba, las demás seguían sobre una transacción
+    // ya abortada.
+    const catalogo = await this.catalogo();
+    const flota = await this.flota();
+    const configuraciones = await this.configuraciones();
+    const tecnicos = await this.tecnicos(ctx);
 
     return { hasta, incremental: Boolean(desde), ordenes, mediciones, catalogo, flota, configuraciones, tecnicos };
   }
@@ -197,20 +199,18 @@ export class ServicioDescarga {
   }
 
   private async catalogo(): Promise<Paquete["catalogo"]> {
-    const [marcas, disenos, medidas] = await Promise.all([
-      this.db.query<Record<string, unknown>>(
-        `SELECT id, nombre, "esGlobal" FROM "Marca" WHERE activa ORDER BY nombre`,
-      ),
-      this.db.query<Record<string, unknown>>(
-        `SELECT id, "marcaId", nombre, "tipoEje" FROM "Diseno" WHERE activo ORDER BY nombre`,
-      ),
-      this.db.query<Record<string, unknown>>(
+    const marcas = await this.db.query<Record<string, unknown>>(
+      `SELECT id, nombre, "esGlobal" FROM "Marca" WHERE activa ORDER BY nombre`,
+    );
+    const disenos = await this.db.query<Record<string, unknown>>(
+      `SELECT id, "marcaId", nombre, "tipoEje" FROM "Diseno" WHERE activo ORDER BY nombre`,
+    );
+    const medidas = await this.db.query<Record<string, unknown>>(
         // La tabla es "DisenoMedida", no "Medida": una medida pertenece a un
         // diseño. Esta consulta decía "Medida" y habría fallado en el primer
         // intento de descarga en producción.
         `SELECT id, "disenoId", medida, "profundidadOriginal" FROM "DisenoMedida" ORDER BY medida`,
-      ),
-    ]);
+    );
     return {
       marcas: marcas.rows.map((f) => ({
         id: String(f["id"]), nombre: String(f["nombre"]), esGlobal: Boolean(f["esGlobal"]),
@@ -227,14 +227,12 @@ export class ServicioDescarga {
   }
 
   private async flota(): Promise<Paquete["flota"]> {
-    const [clientes, sedes, vehiculos] = await Promise.all([
-      this.db.query<Record<string, unknown>>(`SELECT id, nombre, nit FROM "Cliente" ORDER BY nombre`),
-      this.db.query<Record<string, unknown>>(`SELECT id, "clienteId", nombre FROM "SedeCliente"`),
-      this.db.query<Record<string, unknown>>(
-        `SELECT id, "sedeClienteId", "configuracionEjeId", codigo, placa, nombre, "kmActual"
-           FROM "Vehiculo"`,
-      ),
-    ]);
+    const clientes = await this.db.query<Record<string, unknown>>(`SELECT id, nombre, nit FROM "Cliente" ORDER BY nombre`);
+    const sedes = await this.db.query<Record<string, unknown>>(`SELECT id, "clienteId", nombre FROM "SedeCliente"`);
+    const vehiculos = await this.db.query<Record<string, unknown>>(
+      `SELECT id, "sedeClienteId", "configuracionEjeId", codigo, placa, nombre, "kmActual"
+         FROM "Vehiculo"`,
+    );
     return {
       clientes: clientes.rows.map((f) => ({
         id: String(f["id"]), nombre: String(f["nombre"]), nit: (f["nit"] as string) ?? null,
