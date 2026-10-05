@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { abrirBaseEnMemoria } from "../datos/conexion";
+import { abrirBaseEnMemoria } from "../datos/conexionNode";
 import { migrar, type Conexion } from "../datos/base";
 import { RepositorioLocal } from "../datos/repositorio";
 import { AlmacenSeguroMemoria, CLAVES } from "../sesion/almacen";

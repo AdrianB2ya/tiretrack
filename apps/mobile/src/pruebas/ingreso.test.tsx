@@ -4,7 +4,7 @@ import { ingresar, revisarFormulario, validarCorreo } from "../sesion/ingreso";
 import { PantallaIngreso } from "../sesion/PantallaIngreso";
 import { ServicioSesion, type UsuarioSesion } from "../sesion/servicio";
 import { AlmacenSeguroMemoria } from "../sesion/almacen";
-import { abrirBaseEnMemoria } from "../datos/conexion";
+import { abrirBaseEnMemoria } from "../datos/conexionNode";
 import { migrar, type Conexion } from "../datos/base";
 import { RepositorioLocal } from "../datos/repositorio";
 

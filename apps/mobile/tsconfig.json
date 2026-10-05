@@ -5,11 +5,21 @@
     "noEmit": true,
     "composite": false,
     "jsx": "react-jsx",
-    "lib": ["ES2022", "DOM"],
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "allowJs": true
   },
-  "include": ["src/**/*", "app/**/*"]
+  "include": [
+    "src/**/*",
+    "app/**/*",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ]
 }

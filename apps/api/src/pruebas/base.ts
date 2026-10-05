@@ -196,9 +196,15 @@ export class BaseDePruebas {
     this.admin = new pg.Client({ connectionString: URL_PRUEBAS });
     await this.admin.connect();
 
-    await this.crearEsquema();
-    await this.aplicarRestricciones();
-    await this.aplicarRLS();
+    // Toda la preparación va bajo el bloqueo global, no solo el rls.sql: esto
+    // trabaja sobre `public` —lo borra y lo recrea— y rol-acceso concede
+    // permisos sobre `public` al mismo tiempo. Con el bloqueo solo en el RLS,
+    // el DROP SCHEMA chocaba con ese GRANT ("tuple concurrently deleted").
+    await conBloqueoGlobal(this.admin, async () => {
+      await this.crearEsquema();
+      await this.aplicarRestricciones();
+      await this.aplicarRLS();
+    });
     await this.sembrarDosEmpresas();
 
     // La aplicación se conecta con un rol distinto al dueño: sin eso, FORCE
@@ -398,18 +404,17 @@ export class BaseDePruebas {
     //
     // Se toleran solo los errores de "no existe": el esquema de pruebas es
     // reducido y no tiene todas las tablas del esquema real.
-    await conBloqueoGlobal(this.admin, async () => {
-      for (const sentencia of dividirSQL(sql)) {
-        try {
-          await this.admin.query(sentencia);
-        } catch (e) {
-          const msg = (e as Error).message;
-          if (!/does not exist|no existe/i.test(msg)) {
-            throw new Error(`Falló al aplicar RLS: ${msg}\n--- sentencia ---\n${sentencia.slice(0, 300)}`);
-          }
+    // Corre dentro del bloqueo global que toma iniciar().
+    for (const sentencia of dividirSQL(sql)) {
+      try {
+        await this.admin.query(sentencia);
+      } catch (e) {
+        const msg = (e as Error).message;
+        if (!/does not exist|no existe/i.test(msg)) {
+          throw new Error(`Falló al aplicar RLS: ${msg}\n--- sentencia ---\n${sentencia.slice(0, 300)}`);
         }
       }
-    });
+    }
 
     await this.verificarRLSActivo();
   }

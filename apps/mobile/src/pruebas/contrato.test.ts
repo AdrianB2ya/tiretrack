@@ -8,7 +8,7 @@ import {
   zReasignar,
 } from "@tiretrack/contracts";
 import { nuevoId } from "@tiretrack/domain";
-import { abrirBaseEnMemoria } from "../datos/conexion";
+import { abrirBaseEnMemoria } from "../datos/conexionNode";
 import { migrar, type Conexion } from "../datos/base";
 import { RepositorioLocal } from "../datos/repositorio";
 

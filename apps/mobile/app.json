@@ -20,7 +20,7 @@
       }
     },
     "plugins": [
-      "expo-router",
+      ["expo-router", { "root": "./app" }],
       [
         "expo-image-picker",
         {

@@ -10,7 +10,7 @@ import type { Claims } from "../apps/api/src/acceso/servicio";
 import type { Almacenamiento } from "../apps/api/src/fotos/almacenamiento";
 
 // El cliente REAL del celular
-import { abrirBaseEnMemoria } from "../apps/mobile/src/datos/conexion";
+import { abrirBaseEnMemoria } from "../apps/mobile/src/datos/conexionNode";
 import { migrar, type Conexion } from "../apps/mobile/src/datos/base";
 import { RepositorioLocal } from "../apps/mobile/src/datos/repositorio";
 import { ClienteHttp } from "../apps/mobile/src/datos/clienteHttp";

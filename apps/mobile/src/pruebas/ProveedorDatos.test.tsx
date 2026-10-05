@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, act, waitFor } from "@testing-library/react";
 import { Text } from "react-native";
-import { abrirBaseEnMemoria } from "../datos/conexion";
+import { abrirBaseEnMemoria } from "../datos/conexionNode";
 import { migrar, type Conexion } from "../datos/base";
 import { RepositorioLocal } from "../datos/repositorio";
 import { MotorSincronizacion, type ClienteSincronizacion } from "../datos/sincronizacion";
