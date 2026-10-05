@@ -73,13 +73,13 @@ describe.skipIf(!disponible)("autenticación", () => {
 
     await db.query(
       `INSERT INTO "Usuario" (id, "empresaId", nombre, cedula, email, "passwordHash", rol)
-       VALUES ('u-tec', $1, 'Carlos', '108', 'carlos@aistectire.com', $2, 'tecnico')`,
+       VALUES ('u-tec', $1, 'Carlos', '108', 'carlos@asistectire.com', $2, 'tecnico')`,
       [EMP_A, hash],
     );
     await db.query(
       `INSERT INTO "Usuario" (id, "empresaId", nombre, cedula, email, "passwordHash", rol,
                               "dobleFactorActivo", "dobleFactorSecreto")
-       VALUES ('u-adm', $1, 'Marcela', '521', 'marcela@aistectire.com', $2, 'administrador', true, $3)`,
+       VALUES ('u-adm', $1, 'Marcela', '521', 'marcela@asistectire.com', $2, 'administrador', true, $3)`,
       [EMP_A, hash, generateSecret()],
     );
     // La misma persona trabaja para dos empresas: el correo se repite
@@ -97,7 +97,7 @@ describe.skipIf(!disponible)("autenticación", () => {
 
   describe("login", () => {
     it("deja entrar con credenciales correctas", async () => {
-      const r = await servicio.login({ email: "carlos@aistectire.com", password: PASSWORD });
+      const r = await servicio.login({ email: "carlos@asistectire.com", password: PASSWORD });
       expect(r.tipo).toBe("ok");
       if (r.tipo !== "ok") return;
       expect(r.usuario.id).toBe("u-tec");
@@ -105,7 +105,7 @@ describe.skipIf(!disponible)("autenticación", () => {
     });
 
     it("el token lleva empresa y rol para que RLS pueda usarlos", async () => {
-      const r = await servicio.login({ email: "carlos@aistectire.com", password: PASSWORD });
+      const r = await servicio.login({ email: "carlos@asistectire.com", password: PASSWORD });
       if (r.tipo !== "ok") throw new Error("debió entrar");
       const claims = servicio.verificarToken(r.token);
       expect(claims?.sub).toBe("u-tec");
@@ -114,7 +114,7 @@ describe.skipIf(!disponible)("autenticación", () => {
     });
 
     it("rechaza una contraseña incorrecta", async () => {
-      const r = await servicio.login({ email: "carlos@aistectire.com", password: "Incorrecta1" });
+      const r = await servicio.login({ email: "carlos@asistectire.com", password: "Incorrecta1" });
       expect(r.tipo).toBe("error");
       if (r.tipo !== "error") return;
       expect(r.veredicto.codigo).toBe("CREDENCIALES_INVALIDAS");
@@ -124,7 +124,7 @@ describe.skipIf(!disponible)("autenticación", () => {
       // Distinguirlos permitiría averiguar qué correos están registrados.
       const inexistente = await servicio.login({ email: "nadie@x.com", password: PASSWORD });
       const malaPassword = await servicio.login({
-        email: "carlos@aistectire.com",
+        email: "carlos@asistectire.com",
         password: "Mala1234567",
       });
       if (inexistente.tipo !== "error" || malaPassword.tipo !== "error") throw new Error();
@@ -134,7 +134,7 @@ describe.skipIf(!disponible)("autenticación", () => {
 
     it("no entra un usuario desactivado", async () => {
       await db.query(`UPDATE "Usuario" SET activo = false WHERE id = 'u-tec'`);
-      const r = await servicio.login({ email: "carlos@aistectire.com", password: PASSWORD });
+      const r = await servicio.login({ email: "carlos@asistectire.com", password: PASSWORD });
       if (r.tipo !== "error") throw new Error();
       expect(r.veredicto.codigo).toBe("CREDENCIALES_INVALIDAS");
     });
@@ -179,7 +179,7 @@ describe.skipIf(!disponible)("autenticación", () => {
   describe("bloqueo por intentos fallidos", () => {
     it("bloquea tras cinco intentos y persiste entre peticiones", async () => {
       for (let i = 0; i < 5; i++) {
-        await servicio.login({ email: "carlos@aistectire.com", password: "Mala1234567" });
+        await servicio.login({ email: "carlos@asistectire.com", password: "Mala1234567" });
       }
       const r = await db.query(
         `SELECT "intentosFallidos", "bloqueadoHasta" FROM "Usuario" WHERE id = 'u-tec'`,
@@ -189,7 +189,7 @@ describe.skipIf(!disponible)("autenticación", () => {
 
       // Ni con la contraseña correcta
       const conCorrecta = await servicio.login({
-        email: "carlos@aistectire.com",
+        email: "carlos@asistectire.com",
         password: PASSWORD,
       });
       if (conCorrecta.tipo !== "error") throw new Error();
@@ -198,23 +198,23 @@ describe.skipIf(!disponible)("autenticación", () => {
 
     it("el bloqueo caduca solo", async () => {
       for (let i = 0; i < 5; i++) {
-        await servicio.login({ email: "carlos@aistectire.com", password: "Mala1234567" });
+        await servicio.login({ email: "carlos@asistectire.com", password: "Mala1234567" });
       }
       reloj = new Date("2026-09-14T10:20:00.000Z"); // 20 minutos después
-      const r = await servicio.login({ email: "carlos@aistectire.com", password: PASSWORD });
+      const r = await servicio.login({ email: "carlos@asistectire.com", password: PASSWORD });
       expect(r.tipo).toBe("ok");
     });
 
     it("un acceso correcto limpia el contador", async () => {
-      await servicio.login({ email: "carlos@aistectire.com", password: "Mala1234567" });
-      await servicio.login({ email: "carlos@aistectire.com", password: PASSWORD });
+      await servicio.login({ email: "carlos@asistectire.com", password: "Mala1234567" });
+      await servicio.login({ email: "carlos@asistectire.com", password: PASSWORD });
       const r = await db.query(`SELECT "intentosFallidos" FROM "Usuario" WHERE id = 'u-tec'`);
       expect(r.rows[0].intentosFallidos).toBe(0);
     });
 
     it("queda registrado en auditoría", async () => {
-      await servicio.login({ email: "carlos@aistectire.com", password: "Mala1234567" });
-      await servicio.login({ email: "carlos@aistectire.com", password: PASSWORD });
+      await servicio.login({ email: "carlos@asistectire.com", password: "Mala1234567" });
+      await servicio.login({ email: "carlos@asistectire.com", password: PASSWORD });
       const r = await db.query(`SELECT accion FROM "Auditoria" ORDER BY "creadoEn"`);
       const acciones = r.rows.map((x) => x.accion);
       expect(acciones).toContain("login_fallido");
@@ -224,7 +224,7 @@ describe.skipIf(!disponible)("autenticación", () => {
 
   describe("doble factor", () => {
     it("el administrador no entra sin código", async () => {
-      const r = await servicio.login({ email: "marcela@aistectire.com", password: PASSWORD });
+      const r = await servicio.login({ email: "marcela@asistectire.com", password: PASSWORD });
       if (r.tipo !== "error") throw new Error();
       expect(r.veredicto.codigo).toBe("REQUIERE_2FA");
     });
@@ -232,7 +232,7 @@ describe.skipIf(!disponible)("autenticación", () => {
     it("pedir el segundo factor no cuenta como intento fallido", async () => {
       // Si contara, abrir el diálogo de 2FA cinco veces bloquearía la cuenta.
       for (let i = 0; i < 5; i++) {
-        await servicio.login({ email: "marcela@aistectire.com", password: PASSWORD });
+        await servicio.login({ email: "marcela@asistectire.com", password: PASSWORD });
       }
       const r = await db.query(`SELECT "intentosFallidos" FROM "Usuario" WHERE id = 'u-adm'`);
       expect(r.rows[0].intentosFallidos).toBe(0);
@@ -240,7 +240,7 @@ describe.skipIf(!disponible)("autenticación", () => {
 
     it("un código incorrecto sí cuenta como intento fallido", async () => {
       await servicio.login({
-        email: "marcela@aistectire.com",
+        email: "marcela@asistectire.com",
         password: PASSWORD,
         codigo2fa: "000000",
       });
@@ -253,7 +253,7 @@ describe.skipIf(!disponible)("autenticación", () => {
       async (_caso, codigo) => {
         // La librería LANZA con un código que no son 6 dígitos: sin validar
         // antes, el login respondía 500 "se reintentará" y no contaba el intento.
-        const r = await servicio.login({ email: "marcela@aistectire.com", password: PASSWORD, codigo2fa: codigo });
+        const r = await servicio.login({ email: "marcela@asistectire.com", password: PASSWORD, codigo2fa: codigo });
         expect(r.tipo).toBe("error");
         const f = await db.query(`SELECT "intentosFallidos" FROM "Usuario" WHERE id = 'u-adm'`);
         expect(f.rows[0].intentosFallidos).toBe(1);
@@ -264,7 +264,7 @@ describe.skipIf(!disponible)("autenticación", () => {
       const s = await db.query(`SELECT "dobleFactorSecreto" FROM "Usuario" WHERE id = 'u-adm'`);
       const codigo = generateSync({ secret: s.rows[0].dobleFactorSecreto });
       const r = await servicio.login({
-        email: "marcela@aistectire.com",
+        email: "marcela@asistectire.com",
         password: PASSWORD,
         codigo2fa: codigo,
       });
@@ -274,7 +274,7 @@ describe.skipIf(!disponible)("autenticación", () => {
 
   describe("refresco de sesión", () => {
     it("el refresh se guarda hasheado, nunca en claro", async () => {
-      const r = await servicio.login({ email: "carlos@aistectire.com", password: PASSWORD });
+      const r = await servicio.login({ email: "carlos@asistectire.com", password: PASSWORD });
       if (r.tipo !== "ok") throw new Error();
 
       const fila = await db.query(`SELECT "refreshHash" FROM "SesionUsuario"`);
@@ -283,7 +283,7 @@ describe.skipIf(!disponible)("autenticación", () => {
     });
 
     it("entrega un token nuevo y revoca el anterior", async () => {
-      const login = await servicio.login({ email: "carlos@aistectire.com", password: PASSWORD });
+      const login = await servicio.login({ email: "carlos@asistectire.com", password: PASSWORD });
       if (login.tipo !== "ok") throw new Error();
 
       const refrescado = await servicio.refrescar(login.refreshToken);
@@ -303,7 +303,7 @@ describe.skipIf(!disponible)("autenticación", () => {
     });
 
     it("no refresca si el usuario fue desactivado", async () => {
-      const login = await servicio.login({ email: "carlos@aistectire.com", password: PASSWORD });
+      const login = await servicio.login({ email: "carlos@asistectire.com", password: PASSWORD });
       if (login.tipo !== "ok") throw new Error();
       await db.query(`UPDATE "Usuario" SET activo = false WHERE id = 'u-tec'`);
       const r = await servicio.refrescar(login.refreshToken);
@@ -313,7 +313,7 @@ describe.skipIf(!disponible)("autenticación", () => {
 
   describe("recuperación de contraseña", () => {
     it("el token se guarda hasheado", async () => {
-      const { tokenEnClaro } = await servicio.solicitarRecuperacion("carlos@aistectire.com");
+      const { tokenEnClaro } = await servicio.solicitarRecuperacion("carlos@asistectire.com");
       expect(tokenEnClaro).not.toBeNull();
       const r = await db.query(`SELECT "tokenHash" FROM "TokenRecuperacion"`);
       expect(r.rows[0].tokenHash).toBe(hashear(tokenEnClaro as string));
@@ -327,43 +327,43 @@ describe.skipIf(!disponible)("autenticación", () => {
     });
 
     it("restablece y permite entrar con la nueva", async () => {
-      const { tokenEnClaro } = await servicio.solicitarRecuperacion("carlos@aistectire.com");
+      const { tokenEnClaro } = await servicio.solicitarRecuperacion("carlos@asistectire.com");
       const v = await servicio.restablecerPassword(tokenEnClaro as string, "NuevaClave2026");
       expect(v.permitido).toBe(true);
 
       const r = await servicio.login({
-        email: "carlos@aistectire.com",
+        email: "carlos@asistectire.com",
         password: "NuevaClave2026",
       });
       expect(r.tipo).toBe("ok");
     });
 
     it("el token sirve una sola vez", async () => {
-      const { tokenEnClaro } = await servicio.solicitarRecuperacion("carlos@aistectire.com");
+      const { tokenEnClaro } = await servicio.solicitarRecuperacion("carlos@asistectire.com");
       await servicio.restablecerPassword(tokenEnClaro as string, "NuevaClave2026");
       const segunda = await servicio.restablecerPassword(tokenEnClaro as string, "OtraClave2026");
       expect(segunda.codigo).toBe("TOKEN_USADO");
     });
 
     it("caduca a los treinta minutos", async () => {
-      const { tokenEnClaro } = await servicio.solicitarRecuperacion("carlos@aistectire.com");
+      const { tokenEnClaro } = await servicio.solicitarRecuperacion("carlos@asistectire.com");
       reloj = new Date("2026-09-14T10:31:00.000Z");
       const v = await servicio.restablecerPassword(tokenEnClaro as string, "NuevaClave2026");
       expect(v.codigo).toBe("TOKEN_EXPIRADO");
     });
 
     it("rechaza una contraseña débil", async () => {
-      const { tokenEnClaro } = await servicio.solicitarRecuperacion("carlos@aistectire.com");
+      const { tokenEnClaro } = await servicio.solicitarRecuperacion("carlos@asistectire.com");
       const v = await servicio.restablecerPassword(tokenEnClaro as string, "corta");
       expect(v.permitido).toBe(false);
     });
 
     it("cambiar la contraseña expulsa las sesiones abiertas", async () => {
       // Si alguien tomó la cuenta, debe quedar fuera de inmediato.
-      const login = await servicio.login({ email: "carlos@aistectire.com", password: PASSWORD });
+      const login = await servicio.login({ email: "carlos@asistectire.com", password: PASSWORD });
       if (login.tipo !== "ok") throw new Error();
 
-      const { tokenEnClaro } = await servicio.solicitarRecuperacion("carlos@aistectire.com");
+      const { tokenEnClaro } = await servicio.solicitarRecuperacion("carlos@asistectire.com");
       await servicio.restablecerPassword(tokenEnClaro as string, "NuevaClave2026");
 
       const r = await servicio.refrescar(login.refreshToken);
@@ -372,13 +372,13 @@ describe.skipIf(!disponible)("autenticación", () => {
 
     it("también limpia el bloqueo por intentos", async () => {
       for (let i = 0; i < 5; i++) {
-        await servicio.login({ email: "carlos@aistectire.com", password: "Mala1234567" });
+        await servicio.login({ email: "carlos@asistectire.com", password: "Mala1234567" });
       }
-      const { tokenEnClaro } = await servicio.solicitarRecuperacion("carlos@aistectire.com");
+      const { tokenEnClaro } = await servicio.solicitarRecuperacion("carlos@asistectire.com");
       await servicio.restablecerPassword(tokenEnClaro as string, "NuevaClave2026");
 
       const r = await servicio.login({
-        email: "carlos@aistectire.com",
+        email: "carlos@asistectire.com",
         password: "NuevaClave2026",
       });
       expect(r.tipo).toBe("ok");
@@ -388,13 +388,13 @@ describe.skipIf(!disponible)("autenticación", () => {
   describe("verificación de token", () => {
     it("rechaza uno firmado con otro secreto", async () => {
       const otro = new ServicioAuth(repo, { jwtSecret: "secreto-distinto" }, () => reloj);
-      const r = await otro.login({ email: "carlos@aistectire.com", password: PASSWORD });
+      const r = await otro.login({ email: "carlos@asistectire.com", password: PASSWORD });
       if (r.tipo !== "ok") throw new Error();
       expect(servicio.verificarToken(r.token)).toBeNull();
     });
 
     it("rechaza uno manipulado", async () => {
-      const r = await servicio.login({ email: "carlos@aistectire.com", password: PASSWORD });
+      const r = await servicio.login({ email: "carlos@asistectire.com", password: PASSWORD });
       if (r.tipo !== "ok") throw new Error();
       const partes = r.token.split(".");
       const alterado = `${partes[0]}.${partes[1]}.firmaFalsa`;

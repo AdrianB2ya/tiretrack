@@ -221,10 +221,10 @@ async function main() {
 
   // ── Usuarios. El técnico rota entre sedes ─────────────────────────────────
   const usuarios = [
-    { id: "usr-admin", nombre: "Marcela Ospina", cedula: "52114876", email: "marcela@aistectire.com", rol: "administrador" as const, sedes: ["sede-fun", "sede-vdp", "sede-ct01"], principal: "sede-fun" },
-    { id: "usr-coord", nombre: "Jorge Ramírez", cedula: "79445201", email: "jorge@aistectire.com", rol: "coordinador" as const, sedes: ["sede-fun", "sede-ct01"], principal: "sede-fun" },
-    { id: "usr-tec1", nombre: "Carlos Méndez", cedula: "1082334556", email: "carlos@aistectire.com", rol: "tecnico" as const, sedes: ["sede-fun", "sede-ct01"], principal: "sede-fun" },
-    { id: "usr-tec2", nombre: "Ana Torres", cedula: "1065221980", email: "ana@aistectire.com", rol: "tecnico" as const, sedes: ["sede-vdp"], principal: "sede-vdp" },
+    { id: "usr-admin", nombre: "Marcela Ospina", cedula: "52114876", email: "marcela@asistectire.com", rol: "administrador" as const, sedes: ["sede-fun", "sede-vdp", "sede-ct01"], principal: "sede-fun" },
+    { id: "usr-coord", nombre: "Jorge Ramírez", cedula: "79445201", email: "jorge@asistectire.com", rol: "coordinador" as const, sedes: ["sede-fun", "sede-ct01"], principal: "sede-fun" },
+    { id: "usr-tec1", nombre: "Carlos Méndez", cedula: "1082334556", email: "carlos@asistectire.com", rol: "tecnico" as const, sedes: ["sede-fun", "sede-ct01"], principal: "sede-fun" },
+    { id: "usr-tec2", nombre: "Ana Torres", cedula: "1065221980", email: "ana@asistectire.com", rol: "tecnico" as const, sedes: ["sede-vdp"], principal: "sede-vdp" },
   ];
   for (const u of usuarios) {
     await prisma.usuario.upsert({

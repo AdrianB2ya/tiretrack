@@ -20,7 +20,7 @@ let repo: RepositorioLocal;
 const tecnico: UsuarioSesion = {
   id: "u-tec1",
   nombre: "Carlos Méndez",
-  email: "carlos@aistectire.com",
+  email: "carlos@asistectire.com",
   rol: "tecnico",
   empresaId: "emp-1",
   clienteId: null,

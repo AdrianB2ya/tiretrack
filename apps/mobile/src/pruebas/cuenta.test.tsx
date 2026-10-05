@@ -24,7 +24,7 @@ import { BarraSesion } from "../sesion/BarraSesion";
 const carlos: UsuarioSesion = {
   id: "u-tec1",
   nombre: "Carlos Méndez",
-  email: "carlos@aistectire.com",
+  email: "carlos@asistectire.com",
   rol: "tecnico",
   empresaId: "emp-1",
   clienteId: null,
@@ -185,7 +185,7 @@ describe("pantalla de cuenta", () => {
     // En un carro taller la tablet se comparte.
     montar();
     expect(screen.getByText("Carlos Méndez")).toBeTruthy();
-    expect(screen.getByText("carlos@aistectire.com")).toBeTruthy();
+    expect(screen.getByText("carlos@asistectire.com")).toBeTruthy();
     expect(screen.getByText(ETIQUETA_ROL.tecnico)).toBeTruthy();
   });
 

@@ -100,9 +100,9 @@ export async function sembrar(db: pg.Client | pg.Pool): Promise<void> {
   );
   await db.query(
     `INSERT INTO "Usuario" (id,"empresaId",nombre,cedula,email,"passwordHash",rol) VALUES
-       ($1,$4,'Carlos Méndez','1001','carlos@aistectire.com','x','tecnico'),
-       ($2,$4,'Ana Torres','1002','ana@aistectire.com','x','tecnico'),
-       ($3,$4,'Jorge Ramírez','1003','jorge@aistectire.com','x','coordinador')`,
+       ($1,$4,'Carlos Méndez','1001','carlos@asistectire.com','x','tecnico'),
+       ($2,$4,'Ana Torres','1002','ana@asistectire.com','x','tecnico'),
+       ($3,$4,'Jorge Ramírez','1003','jorge@asistectire.com','x','coordinador')`,
     [s.tecnico, s.otroTecnico, s.coordinador, s.empresa],
   );
   await db.query(`INSERT INTO "UsuarioSede" ("usuarioId","sedeId") VALUES ($1,$3), ($2,$3)`,
@@ -162,7 +162,7 @@ const USUARIO_COMPLETO = {
   empresaId: SEMILLA.empresa,
   clienteId: null,
   nombre: "Carlos Méndez",
-  email: "carlos@aistectire.com",
+  email: "carlos@asistectire.com",
   passwordHash: "$2b$12$hashsecretoquenodebesalir",
   rol: "tecnico",
   activo: true,

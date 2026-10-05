@@ -17,7 +17,7 @@ import { RepositorioLocal } from "../datos/repositorio";
 
 describe("validación del formulario", () => {
   it("acepta un correo normal", () => {
-    expect(validarCorreo("carlos@aistectire.com")).toBe(true);
+    expect(validarCorreo("carlos@asistectire.com")).toBe(true);
   });
 
   it("rechaza lo que claramente no es un correo", () => {
@@ -60,7 +60,7 @@ describe("llamada al servidor", () => {
     const { fetchFalso, config } = clienteCon(200, { token: "t", refreshToken: "r", usuario: {} });
     await ingresar(config, credenciales);
     const cuerpo = JSON.parse((fetchFalso.mock.calls[0]?.[1] as RequestInit).body as string);
-    expect(cuerpo.email).toBe("carlos@aistectire.com");
+    expect(cuerpo.email).toBe("carlos@asistectire.com");
   });
 
   it("no toca la contraseña", async () => {
@@ -202,11 +202,11 @@ describe("pantalla", () => {
 
   it("entra con correo y contraseña", async () => {
     const { onIngresar } = montar();
-    escribir("Correo", "carlos@aistectire.com");
+    escribir("Correo", "carlos@asistectire.com");
     escribir("Contraseña", "clave");
     fireEvent.click(screen.getByTestId("entrar"));
     await waitFor(() =>
-      expect(onIngresar).toHaveBeenCalledWith({ email: "carlos@aistectire.com", password: "clave" }),
+      expect(onIngresar).toHaveBeenCalledWith({ email: "carlos@asistectire.com", password: "clave" }),
     );
   });
 

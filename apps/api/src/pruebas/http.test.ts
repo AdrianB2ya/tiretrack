@@ -148,7 +148,7 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
       app.inject({ method: "POST", url: "/auth/ingresar", headers: { "content-type": "application/json" }, payload: JSON.stringify(cuerpo) });
 
     it("entrega los tokens con credenciales correctas", async () => {
-      const r = await ingresar({ email: "carlos@aistectire.com", password: "correcta" });
+      const r = await ingresar({ email: "carlos@asistectire.com", password: "correcta" });
       expect(r.statusCode).toBe(200);
       expect(r.json().token).toBeTruthy();
       expect(r.json().refreshToken).toBeTruthy();
@@ -157,22 +157,22 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
     it("NO envía el hash de la contraseña", async () => {
       // El servicio devuelve el usuario completo. Enviarlo entero expondría
       // el hash a todo cliente, y quedaría en registros y cachés.
-      const r = await ingresar({ email: "carlos@aistectire.com", password: "correcta" });
+      const r = await ingresar({ email: "carlos@asistectire.com", password: "correcta" });
       expect(r.body).not.toContain("hashsecreto");
       expect(r.json().usuario.passwordHash).toBeUndefined();
       expect(r.json().usuario.intentosFallidos).toBeUndefined();
     });
 
     it("envía lo que la app necesita para saber quién entró", async () => {
-      const u = (await ingresar({ email: "carlos@aistectire.com", password: "correcta" })).json().usuario;
+      const u = (await ingresar({ email: "carlos@asistectire.com", password: "correcta" })).json().usuario;
       expect(u).toEqual({
-        id: SEMILLA.tecnico, nombre: "Carlos Méndez", email: "carlos@aistectire.com",
+        id: SEMILLA.tecnico, nombre: "Carlos Méndez", email: "carlos@asistectire.com",
         rol: "tecnico", empresaId: SEMILLA.empresa, clienteId: null,
       });
     });
 
     it("con credenciales incorrectas responde 401 sin decir qué falló", async () => {
-      const r = await ingresar({ email: "carlos@aistectire.com", password: "mala" });
+      const r = await ingresar({ email: "carlos@asistectire.com", password: "mala" });
       expect(r.statusCode).toBe(401);
       expect(r.body).not.toMatch(/existe|contraseña incorrecta para/i);
     });
@@ -193,11 +193,11 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
       });
       await espia.inject({
         method: "POST", url: "/auth/ingresar", headers: { "content-type": "application/json" },
-        payload: JSON.stringify({ email: "marcela@aistectire.com", password: "correcta", empresaId: SEMILLA.empresa, codigo2fa: "123456" }),
+        payload: JSON.stringify({ email: "marcela@asistectire.com", password: "correcta", empresaId: SEMILLA.empresa, codigo2fa: "123456" }),
       });
       await espia.close();
       expect(recibido[0]).toMatchObject({
-        email: "marcela@aistectire.com", password: "correcta", empresaId: SEMILLA.empresa, codigo2fa: "123456",
+        email: "marcela@asistectire.com", password: "correcta", empresaId: SEMILLA.empresa, codigo2fa: "123456",
       });
     });
 
@@ -234,7 +234,7 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
 
     it("ingresar no exige clave de idempotencia", async () => {
       // No es una operación de la cola: repetirlo devuelve una sesión nueva.
-      const r = await ingresar({ email: "carlos@aistectire.com", password: "correcta" });
+      const r = await ingresar({ email: "carlos@asistectire.com", password: "correcta" });
       expect(r.statusCode).not.toBe(400);
     });
   });

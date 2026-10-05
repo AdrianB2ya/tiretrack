@@ -27,7 +27,7 @@ import type { ServicioSesion, UsuarioSesion } from "../sesion/servicio";
 const usuario = (rol: UsuarioSesion["rol"]): UsuarioSesion => ({
   id: `u-${rol}`,
   nombre: "Jorge Ramírez",
-  email: "jorge@aistectire.com",
+  email: "jorge@asistectire.com",
   rol,
   empresaId: "emp-1",
   clienteId: null,
