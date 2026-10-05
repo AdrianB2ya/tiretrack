@@ -240,15 +240,19 @@ Estado: `[x]` hecha · `[ ]` pendiente
 - [x] 3.2 Detalle de orden
 - [x] 3.3 Diagrama según configuración de ejes
 - [x] 3.4 Editor de posición a pantalla completa
-- [ ] 3.5 Cámara con compresión
-- [ ] 3.6 Firma
-- [ ] 3.7 Envío a revisión sin conexión
+- [x] 3.5 Cámara con compresión (lógica, subida y `GaleriaFotos`; **sin ruta que la monte**)
+- [x] 3.6 Firma (`CapturaFirma`; **sin ruta que la monte**)
+- [x] 3.7 Envío a revisión sin conexión
 
 ### Fase 4 · Coordinador
-- [ ] 4.1 Nueva orden en cascada
-- [ ] 4.2 Bandeja de aprobación
-- [ ] 4.3 Devolución y reasignación
-- [ ] 4.4 Programación recurrente
+- [ ] 4.1 Nueva orden en cascada (el servicio existe; no hay pantalla)
+- [x] 4.2 Bandeja de aprobación
+- [x] 4.3 Devolución y reasignación
+- [ ] 4.4 Programación recurrente (el trabajo programado existe desde la 1.9; no hay pantalla)
+
+> Las secciones de abajo numeradas 4.x–6.x **no corresponden** a estas
+> casillas: a partir de la 5.0 se usaron para la capa HTTP, la sincronización
+> y la descarga, que no estaban en el plan original.
 
 ### Fase 5 · Cliente y administración
 - [ ] 5.1 Portal del cliente
@@ -257,8 +261,8 @@ Estado: `[x]` hecha · `[ ]` pendiente
 - [ ] 5.4 Auditoría
 
 ### Fase 6 · Informes
-- [ ] 6.1 Informe con filtros
-- [ ] 6.2 Exportación
+- [ ] 6.1 Informe con filtros (servicio y ruta existen; no hay pantalla)
+- [ ] 6.2 Exportación (`GET /informe/exportar` existe; no hay pantalla)
 - [ ] 6.3 PDF de la orden
 
 ### Fase 7 · Distribución
