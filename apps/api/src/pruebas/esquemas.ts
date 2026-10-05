@@ -96,7 +96,7 @@ export async function sembrar(db: pg.Client | pg.Pool): Promise<void> {
   const s = SEMILLA;
   await db.query(`TRUNCATE ${TABLAS.map((t) => `"${t}"`).join(", ")} CASCADE`);
 
-  await db.query(`INSERT INTO "Empresa" (id, nombre, nit) VALUES ($1,'Aistectire','900.111.222-3')`, [s.empresa]);
+  await db.query(`INSERT INTO "Empresa" (id, nombre, nit) VALUES ($1,'Asistectire','900.111.222-3')`, [s.empresa]);
   await db.query(
     `INSERT INTO "Sede" (id,"empresaId",nombre,codigo) VALUES ($1,$2,'Fundación','FUN')`,
     [s.sede, s.empresa],
@@ -181,7 +181,7 @@ export const authFalso: ServicioAuthHttp = {
       return {
         tipo: "elegir_empresa",
         empresas: [
-          { id: SEMILLA.empresa, nombre: "Aistectire" },
+          { id: SEMILLA.empresa, nombre: "Asistectire" },
           { id: "otra", nombre: "Otra" },
         ],
       };

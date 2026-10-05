@@ -244,7 +244,7 @@ describe("pantalla", () => {
   it("si el correo está en dos empresas, pregunta cuál", async () => {
     const { onIngresar } = montar({
       tipo: "elegir_empresa",
-      empresas: [{ id: "e1", nombre: "Aistectire" }, { id: "e2", nombre: "Otra" }],
+      empresas: [{ id: "e1", nombre: "Asistectire" }, { id: "e2", nombre: "Otra" }],
     });
     escribir("Correo", "ana@dos.com");
     escribir("Contraseña", "x");

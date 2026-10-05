@@ -64,7 +64,7 @@ describe.skipIf(!disponible)("rol de autenticación", () => {
       CREATE TABLE "Auditoria" (id text PRIMARY KEY, "empresaId" text, accion text);
       CREATE TABLE "OrdenServicio" (id text PRIMARY KEY, "empresaId" text NOT NULL, folio text);
 
-      INSERT INTO "Empresa" VALUES ('emp-1','Aistectire'), ('emp-2','Otra');
+      INSERT INTO "Empresa" VALUES ('emp-1','Asistectire'), ('emp-2','Otra');
       INSERT INTO "Usuario" (id,"empresaId",email,"passwordHash") VALUES
         ('u-1','emp-1','carlos@uno.com','hash1'), ('u-2','emp-2','ana@dos.com','hash2');
       INSERT INTO "OrdenServicio" VALUES ('ord-1','emp-1','OS-FUN-1');

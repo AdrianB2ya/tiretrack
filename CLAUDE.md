@@ -8,7 +8,7 @@ Aquí está el porqué de las decisiones, que es lo que se pierde entre sesiones
 ## Qué es TireTrack
 
 SaaS multi-empresa de gestión de servicio de llantas para flotas. Una empresa
-prestadora (ej. Aistectire) atiende a sus clientes (ej. Transportes Reyna),
+prestadora (ej. Asistectire) atiende a sus clientes (ej. Transportes Reyna),
 que tienen vehículos con llantas en posiciones numeradas. Cada visita genera
 una **orden de servicio** con mediciones posición por posición.
 

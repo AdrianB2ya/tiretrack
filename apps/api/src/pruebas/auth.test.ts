@@ -59,7 +59,7 @@ describe.skipIf(!disponible)("autenticación", () => {
     await db.query(`TRUNCATE "Auditoria", "TokenRecuperacion", "SesionUsuario", "Usuario", "Empresa" CASCADE`);
 
     for (const [id, nombre] of [
-      [EMP_A, "Aistectire"],
+      [EMP_A, "Asistectire"],
       [EMP_B, "Llantas del Cesar"],
     ]) {
       await db.query(`INSERT INTO "Empresa" (id, nombre, nit) VALUES ($1, $2, $3)`, [

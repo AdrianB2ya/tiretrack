@@ -36,6 +36,8 @@ function uid(nombre: string): string {
   return `${x.slice(0, 8)}-${x.slice(8, 12)}-${x.slice(12, 16)}-${x.slice(16, 20)}-${x.slice(20)}`;
 }
 
+// La clave conserva la grafía vieja a propósito: de ella sale el UUID de la
+// empresa, y cambiarla dejaría huérfanos los datos ya sembrados.
 const EMPRESA = uid("emp-aistectire");
 
 /** Configuraciones de eje con sus umbrales por tipo. */
@@ -177,7 +179,7 @@ async function main() {
     update: {},
     create: {
       id: EMPRESA,
-      nombre: "Aistectire S.A.S.",
+      nombre: "Asistectire S.A.S.",
       nit: "901.234.567-8",
       plan: "profesional",
       unidadPresion: "psi",

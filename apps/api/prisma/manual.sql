@@ -14,7 +14,7 @@
 -- ============================================================================
 
 -- ── Aislamiento entre empresas ──────────────────────────────────────────────
--- Encadenadas, hacen estructuralmente imposible que una orden de Aistectire
+-- Encadenadas, hacen estructuralmente imposible que una orden de Asistectire
 -- referencie un cliente de otra empresa suscrita.
 
 ALTER TABLE "OrdenServicio"
