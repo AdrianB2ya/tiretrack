@@ -518,6 +518,24 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
       expect(r.headers["content-disposition"]).toContain("attachment");
     });
 
+    it("una orden para un vehículo con otra abierta se crea y avisa, no se rechaza", async () => {
+      // CLAUDE.md, 1.6: "avisa, no bloquea" —puede ser un correctivo urgente—.
+      // El servicio pedía confirmar con un campo que el contrato no tiene: el
+      // celular nunca podía confirmar, y la orden quedaba apartada para siempre.
+      const r = await pedir({
+        ruta: "/ordenes",
+        token: "tok-coordinador",
+        cuerpo: {
+          id: nuevoId(), clientRequestId: nuevoId(), sedeId: SEMILLA.sede, clienteId: SEMILLA.cliente,
+          sedeClienteId: SEMILLA.sedeCliente, vehiculoId: SEMILLA.vehiculo, tecnicoId: SEMILLA.tecnico,
+          configuracionEjeId: SEMILLA.configuracion, tipo: "correctivo", fecha: "2026-09-21",
+          sinConductor: true,
+        },
+      });
+      expect(r.statusCode).toBe(201);
+      expect(r.json().aviso).toBeTruthy();
+    });
+
     it("exporta SOLO las órdenes elegidas a mano", async () => {
       // La ruta validaba ordenIds y no lo pasaba al servicio: elegir tres
       // órdenes exportaba la cartera entera del cliente.

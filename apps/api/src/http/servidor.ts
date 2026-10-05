@@ -454,7 +454,12 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
   app.post("/ordenes", operacion(async (s, ctx, req) => {
     const p = zCrearOrden.safeParse(req.body);
     if (!p.success) return datosInvalidos(p.error.issues);
-    const r = await s.ordenes.crear(ctx, p.data);
+    // Un vehículo con otra orden abierta AVISA, no bloquea (CLAUDE.md, 1.6):
+    // puede ser un correctivo urgente. La orden del celular es un comando: se
+    // decidió en campo y, cuando por fin se envía, no hay a quién preguntarle
+    // —igual que con las marcas creadas en campo—. Pedir confirmación aquí la
+    // dejaba apartada para siempre.
+    const r = await s.ordenes.crear(ctx, { ...p.data, confirmarDuplicada: true });
     if (!r.ok) return rechazo(r.veredicto);
     return {
       status: 201,

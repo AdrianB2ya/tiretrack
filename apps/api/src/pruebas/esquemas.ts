@@ -48,6 +48,9 @@ const RESTRICCIONES: Record<string, string[]> = {
     `FOREIGN KEY ("llantaRegistroId") REFERENCES "LlantaRegistro"(id) ON DELETE CASCADE`,
   ],
   OrdenServicio: [`UNIQUE ("empresaId", folio)`, `UNIQUE ("empresaId", "clientRequestId")`],
+  // El folio atómico usa ON CONFLICT sobre esta clave. Faltaba: ninguna prueba
+  // HTTP había creado una orden por la ruta, así que nadie lo notó.
+  Consecutivo: [`UNIQUE ("empresaId", "sedeId", tipo)`],
   Foto: [`CONSTRAINT foto_una_sola_referencia CHECK (num_nonnulls("ordenId", "llantaRegistroId") = 1)`],
 };
 
