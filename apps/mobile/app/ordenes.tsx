@@ -3,6 +3,7 @@ import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View }
 import { useRouter } from "expo-router";
 import { ListaOrdenes } from "../src/ordenes/ListaOrdenes";
 import { useDatos } from "../src/app/ProveedorDatos";
+import { BarraDeSesion } from "../src/app/BarraDeSesion";
 import { colores, espacio, texto } from "../src/diseno/tokens";
 
 /**
@@ -31,6 +32,7 @@ export default function PantallaOrdenes() {
 
   return (
     <View style={estilos.pantalla}>
+      <BarraDeSesion />
       {pendientesDeEnviar > 0 ? (
         <View style={estilos.barraPendientes}>
           <Text style={estilos.textoPendientes}>

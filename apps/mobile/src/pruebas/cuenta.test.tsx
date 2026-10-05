@@ -11,6 +11,7 @@ import { ProveedorSesion, useSesion } from "../app/ProveedorSesion";
 import { DatosDeLaSesion } from "../app/DatosDeLaSesion";
 import { useDatos } from "../app/ProveedorDatos";
 import { PantallaCuenta, ETIQUETA_ROL } from "../sesion/PantallaCuenta";
+import { BarraSesion } from "../sesion/BarraSesion";
 
 /**
  * Cuenta y cierre de sesión.
@@ -224,5 +225,16 @@ describe("pantalla de cuenta", () => {
     // Vuelve a la vista normal para intentar cerrar de nuevo.
     await waitFor(() => expect(screen.getByText("Cerrar sesión")).toBeTruthy());
     expect(p.onCerrada).not.toHaveBeenCalled();
+  });
+});
+
+describe("barra de sesión", () => {
+  it("muestra quién está dentro y lleva a la cuenta", () => {
+    const onCuenta = vi.fn();
+    render(<BarraSesion nombre="Jorge Ramírez" rol="coordinador" onCuenta={onCuenta} />);
+    expect(screen.getByText("Jorge Ramírez")).toBeTruthy();
+    expect(screen.getByText(ETIQUETA_ROL.coordinador)).toBeTruthy();
+    fireEvent.click(screen.getByLabelText("Cuenta y cerrar sesión"));
+    expect(onCuenta).toHaveBeenCalledTimes(1);
   });
 });

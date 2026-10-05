@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
+import { View } from "react-native";
 import { useRouter } from "expo-router";
 import { PanelCoordinador, calcularIndicadores, type Accion } from "../src/coordinador/PanelCoordinador";
 import { useDatos } from "../src/app/ProveedorDatos";
 import { useUsuario } from "../src/app/ProveedorSesion";
+import { BarraDeSesion } from "../src/app/BarraDeSesion";
+import { colores } from "../src/diseno/tokens";
 import type { OrdenLocal } from "../src/datos/repositorio";
 
 /** Panel del coordinador: lo que requiere su decisión hoy. */
@@ -25,10 +28,13 @@ export default function PantallaPanel() {
   };
 
   return (
-    <PanelCoordinador
-      indicadores={calcularIndicadores(locales, hoy, pendientesDeEnviar)}
-      nombre={usuario.nombre}
-      onAbrir={(accion) => router.push(destinos[accion] as never)}
-    />
+    <View style={{ flex: 1, backgroundColor: colores.fondo }}>
+      <BarraDeSesion />
+      <PanelCoordinador
+        indicadores={calcularIndicadores(locales, hoy, pendientesDeEnviar)}
+        nombre={usuario.nombre}
+        onAbrir={(accion) => router.push(destinos[accion] as never)}
+      />
+    </View>
   );
 }

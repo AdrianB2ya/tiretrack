@@ -1,15 +1,8 @@
-import { Stack, useRouter } from "expo-router";
+import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { colores } from "../src/diseno/tokens";
 import { Arranque } from "../src/app/Arranque";
-import { BotonCuenta } from "../src/sesion/BotonCuenta";
 
-/** Entrada a la cuenta, en las pantallas de inicio de cada rol. */
-function AccesoCuenta() {
-  const router = useRouter();
-  return <BotonCuenta onPress={() => router.push("/cuenta" as never)} />;
-}
-const conCuenta = { headerRight: () => <AccesoCuenta /> };
 
 /** URL del backend. En producción viene de la configuración de EAS. */
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://10.0.2.2:4000/api/v1";
@@ -39,9 +32,9 @@ export default function DisposicionRaiz() {
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="ingresar" options={{ headerShown: false }} />
-        <Stack.Screen name="ordenes" options={{ title: "Mis órdenes", ...conCuenta }} />
-        <Stack.Screen name="revision" options={{ title: "Por revisar", ...conCuenta }} />
-        <Stack.Screen name="panel" options={{ title: "Panel", ...conCuenta }} />
+        <Stack.Screen name="ordenes" options={{ title: "Mis órdenes" }} />
+        <Stack.Screen name="revision" options={{ title: "Por revisar" }} />
+        <Stack.Screen name="panel" options={{ title: "Panel" }} />
         <Stack.Screen name="cuenta" options={{ title: "Cuenta" }} />
         <Stack.Screen name="orden/[id]/index" options={{ title: "Orden" }} />
         <Stack.Screen name="orden/[id]/reasignar" options={{ title: "Reasignar" }} />

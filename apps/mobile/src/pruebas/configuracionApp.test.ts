@@ -48,6 +48,15 @@ describe("lo que se empaqueta en la app", () => {
   });
 });
 
+describe("cabecera nativa", () => {
+  it("no lleva botones: en Android con la arquitectura nueva no reciben los toques", () => {
+    // react-native-screens 4.4 (SDK 52): "Cuenta" en headerRight se veía y no
+    // respondía. Las acciones van dentro de la pantalla (BarraSesion).
+    const disposicion = readFileSync(join(raiz, "app", "_layout.tsx"), "utf8");
+    expect(disposicion).not.toMatch(/headerRight|headerLeft/);
+  });
+});
+
 describe("raíz de las pantallas", () => {
   it("si existe src/app, la raíz del enrutador está fijada a ./app", () => {
     if (!existsSync(join(raiz, "src", "app"))) return;

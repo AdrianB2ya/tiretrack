@@ -5,6 +5,7 @@ import { BandejaRevision } from "../src/coordinador/BandejaRevision";
 import type { OrdenEnBandeja } from "../src/coordinador/bandeja";
 import { useDatos } from "../src/app/ProveedorDatos";
 import { useUsuario } from "../src/app/ProveedorSesion";
+import { BarraDeSesion } from "../src/app/BarraDeSesion";
 import { colores } from "../src/diseno/tokens";
 
 /**
@@ -37,6 +38,7 @@ export default function PantallaRevision() {
 
   return (
     <View style={estilos.pantalla}>
+      <BarraDeSesion />
       <BandejaRevision
         items={items}
         // El rol viene de la sesión: un rol fijo aquí mostraría las mismas
