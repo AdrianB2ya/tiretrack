@@ -225,8 +225,11 @@ export async function enTransaccion<T>(
 
 // ── Servidor ────────────────────────────────────────────────────────────────
 
+/** Prefijo de todas las rutas de la API. */
+export const PREFIJO_API = "/api/v1";
+
 export function construirServidor(op: OpcionesServidor): FastifyInstance {
-  const app = Fastify({ logger: op.registro ?? false, bodyLimit: 512 * 1024 });
+  const raiz = Fastify({ logger: op.registro ?? false, bodyLimit: 512 * 1024 });
   const reloj = op.reloj ?? (() => new Date());
 
   /** Servicios atados a la conexión de la transacción de esta petición. */
@@ -349,335 +352,341 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
     };
   }
 
-  // ── Acceso ──
-  //
-  // No llevan clave de idempotencia: ingresar no es una operación de la cola,
-  // y repetir un login simplemente devuelve una sesión nueva.
+  // Todas las rutas de la API van bajo /api/v1: versionarla permite
+  // cambiarla después sin romper los APK ya instalados. /salud y /listo
+  // quedan en la raíz (los agrega server.ts) porque los consulta la
+  // infraestructura, no la app.
+  void raiz.register(async (app) => {
+    // ── Acceso ──
+    //
+    // No llevan clave de idempotencia: ingresar no es una operación de la cola,
+    // y repetir un login simplemente devuelve una sesión nueva.
 
-  /** Traduce el resultado del servicio a la respuesta HTTP. */
-  function respuestaDeAcceso(r: ResultadoLogin, reply: FastifyReply) {
-    if (r.tipo === "ok") {
-      // Se eligen los campos uno por uno. El usuario del servicio incluye el
-      // HASH DE LA CONTRASEÑA y el contador de intentos fallidos: enviarlo
-      // entero expondría el hash a todo cliente, y quedaría en registros y
-      // cachés. Un hash no es la contraseña, pero se puede atacar sin límite
-      // de intentos.
-      return reply.status(200).send({
-        token: r.token,
-        refreshToken: r.refreshToken,
-        expiraEn: r.expiraEn,
-        usuario: {
-          id: r.usuario.id,
-          nombre: r.usuario.nombre,
-          email: r.usuario.email,
-          rol: r.usuario.rol,
-          empresaId: r.usuario.empresaId,
-          clienteId: r.usuario.clienteId,
-        },
+    /** Traduce el resultado del servicio a la respuesta HTTP. */
+    function respuestaDeAcceso(r: ResultadoLogin, reply: FastifyReply) {
+      if (r.tipo === "ok") {
+        // Se eligen los campos uno por uno. El usuario del servicio incluye el
+        // HASH DE LA CONTRASEÑA y el contador de intentos fallidos: enviarlo
+        // entero expondría el hash a todo cliente, y quedaría en registros y
+        // cachés. Un hash no es la contraseña, pero se puede atacar sin límite
+        // de intentos.
+        return reply.status(200).send({
+          token: r.token,
+          refreshToken: r.refreshToken,
+          expiraEn: r.expiraEn,
+          usuario: {
+            id: r.usuario.id,
+            nombre: r.usuario.nombre,
+            email: r.usuario.email,
+            rol: r.usuario.rol,
+            empresaId: r.usuario.empresaId,
+            clienteId: r.usuario.clienteId,
+          },
+        });
+      }
+      if (r.tipo === "elegir_empresa") {
+        // El mismo correo existe en varias empresas: la app pregunta cuál.
+        return reply.status(409).send({ error: { codigo: "ELEGIR_EMPRESA" }, empresas: r.empresas });
+      }
+      // Credenciales, bloqueo por intentos, usuario inactivo. Siempre 401 para
+      // no revelar cuál de esas cosas fue.
+      return reply.status(401).send({
+        error: { codigo: r.veredicto.codigo ?? "CREDENCIALES", mensaje: r.veredicto.mensaje },
       });
     }
-    if (r.tipo === "elegir_empresa") {
-      // El mismo correo existe en varias empresas: la app pregunta cuál.
-      return reply.status(409).send({ error: { codigo: "ELEGIR_EMPRESA" }, empresas: r.empresas });
-    }
-    // Credenciales, bloqueo por intentos, usuario inactivo. Siempre 401 para
-    // no revelar cuál de esas cosas fue.
-    return reply.status(401).send({
-      error: { codigo: r.veredicto.codigo ?? "CREDENCIALES", mensaje: r.veredicto.mensaje },
+
+    app.post("/auth/ingresar", async (req, reply) => {
+      const cuerpo = (req.body ?? {}) as Record<string, unknown>;
+      const email = typeof cuerpo["email"] === "string" ? cuerpo["email"] : "";
+      const password = typeof cuerpo["password"] === "string" ? cuerpo["password"] : "";
+      if (!email || !password) {
+        return reply.status(422).send({ error: { codigo: "DATOS_INVALIDOS", mensaje: "Faltan el correo o la contraseña" } });
+      }
+      const r = await op.auth.login({
+        email,
+        password,
+        ...(typeof cuerpo["empresaId"] === "string" ? { empresaId: cuerpo["empresaId"] } : {}),
+        // Sin esto, quien tiene doble factor obligatorio no podía entrar nunca.
+        ...(typeof cuerpo["codigo2fa"] === "string" ? { codigo2fa: cuerpo["codigo2fa"] } : {}),
+        ...(req.ip ? { ip: req.ip } : {}),
+      });
+      return respuestaDeAcceso(r, reply);
     });
-  }
 
-  app.post("/auth/ingresar", async (req, reply) => {
-    const cuerpo = (req.body ?? {}) as Record<string, unknown>;
-    const email = typeof cuerpo["email"] === "string" ? cuerpo["email"] : "";
-    const password = typeof cuerpo["password"] === "string" ? cuerpo["password"] : "";
-    if (!email || !password) {
-      return reply.status(422).send({ error: { codigo: "DATOS_INVALIDOS", mensaje: "Faltan el correo o la contraseña" } });
-    }
-    const r = await op.auth.login({
-      email,
-      password,
-      ...(typeof cuerpo["empresaId"] === "string" ? { empresaId: cuerpo["empresaId"] } : {}),
-      // Sin esto, quien tiene doble factor obligatorio no podía entrar nunca.
-      ...(typeof cuerpo["codigo2fa"] === "string" ? { codigo2fa: cuerpo["codigo2fa"] } : {}),
-      ...(req.ip ? { ip: req.ip } : {}),
+    app.post("/auth/refrescar", async (req, reply) => {
+      const cuerpo = (req.body ?? {}) as Record<string, unknown>;
+      const refreshToken = typeof cuerpo["refreshToken"] === "string" ? cuerpo["refreshToken"] : "";
+      if (!refreshToken) {
+        return reply.status(422).send({ error: { codigo: "DATOS_INVALIDOS", mensaje: "Falta el token de renovación" } });
+      }
+      const r = await op.auth.refrescar(refreshToken, { ...(req.ip ? { ip: req.ip } : {}) });
+      return respuestaDeAcceso(r, reply);
     });
-    return respuestaDeAcceso(r, reply);
-  });
-
-  app.post("/auth/refrescar", async (req, reply) => {
-    const cuerpo = (req.body ?? {}) as Record<string, unknown>;
-    const refreshToken = typeof cuerpo["refreshToken"] === "string" ? cuerpo["refreshToken"] : "";
-    if (!refreshToken) {
-      return reply.status(422).send({ error: { codigo: "DATOS_INVALIDOS", mensaje: "Falta el token de renovación" } });
-    }
-    const r = await op.auth.refrescar(refreshToken, { ...(req.ip ? { ip: req.ip } : {}) });
-    return respuestaDeAcceso(r, reply);
-  });
 
 
-  // ── Rutas ──
+    // ── Rutas ──
 
-  /**
-   * Descarga: lo que el celular necesita para trabajar sin señal.
-   *
-   * Es de LECTURA, así que no lleva clave de idempotencia ni modifica nada;
-   * pero sí corre dentro de la transacción con el contexto de RLS, porque el
-   * aislamiento entre empresas no se puede saltar ni para leer.
-   */
-  app.get("/sincronizacion", async (req, reply) => {
-    const auth = req.headers.authorization;
-    const claims = auth?.startsWith("Bearer ") ? op.verificarToken(auth.slice(7)) : null;
-    if (!claims) {
-      return reply.status(401).send({ error: { codigo: "NO_AUTENTICADO", mensaje: "Sesión inválida o vencida" } });
-    }
-    const posible = contextoDe(claims);
-    if ("motivo" in posible) {
-      return reply.status(403).send({ error: { codigo: posible.motivo, mensaje: "Esta sesión no descarga datos de campo" } });
-    }
-    const ctx = posible;
-    // Un desde mal formado llegaba a PostgreSQL y respondía 500.
-    const consulta = zConsultaDescarga.safeParse(req.query ?? {});
-    if (!consulta.success) {
-      const r = datosInvalidos(consulta.error.issues);
-      return reply.status(r.status).send(r.cuerpo);
-    }
-    const desde = consulta.data.desde;
+    /**
+     * Descarga: lo que el celular necesita para trabajar sin señal.
+     *
+     * Es de LECTURA, así que no lleva clave de idempotencia ni modifica nada;
+     * pero sí corre dentro de la transacción con el contexto de RLS, porque el
+     * aislamiento entre empresas no se puede saltar ni para leer.
+     */
+    app.get("/sincronizacion", async (req, reply) => {
+      const auth = req.headers.authorization;
+      const claims = auth?.startsWith("Bearer ") ? op.verificarToken(auth.slice(7)) : null;
+      if (!claims) {
+        return reply.status(401).send({ error: { codigo: "NO_AUTENTICADO", mensaje: "Sesión inválida o vencida" } });
+      }
+      const posible = contextoDe(claims);
+      if ("motivo" in posible) {
+        return reply.status(403).send({ error: { codigo: posible.motivo, mensaje: "Esta sesión no descarga datos de campo" } });
+      }
+      const ctx = posible;
+      // Un desde mal formado llegaba a PostgreSQL y respondía 500.
+      const consulta = zConsultaDescarga.safeParse(req.query ?? {});
+      if (!consulta.success) {
+        const r = datosInvalidos(consulta.error.issues);
+        return reply.status(r.status).send(r.cuerpo);
+      }
+      const desde = consulta.data.desde;
 
-    const paquete = await enTransaccion(op.pool, ctx, async (db) => ({
-      confirmar: false,
-      valor: await new ServicioDescarga(db, reloj).paquete(ctx, desde),
-    }));
-    return reply.status(200).send(paquete);
-  });
-
-  app.post("/ordenes", operacion(async (s, ctx, req) => {
-    const p = zCrearOrden.safeParse(req.body);
-    if (!p.success) return datosInvalidos(p.error.issues);
-    // Un vehículo con otra orden abierta AVISA, no bloquea (CLAUDE.md, 1.6):
-    // puede ser un correctivo urgente. La orden del celular es un comando: se
-    // decidió en campo y, cuando por fin se envía, no hay a quién preguntarle
-    // —igual que con las marcas creadas en campo—. Pedir confirmación aquí la
-    // dejaba apartada para siempre.
-    const r = await s.ordenes.crear(ctx, { ...p.data, confirmarDuplicada: true });
-    if (!r.ok) return rechazo(r.veredicto);
-    return {
-      status: 201,
-      cuerpo: {
-        id: r.valor.orden.id,
-        folio: r.valor.orden.folio,
-        // Otra orden abierta para el mismo vehículo: se avisa, no se bloquea.
-        ...(r.valor.avisoVehiculoOcupado ? { aviso: r.valor.avisoVehiculoOcupado } : {}),
-      },
-    };
-  }));
-
-  app.patch("/ordenes/:id", operacion(async (s, ctx, req) => {
-    const p = zComandoActualizarOrden.safeParse(req.body);
-    if (!p.success) return datosInvalidos(p.error.issues);
-    const r = await s.ordenes.actualizarDatos(ctx, params(req).id as string, COMANDO, sinIndefinidos(p.data));
-    if (!r.ok) return rechazo(r.veredicto);
-    return { status: 200, cuerpo: { versionContenido: r.valor.versionContenido } };
-  }));
-
-  app.put("/ordenes/:id/mediciones/:medicionId", operacion(async (s, ctx, req) => {
-    const { id, medicionId } = params(req);
-    const cuerpo = req.body as Record<string, unknown>;
-    // El id de la URL y el del cuerpo deben coincidir: si no, algo en el
-    // cliente está mal armado y no conviene adivinar cuál manda.
-    if (cuerpo?.["id"] !== undefined && cuerpo["id"] !== medicionId) {
-      return datosInvalidos([{ path: ["id"], message: "El id del cuerpo no coincide con el de la ruta" }]);
-    }
-    const r = await s.mediciones.guardar(ctx, id as string, { ...cuerpo, id: medicionId });
-    if (!r.ok) return rechazo(r.veredicto);
-    return { status: 200, cuerpo: r.valor };
-  }));
-
-  app.post("/ordenes/:id/estado", operacion(async (s, ctx, req) => {
-    const p = zCambiarEstado.safeParse(req.body);
-    if (!p.success) return datosInvalidos(p.error.issues);
-    const r = await s.ordenes.cambiarEstado(ctx, params(req).id as string, COMANDO, p.data.estado, {
-      ...(p.data.motivo ? { motivo: p.data.motivo } : {}),
+      const paquete = await enTransaccion(op.pool, ctx, async (db) => ({
+        confirmar: false,
+        valor: await new ServicioDescarga(db, reloj).paquete(ctx, desde),
+      }));
+      return reply.status(200).send(paquete);
     });
-    if (!r.ok) return rechazo(r.veredicto);
-    return { status: 200, cuerpo: { estado: r.valor.estado } };
-  }));
 
-  app.post("/ordenes/:id/firma", operacion(async (s, ctx, req) => {
-    const p = zFirma.safeParse(req.body);
-    if (!p.success) return datosInvalidos(p.error.issues);
-    const r = await s.ordenes.firmar(ctx, params(req).id as string, COMANDO, p.data);
-    if (!r.ok) return rechazo(r.veredicto);
-    return { status: 200, cuerpo: { firmaVersion: r.valor.firmaVersion } };
-  }));
-
-  app.post("/ordenes/:id/reasignar", operacion(async (s, ctx, req) => {
-    const p = zReasignar.safeParse(req.body);
-    if (!p.success) return datosInvalidos(p.error.issues);
-    const r = await s.ordenes.reasignar(ctx, params(req).id as string, COMANDO, p.data.tecnicoId, p.data.motivo);
-    if (!r.ok) return rechazo(r.veredicto);
-    return { status: 200, cuerpo: { tecnicoId: r.valor.tecnicoId } };
-  }));
-
-  app.post("/ordenes/:id/fotos", operacion(async (s, ctx, req) => {
-    const p = zAdjuntarFoto.safeParse(req.body);
-    if (!p.success) return datosInvalidos(p.error.issues);
-    const r = await s.fotos.adjuntarFoto(ctx, {
-      id: p.data.id,
-      ordenId: params(req).id as string,
-      ...(p.data.medicionId ? { llantaRegistroId: p.data.medicionId } : {}),
-      nombreArchivo: p.data.nombre,
-      tipoMime: p.data.tipoMime,
-      tamanoBytes: p.data.tamanoBytes,
-    });
-    if (!r.ok) return rechazo(r.veredicto);
-    // La URL firmada para subir los bytes; vence en minutos.
-    return { status: 201, cuerpo: { fotoId: r.valor.fotoId, url: r.valor.url, expiraEn: r.valor.expiraEn } };
-  }));
-
-  // ── Flota ──
-  //
-  // Los servicios existían desde la fase 1 y no tenían puerta de entrada: la
-  // administración era inalcanzable desde cualquier cliente.
-
-  app.get("/flota/clientes", consulta(async (s, ctx, req) => {
-    const incluirInactivos = (req.query as { inactivos?: string })?.inactivos === "1";
-    return { status: 200, cuerpo: await s.flota.listarClientes(ctx, incluirInactivos) };
-  }));
-
-  app.get("/flota/clientes/:id/sedes", consulta(async (s, ctx, req) => ({
-    status: 200,
-    cuerpo: await s.flota.sedesDeCliente(ctx, params(req).id as string),
-  })));
-
-  app.get("/flota/sedes/:id/vehiculos", consulta(async (s, ctx, req) => ({
-    status: 200,
-    cuerpo: await s.flota.vehiculosDeSede(ctx, params(req).id as string),
-  })));
-
-  app.post("/flota/clientes", operacion(async (s, ctx, req) => {
-    const p = zCrearCliente.safeParse(req.body);
-    if (!p.success) return datosInvalidos(p.error.issues);
-    const r = await s.flota.crearCliente(ctx, sinIndefinidos(p.data));
-    if (!r.ok) return rechazo(r.veredicto);
-    return { status: 201, cuerpo: r.valor };
-  }));
-
-  app.post("/flota/sedes", operacion(async (s, ctx, req) => {
-    const p = zCrearSedeCliente.safeParse(req.body);
-    if (!p.success) return datosInvalidos(p.error.issues);
-    const r = await s.flota.crearSedeCliente(ctx, sinIndefinidos(p.data));
-    if (!r.ok) return rechazo(r.veredicto);
-    return { status: 201, cuerpo: r.valor };
-  }));
-
-  app.post("/flota/vehiculos", operacion(async (s, ctx, req) => {
-    const p = zCrearVehiculo.safeParse(req.body);
-    if (!p.success) return datosInvalidos(p.error.issues);
-    const r = await s.flota.crearVehiculo(ctx, sinIndefinidos(p.data));
-    if (!r.ok) return rechazo(r.veredicto);
-    return { status: 201, cuerpo: r.valor };
-  }));
-
-  // ── Informe ──
-
-  /**
-   * Exportación del informe en el formato del taller.
-   *
-   * Devuelve el archivo, no JSON: lo que el coordinador hace con esto es
-   * abrirlo en una hoja de cálculo.
-   */
-  app.get("/informe/exportar", async (req, reply) => {
-    const auth = req.headers.authorization;
-    const claims = auth?.startsWith("Bearer ") ? op.verificarToken(auth.slice(7)) : null;
-    if (!claims) return reply.status(401).send({ error: { codigo: "NO_AUTENTICADO", mensaje: "Sesión inválida" } });
-    const posible = contextoDe(claims);
-    if ("motivo" in posible) {
-      return reply.status(403).send({ error: { codigo: posible.motivo, mensaje: "Esta sesión no exporta informes" } });
-    }
-    const ctx = posible;
-    // Fechas imposibles o parámetros repetidos respondían 500.
-    // Una sola orden llega como texto, varias como lista: se normaliza.
-    const crudo = { ...((req.query ?? {}) as Record<string, unknown>) };
-    if (typeof crudo["ordenIds"] === "string") crudo["ordenIds"] = [crudo["ordenIds"]];
-    const filtro = zFiltroInforme.safeParse(crudo);
-    if (!filtro.success) {
-      const r = datosInvalidos(filtro.error.issues);
-      return reply.status(r.status).send(r.cuerpo);
-    }
-    const q = filtro.data;
-
-    const r = await enTransaccion(op.pool, ctx, async (db) => ({
-      confirmar: false,
-      // Todo el filtro, no una lista escrita a mano: esa lista omitía
-      // ordenIds y estadoLlanta, y elegir tres órdenes exportaba la cartera
-      // entera del cliente —y la auditoría registraba filtros que no eran—.
-      valor: await new ServicioInforme(db, reloj).exportar(ctx, sinIndefinidos(q)),
+    app.post("/ordenes", operacion(async (s, ctx, req) => {
+      const p = zCrearOrden.safeParse(req.body);
+      if (!p.success) return datosInvalidos(p.error.issues);
+      // Un vehículo con otra orden abierta AVISA, no bloquea (CLAUDE.md, 1.6):
+      // puede ser un correctivo urgente. La orden del celular es un comando: se
+      // decidió en campo y, cuando por fin se envía, no hay a quién preguntarle
+      // —igual que con las marcas creadas en campo—. Pedir confirmación aquí la
+      // dejaba apartada para siempre.
+      const r = await s.ordenes.crear(ctx, { ...p.data, confirmarDuplicada: true });
+      if (!r.ok) return rechazo(r.veredicto);
+      return {
+        status: 201,
+        cuerpo: {
+          id: r.valor.orden.id,
+          folio: r.valor.orden.folio,
+          // Otra orden abierta para el mismo vehículo: se avisa, no se bloquea.
+          ...(r.valor.avisoVehiculoOcupado ? { aviso: r.valor.avisoVehiculoOcupado } : {}),
+        },
+      };
     }));
 
-    if (!r.ok) return reply.status(estadoDe(r.veredicto)).send({ error: { codigo: r.veredicto.codigo, mensaje: r.veredicto.mensaje } });
-    return reply
-      .status(200)
-      .header("content-type", "text/csv; charset=utf-8")
-      .header("content-disposition", `attachment; filename="${r.valor.nombreArchivo}"`)
-      // Cuántas órdenes quedaron sin cerrar va en un encabezado: el archivo
-      // es para la hoja de cálculo y no debe llevar avisos entre los datos.
-      .header("x-ordenes-sin-cerrar", String(r.valor.sinCerrar))
-      .send(r.valor.contenido);
-  });
+    app.patch("/ordenes/:id", operacion(async (s, ctx, req) => {
+      const p = zComandoActualizarOrden.safeParse(req.body);
+      if (!p.success) return datosInvalidos(p.error.issues);
+      const r = await s.ordenes.actualizarDatos(ctx, params(req).id as string, COMANDO, sinIndefinidos(p.data));
+      if (!r.ok) return rechazo(r.veredicto);
+      return { status: 200, cuerpo: { versionContenido: r.valor.versionContenido } };
+    }));
 
-  // ── Catálogo ──
-  //
-  // El técnico crea marcas y diseños en campo, cuando la llanta que tiene
-  // enfrente no está en la lista. Sin estas rutas, esas operaciones recibían
-  // un 404 y quedaban apartadas: la marca nunca llegaba al servidor.
+    app.put("/ordenes/:id/mediciones/:medicionId", operacion(async (s, ctx, req) => {
+      const { id, medicionId } = params(req);
+      const cuerpo = req.body as Record<string, unknown>;
+      // El id de la URL y el del cuerpo deben coincidir: si no, algo en el
+      // cliente está mal armado y no conviene adivinar cuál manda.
+      if (cuerpo?.["id"] !== undefined && cuerpo["id"] !== medicionId) {
+        return datosInvalidos([{ path: ["id"], message: "El id del cuerpo no coincide con el de la ruta" }]);
+      }
+      const r = await s.mediciones.guardar(ctx, id as string, { ...cuerpo, id: medicionId });
+      if (!r.ok) return rechazo(r.veredicto);
+      return { status: 200, cuerpo: r.valor };
+    }));
 
-  app.post("/catalogo/marcas", operacion(async (s, ctx, req) => {
-    // creadaEnCampo se ignora aunque venga: lo decide el ROL (tarea 1.4).
-    const p = zCrearMarca.safeParse(req.body);
-    if (!p.success) return datosInvalidos(p.error.issues);
-    const r = await s.catalogo.crearMarca(ctx, {
-      nombre: p.data.nombre,
-      id: p.data.id,
-      // El técnico ya decidió en el celular, donde vio las parecidas. Volver
-      // a preguntarle desde el servidor no tiene a quién preguntarle: la
-      // operación se envía cuando él ya no está mirando.
-      forzar: true,
+    app.post("/ordenes/:id/estado", operacion(async (s, ctx, req) => {
+      const p = zCambiarEstado.safeParse(req.body);
+      if (!p.success) return datosInvalidos(p.error.issues);
+      const r = await s.ordenes.cambiarEstado(ctx, params(req).id as string, COMANDO, p.data.estado, {
+        ...(p.data.motivo ? { motivo: p.data.motivo } : {}),
+      });
+      if (!r.ok) return rechazo(r.veredicto);
+      return { status: 200, cuerpo: { estado: r.valor.estado } };
+    }));
+
+    app.post("/ordenes/:id/firma", operacion(async (s, ctx, req) => {
+      const p = zFirma.safeParse(req.body);
+      if (!p.success) return datosInvalidos(p.error.issues);
+      const r = await s.ordenes.firmar(ctx, params(req).id as string, COMANDO, p.data);
+      if (!r.ok) return rechazo(r.veredicto);
+      return { status: 200, cuerpo: { firmaVersion: r.valor.firmaVersion } };
+    }));
+
+    app.post("/ordenes/:id/reasignar", operacion(async (s, ctx, req) => {
+      const p = zReasignar.safeParse(req.body);
+      if (!p.success) return datosInvalidos(p.error.issues);
+      const r = await s.ordenes.reasignar(ctx, params(req).id as string, COMANDO, p.data.tecnicoId, p.data.motivo);
+      if (!r.ok) return rechazo(r.veredicto);
+      return { status: 200, cuerpo: { tecnicoId: r.valor.tecnicoId } };
+    }));
+
+    app.post("/ordenes/:id/fotos", operacion(async (s, ctx, req) => {
+      const p = zAdjuntarFoto.safeParse(req.body);
+      if (!p.success) return datosInvalidos(p.error.issues);
+      const r = await s.fotos.adjuntarFoto(ctx, {
+        id: p.data.id,
+        ordenId: params(req).id as string,
+        ...(p.data.medicionId ? { llantaRegistroId: p.data.medicionId } : {}),
+        nombreArchivo: p.data.nombre,
+        tipoMime: p.data.tipoMime,
+        tamanoBytes: p.data.tamanoBytes,
+      });
+      if (!r.ok) return rechazo(r.veredicto);
+      // La URL firmada para subir los bytes; vence en minutos.
+      return { status: 201, cuerpo: { fotoId: r.valor.fotoId, url: r.valor.url, expiraEn: r.valor.expiraEn } };
+    }));
+
+    // ── Flota ──
+    //
+    // Los servicios existían desde la fase 1 y no tenían puerta de entrada: la
+    // administración era inalcanzable desde cualquier cliente.
+
+    app.get("/flota/clientes", consulta(async (s, ctx, req) => {
+      const incluirInactivos = (req.query as { inactivos?: string })?.inactivos === "1";
+      return { status: 200, cuerpo: await s.flota.listarClientes(ctx, incluirInactivos) };
+    }));
+
+    app.get("/flota/clientes/:id/sedes", consulta(async (s, ctx, req) => ({
+      status: 200,
+      cuerpo: await s.flota.sedesDeCliente(ctx, params(req).id as string),
+    })));
+
+    app.get("/flota/sedes/:id/vehiculos", consulta(async (s, ctx, req) => ({
+      status: 200,
+      cuerpo: await s.flota.vehiculosDeSede(ctx, params(req).id as string),
+    })));
+
+    app.post("/flota/clientes", operacion(async (s, ctx, req) => {
+      const p = zCrearCliente.safeParse(req.body);
+      if (!p.success) return datosInvalidos(p.error.issues);
+      const r = await s.flota.crearCliente(ctx, sinIndefinidos(p.data));
+      if (!r.ok) return rechazo(r.veredicto);
+      return { status: 201, cuerpo: r.valor };
+    }));
+
+    app.post("/flota/sedes", operacion(async (s, ctx, req) => {
+      const p = zCrearSedeCliente.safeParse(req.body);
+      if (!p.success) return datosInvalidos(p.error.issues);
+      const r = await s.flota.crearSedeCliente(ctx, sinIndefinidos(p.data));
+      if (!r.ok) return rechazo(r.veredicto);
+      return { status: 201, cuerpo: r.valor };
+    }));
+
+    app.post("/flota/vehiculos", operacion(async (s, ctx, req) => {
+      const p = zCrearVehiculo.safeParse(req.body);
+      if (!p.success) return datosInvalidos(p.error.issues);
+      const r = await s.flota.crearVehiculo(ctx, sinIndefinidos(p.data));
+      if (!r.ok) return rechazo(r.veredicto);
+      return { status: 201, cuerpo: r.valor };
+    }));
+
+    // ── Informe ──
+
+    /**
+     * Exportación del informe en el formato del taller.
+     *
+     * Devuelve el archivo, no JSON: lo que el coordinador hace con esto es
+     * abrirlo en una hoja de cálculo.
+     */
+    app.get("/informe/exportar", async (req, reply) => {
+      const auth = req.headers.authorization;
+      const claims = auth?.startsWith("Bearer ") ? op.verificarToken(auth.slice(7)) : null;
+      if (!claims) return reply.status(401).send({ error: { codigo: "NO_AUTENTICADO", mensaje: "Sesión inválida" } });
+      const posible = contextoDe(claims);
+      if ("motivo" in posible) {
+        return reply.status(403).send({ error: { codigo: posible.motivo, mensaje: "Esta sesión no exporta informes" } });
+      }
+      const ctx = posible;
+      // Fechas imposibles o parámetros repetidos respondían 500.
+      // Una sola orden llega como texto, varias como lista: se normaliza.
+      const crudo = { ...((req.query ?? {}) as Record<string, unknown>) };
+      if (typeof crudo["ordenIds"] === "string") crudo["ordenIds"] = [crudo["ordenIds"]];
+      const filtro = zFiltroInforme.safeParse(crudo);
+      if (!filtro.success) {
+        const r = datosInvalidos(filtro.error.issues);
+        return reply.status(r.status).send(r.cuerpo);
+      }
+      const q = filtro.data;
+
+      const r = await enTransaccion(op.pool, ctx, async (db) => ({
+        confirmar: false,
+        // Todo el filtro, no una lista escrita a mano: esa lista omitía
+        // ordenIds y estadoLlanta, y elegir tres órdenes exportaba la cartera
+        // entera del cliente —y la auditoría registraba filtros que no eran—.
+        valor: await new ServicioInforme(db, reloj).exportar(ctx, sinIndefinidos(q)),
+      }));
+
+      if (!r.ok) return reply.status(estadoDe(r.veredicto)).send({ error: { codigo: r.veredicto.codigo, mensaje: r.veredicto.mensaje } });
+      return reply
+        .status(200)
+        .header("content-type", "text/csv; charset=utf-8")
+        .header("content-disposition", `attachment; filename="${r.valor.nombreArchivo}"`)
+        // Cuántas órdenes quedaron sin cerrar va en un encabezado: el archivo
+        // es para la hoja de cálculo y no debe llevar avisos entre los datos.
+        .header("x-ordenes-sin-cerrar", String(r.valor.sinCerrar))
+        .send(r.valor.contenido);
     });
-    if (!r.ok) return rechazo(r.veredicto);
-    return { status: 201, cuerpo: { id: r.valor.marca.id } };
-  }));
 
-  app.post("/catalogo/disenos", operacion(async (s, ctx, req) => {
-    const p = zCrearDiseno.safeParse(req.body);
-    if (!p.success) return datosInvalidos(p.error.issues);
-    const r = await s.catalogo.crearDiseno(ctx, {
-      marcaId: p.data.marcaId,
-      nombre: p.data.nombre,
-      id: p.data.id,
-      tipoEje: p.data.tipoEje,
-      forzar: true,
-    });
-    if (!r.ok) return rechazo(r.veredicto);
-    return { status: 201, cuerpo: { id: r.valor.diseno.id } };
-  }));
+    // ── Catálogo ──
+    //
+    // El técnico crea marcas y diseños en campo, cuando la llanta que tiene
+    // enfrente no está en la lista. Sin estas rutas, esas operaciones recibían
+    // un 404 y quedaban apartadas: la marca nunca llegaba al servidor.
 
-  app.post("/fotos/:id/confirmar", operacion(async (s, ctx, req) => {
-    const r = await s.fotos.confirmarSubida(ctx, params(req).id as string);
-    if (!r.ok) return rechazo(r.veredicto);
-    return { status: 200, cuerpo: { confirmada: true } };
-  }));
+    app.post("/catalogo/marcas", operacion(async (s, ctx, req) => {
+      // creadaEnCampo se ignora aunque venga: lo decide el ROL (tarea 1.4).
+      const p = zCrearMarca.safeParse(req.body);
+      if (!p.success) return datosInvalidos(p.error.issues);
+      const r = await s.catalogo.crearMarca(ctx, {
+        nombre: p.data.nombre,
+        id: p.data.id,
+        // El técnico ya decidió en el celular, donde vio las parecidas. Volver
+        // a preguntarle desde el servidor no tiene a quién preguntarle: la
+        // operación se envía cuando él ya no está mirando.
+        forzar: true,
+      });
+      if (!r.ok) return rechazo(r.veredicto);
+      return { status: 201, cuerpo: { id: r.valor.marca.id } };
+    }));
+
+    app.post("/catalogo/disenos", operacion(async (s, ctx, req) => {
+      const p = zCrearDiseno.safeParse(req.body);
+      if (!p.success) return datosInvalidos(p.error.issues);
+      const r = await s.catalogo.crearDiseno(ctx, {
+        marcaId: p.data.marcaId,
+        nombre: p.data.nombre,
+        id: p.data.id,
+        tipoEje: p.data.tipoEje,
+        forzar: true,
+      });
+      if (!r.ok) return rechazo(r.veredicto);
+      return { status: 201, cuerpo: { id: r.valor.diseno.id } };
+    }));
+
+    app.post("/fotos/:id/confirmar", operacion(async (s, ctx, req) => {
+      const r = await s.fotos.confirmarSubida(ctx, params(req).id as string);
+      if (!r.ok) return rechazo(r.veredicto);
+      return { status: 200, cuerpo: { confirmada: true } };
+    }));
+  }, { prefix: PREFIJO_API });
 
   // Cualquier error no previsto: 500 sin detalles internos. La transacción
   // ya se deshizo, así que la clave no quedó consumida y el reintento del
   // celular puede aplicarse.
-  app.setErrorHandler((error, _req, reply) => {
+  raiz.setErrorHandler((error, _req, reply) => {
     if ((error as { statusCode?: number }).statusCode === 400) {
       return reply.status(422).send({ error: { codigo: "DATOS_INVALIDOS", mensaje: "El cuerpo no es JSON válido" } });
     }
-    app.log.error(error);
+    raiz.log.error(error);
     return reply.status(500).send({ error: { codigo: "ERROR_INTERNO", mensaje: "Error del servidor. Se reintentará" } });
   });
 
-  return app;
+  return raiz;
 }

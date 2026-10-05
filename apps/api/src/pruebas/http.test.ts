@@ -3,7 +3,7 @@ import pg from "pg";
 import { nuevoId } from "@tiretrack/domain";
 import { hayBaseDeDatos, poolAislado } from "./base";
 import { crearEsquemaCompleto, sembrar, SEMILLA, authFalso } from "./esquemas";
-import { construirServidor, enTransaccion } from "../http/servidor";
+import { construirServidor, enTransaccion, PREFIJO_API } from "../http/servidor";
 import type { Claims } from "../acceso/servicio";
 import type { Almacenamiento } from "../fotos/almacenamiento";
 
@@ -58,7 +58,7 @@ function pedir(opciones: {
   if (opciones.clave !== null) cabeceras["idempotency-key"] = opciones.clave ?? nuevoId();
   return app.inject({
     method: opciones.metodo ?? "POST",
-    url: opciones.ruta,
+    url: PREFIJO_API + opciones.ruta,
     headers: cabeceras,
     payload: JSON.stringify(opciones.cuerpo ?? {}),
   });
@@ -108,6 +108,19 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
     );
   });
 
+  describe("prefijo de la API", () => {
+    it("las rutas viven bajo /api/v1, que es lo que usa la app instalada", async () => {
+      // La app (eas.json, _layout.tsx) llama a .../api/v1 y el servidor
+      // publicaba sin prefijo: todo el tráfico de un APK habría dado 404, y
+      // el celular aparta como rechazado lo que recibe 404.
+      expect(PREFIJO_API).toBe("/api/v1");
+      const con = await app.inject({ method: "GET", url: `${PREFIJO_API}/flota/clientes` });
+      const sin = await app.inject({ method: "GET", url: "/flota/clientes" });
+      expect(con.statusCode).toBe(401); // existe: pide sesión
+      expect(sin.statusCode).toBe(404);
+    });
+  });
+
   describe("autenticación", () => {
     it("sin token responde 401, que el celular traduce a 'renueva la sesión'", async () => {
       const r = await pedir({ metodo: "PUT", ruta: `/ordenes/${ORDEN}/mediciones/x`, token: null });
@@ -146,7 +159,7 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
 
   describe("acceso", () => {
     const ingresar = (cuerpo: unknown) =>
-      app.inject({ method: "POST", url: "/auth/ingresar", headers: { "content-type": "application/json" }, payload: JSON.stringify(cuerpo) });
+      app.inject({ method: "POST", url: `${PREFIJO_API}/auth/ingresar`, headers: { "content-type": "application/json" }, payload: JSON.stringify(cuerpo) });
 
     it("entrega los tokens con credenciales correctas", async () => {
       const r = await ingresar({ email: "carlos@asistectire.com", password: "correcta" });
@@ -193,7 +206,7 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
         verificarToken: () => null,
       });
       await espia.inject({
-        method: "POST", url: "/auth/ingresar", headers: { "content-type": "application/json" },
+        method: "POST", url: `${PREFIJO_API}/auth/ingresar`, headers: { "content-type": "application/json" },
         payload: JSON.stringify({ email: "marcela@asistectire.com", password: "correcta", empresaId: SEMILLA.empresa, codigo2fa: "123456" }),
       });
       await espia.close();
@@ -216,7 +229,7 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
 
     it("renueva la sesión y rota el token de renovación", async () => {
       const r = await app.inject({
-        method: "POST", url: "/auth/refrescar",
+        method: "POST", url: `${PREFIJO_API}/auth/refrescar`,
         headers: { "content-type": "application/json" },
         payload: JSON.stringify({ refreshToken: "refresh-1" }),
       });
@@ -226,7 +239,7 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
 
     it("un token de renovación inválido responde 401", async () => {
       const r = await app.inject({
-        method: "POST", url: "/auth/refrescar",
+        method: "POST", url: `${PREFIJO_API}/auth/refrescar`,
         headers: { "content-type": "application/json" },
         payload: JSON.stringify({ refreshToken: "robado" }),
       });
@@ -319,7 +332,7 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
     it("un cuerpo que no es JSON: 422, no 400 ni 500", async () => {
       const r = await app.inject({
         method: "PUT",
-        url: `/ordenes/${ORDEN}/mediciones/x`,
+        url: `${PREFIJO_API}/ordenes/${ORDEN}/mediciones/x`,
         headers: { "content-type": "application/json", authorization: "Bearer tok-tecnico", "idempotency-key": nuevoId() },
         payload: "{roto",
       });
@@ -446,7 +459,7 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
     // Estos servicios existían desde la fase 1 sin puerta de entrada: la
     // administración y la exportación eran inalcanzables.
     const traer = (ruta: string, token = "tok-coordinador") =>
-      app.inject({ method: "GET", url: ruta, headers: { authorization: `Bearer ${token}` } });
+      app.inject({ method: "GET", url: PREFIJO_API + ruta, headers: { authorization: `Bearer ${token}` } });
 
     it("lista los clientes", async () => {
       const r = await traer("/flota/clientes");
@@ -468,7 +481,7 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
     });
 
     it("sin sesión no se consulta la flota", async () => {
-      const r = await app.inject({ method: "GET", url: "/flota/clientes" });
+      const r = await app.inject({ method: "GET", url: `${PREFIJO_API}/flota/clientes` });
       expect(r.statusCode).toBe(401);
     });
 

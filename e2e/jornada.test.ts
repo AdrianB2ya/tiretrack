@@ -3,7 +3,7 @@ import pg from "pg";
 import { nuevoId } from "@tiretrack/domain";
 
 // El servidor REAL
-import { construirServidor } from "../apps/api/src/http/servidor";
+import { construirServidor, PREFIJO_API } from "../apps/api/src/http/servidor";
 import { crearEsquemaCompleto, sembrar, SEMILLA, authFalso } from "../apps/api/src/pruebas/esquemas";
 import { hayBaseDeDatos, poolAislado } from "../apps/api/src/pruebas/base";
 import type { Claims } from "../apps/api/src/acceso/servicio";
@@ -139,7 +139,8 @@ describe.skipIf(!disponible)("jornada completa de punta a punta", () => {
     });
     await servidor.listen({ port: 0, host: "127.0.0.1" });
     const dir = servidor.server.address();
-    base = typeof dir === "object" && dir ? `http://127.0.0.1:${dir.port}` : "";
+    // Igual que la app instalada: la URL base incluye /api/v1.
+    base = typeof dir === "object" && dir ? `http://127.0.0.1:${dir.port}${PREFIJO_API}` : "";
   }, 60_000);
 
   afterAll(async () => {

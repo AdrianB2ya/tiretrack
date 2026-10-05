@@ -3,7 +3,7 @@ import pg from "pg";
 import { nuevoId } from "@tiretrack/domain";
 import { hayBaseDeDatos, poolAislado } from "./base";
 import { crearEsquemaCompleto, sembrar, SEMILLA, authFalso } from "./esquemas";
-import { construirServidor } from "../http/servidor";
+import { construirServidor, PREFIJO_API } from "../http/servidor";
 import type { Claims } from "../acceso/servicio";
 import type { Almacenamiento } from "../fotos/almacenamiento";
 
@@ -82,7 +82,7 @@ describe.skipIf(!disponible)("robustez: ninguna entrada mala da 500", () => {
     if (opciones.token !== null) cabeceras["authorization"] = `Bearer ${opciones.token ?? "tok-tecnico"}`;
     const r = await app.inject({
       method: metodo,
-      url: ruta,
+      url: PREFIJO_API + ruta,
       headers: cabeceras,
       ...(metodo === "GET" ? {} : { payload: opciones.crudo ?? JSON.stringify(opciones.cuerpo) }),
     });
