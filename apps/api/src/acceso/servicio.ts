@@ -2,6 +2,24 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 // otplib 13 expone funciones sueltas, no el objeto `authenticator` de v12
 import { generateSecret, generateURI, verifySync } from "otplib";
+
+/**
+ * ¿El código TOTP es válido para este secreto?
+ *
+ * otplib LANZA si el código no son 6 dígitos. Sin esta guarda, un código mal
+ * escrito —o texto pegado por error— hacía responder 500 al login: el
+ * celular lo entendía como falla del servidor y el intento no contaba para
+ * el bloqueo. Todo lo que no sea un código bien formado es un código
+ * incorrecto, nada más.
+ */
+export function codigoTotpValido(codigo: string, secreto: string): boolean {
+  if (!/^[0-9]{6}$/.test(codigo)) return false;
+  try {
+    return verifySync({ token: codigo, secret: secreto }).valid;
+  } catch {
+    return false;
+  }
+}
 import { createHash, randomBytes } from "node:crypto";
 import {
   evaluarAcceso,
@@ -110,7 +128,7 @@ export class ServicioAuth {
     const codigoPresente = !!entrada.codigo2fa;
     const codigoValido =
       codigoPresente && usuario.dobleFactorSecreto
-        ? verifySync({ token: entrada.codigo2fa as string, secret: usuario.dobleFactorSecreto }).valid
+        ? codigoTotpValido(entrada.codigo2fa as string, usuario.dobleFactorSecreto)
         : false;
 
     const veredicto = evaluarAcceso({
@@ -329,7 +347,7 @@ export class ServicioAuth {
   }
 
   verificarCodigo2fa(codigo: string, secreto: string): boolean {
-    return verifySync({ token: codigo, secret: secreto }).valid;
+    return codigoTotpValido(codigo, secreto);
   }
 
   necesita2fa(rol: string, activo: boolean): boolean {

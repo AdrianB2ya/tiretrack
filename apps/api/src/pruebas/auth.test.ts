@@ -248,6 +248,18 @@ describe.skipIf(!disponible)("autenticación", () => {
       expect(r.rows[0].intentosFallidos).toBe(1);
     });
 
+    it.each([["texto pegado", "$cuerpo = @{ email = ... }"], ["cinco dígitos", "12345"], ["letras", "abcdef"]])(
+      "un código mal formado (%s) se rechaza como incorrecto, no revienta",
+      async (_caso, codigo) => {
+        // La librería LANZA con un código que no son 6 dígitos: sin validar
+        // antes, el login respondía 500 "se reintentará" y no contaba el intento.
+        const r = await servicio.login({ email: "marcela@aistectire.com", password: PASSWORD, codigo2fa: codigo });
+        expect(r.tipo).toBe("error");
+        const f = await db.query(`SELECT "intentosFallidos" FROM "Usuario" WHERE id = 'u-adm'`);
+        expect(f.rows[0].intentosFallidos).toBe(1);
+      },
+    );
+
     it("entra con el código correcto", async () => {
       const s = await db.query(`SELECT "dobleFactorSecreto" FROM "Usuario" WHERE id = 'u-adm'`);
       const codigo = generateSync({ secret: s.rows[0].dobleFactorSecreto });
