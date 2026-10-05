@@ -16,23 +16,29 @@ import { colores } from "../../../src/diseno/tokens";
 export default function PantallaEnviarOrden() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { cargarOrden, cambiarEstado, pendientesDeEnviar } = useDatos();
+  const { cargarOrden, cambiarEstado, pendientesDeEnviar, fotosSinSubir } = useDatos();
   const usuario = useUsuario();
 
   const [datos, setDatos] = useState<DatosOrden | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [sinSubir, setSinSubir] = useState(0);
 
   useEffect(() => {
     let vigente = true;
     void (async () => {
       if (!id) return;
       const d = await cargarOrden(id);
-      if (vigente) setDatos(d);
+      // Antes era 0 fijo: el envío nunca advertía de fotos sin subir.
+      const n = await fotosSinSubir(id);
+      if (vigente) {
+        setDatos(d);
+        setSinSubir(n);
+      }
     })();
     return () => {
       vigente = false;
     };
-  }, [id, cargarOrden]);
+  }, [id, cargarOrden, fotosSinSubir]);
 
   const enviar = useCallback(async () => {
     if (!id) return;
@@ -58,7 +64,7 @@ export default function PantallaEnviarOrden() {
       estado={{
         orden: datos.orden,
         diagrama: datos.diagrama,
-        fotosSinSubir: 0,
+        fotosSinSubir: sinSubir,
         operacionesPendientes: pendientesDeEnviar,
       }}
       // Quien mira, no quien tiene asignada la orden: usar el técnico de la

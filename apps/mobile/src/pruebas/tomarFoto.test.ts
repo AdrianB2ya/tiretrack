@@ -51,3 +51,31 @@ describe("transporte de fotos", () => {
     await expect(sinRed.subir({ uriLocal: "u", url: "x", tipoMime: "image/jpeg" })).rejects.toBeInstanceOf(SinConexion);
   });
 });
+
+describe("fotos en el repositorio", () => {
+  it("lista por orden o posición, con su estado, y cuenta las que faltan por subir", async () => {
+    const { abrirBaseEnMemoria } = await import("../datos/conexionNode");
+    const { migrar } = await import("../datos/base");
+    const { RepositorioLocal } = await import("../datos/repositorio");
+    const db = await abrirBaseEnMemoria();
+    await migrar(db);
+    const repo = new RepositorioLocal(db);
+    await repo.guardarOrden({
+      id: "ord-1", sedeId: "s", clienteId: "c", sedeClienteId: "sc", vehiculoId: "v",
+      tecnicoId: "t", configuracionEjeId: "cfg", tipo: "preventivo", estado: "en_proceso",
+      fecha: "2026-10-05", encolar: false,
+    });
+    const base = { ordenId: "ord-1", nombre: "f.jpg", tipoMime: "image/jpeg" as const, tamanoBytes: 1000 };
+    const deOrden = await repo.adjuntarFoto({ ...base, uriLocal: "file:///a.jpg" });
+    await repo.adjuntarFoto({ ...base, medicionId: "med-7", uriLocal: "file:///b.jpg" });
+
+    expect((await repo.fotosDe("ord-1", null)).map((f) => f.uriLocal)).toEqual(["file:///a.jpg"]);
+    expect((await repo.fotosDe("ord-1", "med-7")).map((f) => f.uriLocal)).toEqual(["file:///b.jpg"]);
+    expect(await repo.contarFotosSinSubir("ord-1")).toBe(2);
+
+    await repo.marcarFotoSubida(deOrden);
+    expect((await repo.fotosDe("ord-1", null))[0]?.estado).toBe("subida");
+    expect(await repo.contarFotosSinSubir("ord-1")).toBe(1);
+    await db.cerrar();
+  });
+});

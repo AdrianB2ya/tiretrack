@@ -2426,6 +2426,10 @@ firmada; 403 = URL vencida, sin respuesta = sin red). El subidor corre tras
 cada sincronización, por fuera de la cola. En local no suben: R2 tiene
 valores de relleno.
 
+También hay galería a nivel de orden en el detalle (placa, odómetro, estado
+del vehículo), y el detalle y el envío cuentan las fotos sin subir: antes
+era un 0 fijo y el aviso de "fotos sin enviar" nunca aparecía.
+
 ### Defectos encontrados al construir
 
 | Defecto | Efecto |

@@ -7,7 +7,9 @@ import { useDatos, type DatosOrden } from "../../../src/app/ProveedorDatos";
 import { useUsuario } from "../../../src/app/ProveedorSesion";
 import { accionesDisponibles, requisitosParaEnviar, resumirFirma } from "../../../src/ordenes/detalle";
 import { siguienteSinCapturar } from "../../../src/ordenes/diagrama";
-import { estaAbierta, puedeAprobar, type EstadoOrden } from "@tiretrack/domain";
+import { FotosDe } from "../../../src/fotos/FotosDe";
+import { camaraDelDispositivo, manipuladorDelDispositivo } from "../../../src/fotos/captura";
+import { estaAbierta, MAXIMO_POR_ORDEN, puedeAprobar, type EstadoOrden } from "@tiretrack/domain";
 import { colores, espacio, estadosOrden, texto } from "../../../src/diseno/tokens";
 
 /**
@@ -19,13 +21,17 @@ import { colores, espacio, estadosOrden, texto } from "../../../src/diseno/token
 export default function PantallaDetalle() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { cargarOrden, ordenes } = useDatos();
+  const { cargarOrden, ordenes, fotosSinSubir, fotosDe, adjuntarFoto } = useDatos();
   const usuario = useUsuario();
   const [datos, setDatos] = useState<DatosOrden | null>(null);
+  const [sinSubir, setSinSubir] = useState(0);
 
   const recargar = useCallback(async () => {
-    if (id) setDatos(await cargarOrden(id));
-  }, [id, cargarOrden]);
+    if (!id) return;
+    setDatos(await cargarOrden(id));
+    // Antes era un 0 fijo: el aviso de fotos sin enviar nunca aparecía.
+    setSinSubir(await fotosSinSubir(id));
+  }, [id, cargarOrden, fotosSinSubir]);
 
   // `ordenes` cambia tras cada guardado: recargar entonces mantiene el
   // diagrama al día sin tener que avisar manualmente desde el editor.
@@ -55,7 +61,7 @@ export default function PantallaDetalle() {
     sedeClienteNombre: ctx?.sedeClienteNombre ?? "",
     mediciones: datos.mediciones,
     posicionesTotales: diagrama.totalPosiciones,
-    fotosSinSubir: 0,
+    fotosSinSubir: sinSubir,
   };
   const acciones = accionesDisponibles(detalle, { usuarioId: usuario.id, rol: usuario.rol });
   const capturar = acciones.find((a) => a.accion === "capturar");
@@ -95,6 +101,16 @@ export default function PantallaDetalle() {
       <DiagramaLlantas
         diagrama={diagrama}
         onTocarPosicion={(n) => router.push(`/orden/${orden.id}/posicion/${n}` as never)}
+      />
+
+      {/* Fotos de la orden en general (placa, odómetro, estado del vehículo);
+          las de cada llanta se toman en su posición. */}
+      <FotosDe
+        destino={{ ordenId: orden.id, medicionId: null, posicion: null }}
+        cargar={() => fotosDe(orden.id, null)}
+        dependencias={{ camara: camaraDelDispositivo, manipulador: manipuladorDelDispositivo, adjuntar: adjuntarFoto }}
+        maximo={MAXIMO_POR_ORDEN}
+        deshabilitada={!capturar?.habilitada}
       />
 
       <View style={estilos.requisitos}>
