@@ -910,3 +910,20 @@ describe("corregir una posición reutiliza su medición", () => {
     expect(a?.id).not.toBe(b?.id);
   });
 });
+
+describe("lectura de órdenes", () => {
+  it("toda columna que lee aOrden está en COLUMNAS_ORDEN", async () => {
+    // Las consultas tenían su lista a mano y omitían accion y la firma
+    // completa: esos campos llegaban siempre nulos aunque estuvieran
+    // guardados.
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const { COLUMNAS_ORDEN } = await import("../datos/repositorio");
+    const fuente = readFileSync(join(__dirname, "..", "datos", "repositorio.ts"), "utf8");
+    const cuerpo = fuente.slice(fuente.indexOf("function aOrden("));
+    const leidas = [...cuerpo.slice(0, cuerpo.indexOf("\n}\n")).matchAll(/f\["(\w+)"\]/g)].map((m) => m[1]);
+    const columnas = COLUMNAS_ORDEN.split(",").map((c) => c.trim());
+    expect(leidas.length).toBeGreaterThan(20);
+    expect(leidas.filter((c) => !columnas.includes(c as string))).toEqual([]);
+  });
+});

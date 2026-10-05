@@ -1,4 +1,4 @@
-import type { RepositorioLocal } from "./repositorio";
+import type { OrdenDescargada, RepositorioLocal } from "./repositorio";
 
 /**
  * Descarga de datos al dispositivo.
@@ -15,14 +15,7 @@ import type { RepositorioLocal } from "./repositorio";
 export interface PaqueteDescargado {
   readonly hasta: string;
   readonly incremental: boolean;
-  readonly ordenes: {
-    id: string; sedeId: string; clienteId: string; sedeClienteId: string;
-    vehiculoId: string; tecnicoId: string; configuracionEjeId: string;
-    folio: string | null; tipo: string; estado: string; fecha: string;
-    kilometraje: number | null; hallazgos: string | null;
-    motivoDevolucion: string | null; notaCoordinador: string | null;
-    version: number; versionContenido: number;
-  }[];
+  readonly ordenes: OrdenDescargada[];
   readonly mediciones: {
     id: string; ordenId: string; posicion: number;
     marcaId: string | null; disenoId: string | null; medida: string | null;

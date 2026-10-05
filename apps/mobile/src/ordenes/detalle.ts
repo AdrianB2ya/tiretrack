@@ -152,7 +152,11 @@ export function accionesDisponibles(
   const edicion = puedeEditarMediciones({
     estado: d.orden.estado as EstadoOrden,
     rol: ctx.rol,
-    esTecnicoAsignado: true,
+    // De la orden y la sesión, nunca fijo: con "true" el coordinador veía
+    // habilitado capturar en la orden de otro, y solo el técnico asignado
+    // captura (si pudiera corregir, la firma dejaría de respaldar lo medido).
+    // Es la misma clase de error de las tareas 3.7 y 4.4.
+    esTecnicoAsignado: d.orden.tecnicoId === ctx.usuarioId,
     vistaCliente: false,
   });
 

@@ -27,6 +27,7 @@ export function unaOrden(extra: Partial<OrdenLocal> = {}): OrdenLocal {
     configuracionEjeId: "cfg-1",
     kilometraje: 78900,
     hallazgos: "Desgaste irregular en el direccional",
+    accion: null,
     firmaNombre: null,
     firmaCedula: null,
     firmaVersion: null,

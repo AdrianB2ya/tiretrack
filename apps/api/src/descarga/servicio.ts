@@ -71,6 +71,19 @@ export interface OrdenDescargada {
   readonly notaCoordinador: string | null;
   readonly version: number;
   readonly versionContenido: number;
+  /**
+   * Antes no viajaban, y el celular guarda la orden descargada reemplazando
+   * la fila entera: al volver a descargar una orden firmada, la firma
+   * desaparecía del celular y la app decía que faltaba. El trazo no viaja
+   * —pesa y el celular que firmó ya lo tiene—; el resumen sí.
+   */
+  readonly codigoReferencia: string | null;
+  readonly accion: string | null;
+  readonly firmaNombre: string | null;
+  readonly firmaCedula: string | null;
+  readonly firmaCargo: string | null;
+  readonly firmaVersion: number | null;
+  readonly firmaFechaHora: string | null;
 }
 
 export interface MedicionDescargada {
@@ -150,7 +163,9 @@ export class ServicioDescarga {
       `SELECT o.id, o."sedeId", o."clienteId", o."sedeClienteId", o."vehiculoId",
               o.tecnico_id, o."configuracionEjeId", o.folio, o.tipo, o.estado,
               o.fecha, o.kilometraje, o.hallazgos, o."motivoDevolucion",
-              o."notaCoordinador", o.version, o."versionContenido"
+              o."notaCoordinador", o.version, o."versionContenido",
+              o."codigoReferencia", o.accion, o."firmaNombre", o."firmaCedula", o."firmaCargo",
+              o."firmaVersion", o."firmaFechaHora"
          FROM "OrdenServicio" o
         WHERE ${condiciones.join(" AND ")}
         ORDER BY o.fecha DESC
@@ -176,6 +191,13 @@ export class ServicioDescarga {
       notaCoordinador: (f["notaCoordinador"] as string) ?? null,
       version: Number(f["version"]),
       versionContenido: Number(f["versionContenido"]),
+      codigoReferencia: (f["codigoReferencia"] as string) ?? null,
+      accion: (f["accion"] as string) ?? null,
+      firmaNombre: (f["firmaNombre"] as string) ?? null,
+      firmaCedula: (f["firmaCedula"] as string) ?? null,
+      firmaCargo: (f["firmaCargo"] as string) ?? null,
+      firmaVersion: f["firmaVersion"] === null ? null : Number(f["firmaVersion"]),
+      firmaFechaHora: f["firmaFechaHora"] instanceof Date ? f["firmaFechaHora"].toISOString() : null,
     }));
   }
 

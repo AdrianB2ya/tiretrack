@@ -33,6 +33,8 @@ export interface OrdenLocal {
   readonly configuracionEjeId: string;
   readonly kilometraje: number | null;
   readonly hallazgos: string | null;
+  /** Acción realizada. Se guardaba en SQLite y nada la leía. */
+  readonly accion: string | null;
   readonly firmaNombre: string | null;
   readonly firmaCedula: string | null;
   /** Versión de contenido que la firma ampara. */
@@ -150,6 +152,21 @@ export interface ContextoOrden {
   readonly vehiculoCodigo: string;
   readonly vehiculoPlaca: string | null;
   readonly vehiculoNombre: string;
+  /** Kilometraje conocido del vehículo: para avisar si el nuevo retrocede. */
+  readonly vehiculoKm: number | null;
+}
+
+/** Orden tal como la entrega el servidor en la descarga. */
+export interface OrdenDescargada {
+  id: string; sedeId: string; clienteId: string; sedeClienteId: string;
+  vehiculoId: string; tecnicoId: string; configuracionEjeId: string;
+  folio: string | null; tipo: string; estado: string; fecha: string;
+  kilometraje: number | null; hallazgos: string | null;
+  motivoDevolucion: string | null; notaCoordinador: string | null;
+  version: number; versionContenido: number;
+  codigoReferencia: string | null; accion: string | null;
+  firmaNombre: string | null; firmaCedula: string | null; firmaCargo: string | null;
+  firmaVersion: number | null; firmaFechaHora: string | null;
 }
 
 export type TipoOperacion =
@@ -269,26 +286,14 @@ export class RepositorioLocal {
 
   async ordenesAsignadas(): Promise<OrdenLocal[]> {
     const filas = await this.db.consultar<Record<string, unknown>>(
-      `SELECT id, folio, codigo_referencia, sede_id, vehiculo_id, cliente_id, tecnico_id,
-              tecnico_nombre, enviada_revision_en, limite_cliente, estado,
-              motivo_devolucion, nota_coordinador, fecha,
-              configuracion_eje_id, kilometraje, hallazgos, firma_nombre, firma_cedula, firma_version,
-              version, version_contenido,
-              sincronizada
-         FROM orden ORDER BY fecha DESC`,
+      `SELECT ${COLUMNAS_ORDEN} FROM orden ORDER BY fecha DESC`,
     );
     return filas.map(aOrden);
   }
 
   async buscarOrden(id: string): Promise<OrdenLocal | null> {
     const filas = await this.db.consultar<Record<string, unknown>>(
-      `SELECT id, folio, codigo_referencia, sede_id, vehiculo_id, cliente_id, tecnico_id,
-              tecnico_nombre, enviada_revision_en, limite_cliente, estado,
-              motivo_devolucion, nota_coordinador, fecha,
-              configuracion_eje_id, kilometraje, hallazgos, firma_nombre, firma_cedula, firma_version,
-              version, version_contenido,
-              sincronizada
-         FROM orden WHERE id = ?`,
+      `SELECT ${COLUMNAS_ORDEN} FROM orden WHERE id = ?`,
       [id],
     );
     return filas[0] ? aOrden(filas[0]) : null;
@@ -462,7 +467,7 @@ export class RepositorioLocal {
   async contextoDeOrden(ordenId: string): Promise<ContextoOrden | null> {
     const filas = await this.db.consultar<Record<string, unknown>>(
       `SELECT c.nombre AS cliente_nombre, sc.nombre AS sede_nombre,
-              v.codigo, v.placa, v.nombre AS vehiculo_nombre
+              v.codigo, v.placa, v.nombre AS vehiculo_nombre, v.km_actual
          FROM orden o
          JOIN vehiculo v ON v.id = o.vehiculo_id
          JOIN sede_cliente sc ON sc.id = v.sede_cliente_id
@@ -478,6 +483,7 @@ export class RepositorioLocal {
       vehiculoCodigo: String(f["codigo"]),
       vehiculoPlaca: (f["placa"] as string) ?? null,
       vehiculoNombre: String(f["vehiculo_nombre"]),
+      vehiculoKm: f["km_actual"] === null || f["km_actual"] === undefined ? null : Number(f["km_actual"]),
     };
   }
 
@@ -488,7 +494,7 @@ export class RepositorioLocal {
     const marcadores = ordenIds.map(() => "?").join(",");
     const filas = await this.db.consultar<Record<string, unknown>>(
       `SELECT o.id AS orden_id, c.nombre AS cliente_nombre, sc.nombre AS sede_nombre,
-              v.codigo, v.placa, v.nombre AS vehiculo_nombre
+              v.codigo, v.placa, v.nombre AS vehiculo_nombre, v.km_actual
          FROM orden o
          JOIN vehiculo v ON v.id = o.vehiculo_id
          JOIN sede_cliente sc ON sc.id = v.sede_cliente_id
@@ -506,6 +512,7 @@ export class RepositorioLocal {
           vehiculoCodigo: String(f["codigo"]),
           vehiculoPlaca: (f["placa"] as string) ?? null,
           vehiculoNombre: String(f["vehiculo_nombre"]),
+          vehiculoKm: f["km_actual"] === null || f["km_actual"] === undefined ? null : Number(f["km_actual"]),
         },
       ]),
     );
@@ -1000,25 +1007,43 @@ export class RepositorioLocal {
    * No encola nada: ya está en el servidor, es de donde viene. Y marca
    * `sincronizada`, que es lo que protege del pisado en la próxima descarga.
    */
-  async guardarOrdenDescargada(o: {
-    id: string; sedeId: string; clienteId: string; sedeClienteId: string;
-    vehiculoId: string; tecnicoId: string; configuracionEjeId: string;
-    folio: string | null; tipo: string; estado: string; fecha: string;
-    kilometraje: number | null; hallazgos: string | null;
-    motivoDevolucion: string | null; notaCoordinador: string | null;
-    version: number; versionContenido: number;
-  }): Promise<void> {
+  async guardarOrdenDescargada(o: OrdenDescargada): Promise<void> {
+    // ON CONFLICT ... DO UPDATE, no INSERT OR REPLACE. REPLACE reescribe la
+    // fila entera: lo que el servidor no manda volvía a NULL. Al descargar de
+    // nuevo una orden firmada, la firma desaparecía del celular y la app decía
+    // que faltaba. Ahora solo se tocan las columnas que vienen del servidor;
+    // el trazo de la firma —que no viaja— se conserva mientras la firma siga
+    // siendo la misma.
     await this.db.ejecutar(
-      `INSERT OR REPLACE INTO orden
+      `INSERT INTO orden
          (id, folio, codigo_referencia, sede_id, cliente_id, sede_cliente_id, vehiculo_id,
           tecnico_id, configuracion_eje_id, tipo, prioridad, estado, fecha,
-          kilometraje, hallazgos, motivo_devolucion, nota_coordinador,
+          kilometraje, hallazgos, accion, motivo_devolucion, nota_coordinador,
+          firma_nombre, firma_cedula, firma_cargo, firma_version, firma_fecha_hora,
           version, version_contenido, sincronizada, actualizada_en)
-       VALUES (?,?,NULL,?,?,?,?,?,?,?,'normal',?,?,?,?,?,?,?,?,1,?)`,
+       VALUES (?,?,?,?,?,?,?,?,?,?,'normal',?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?)
+       ON CONFLICT (id) DO UPDATE SET
+         folio = excluded.folio,
+         codigo_referencia = coalesce(excluded.codigo_referencia, orden.codigo_referencia),
+         sede_id = excluded.sede_id, cliente_id = excluded.cliente_id,
+         sede_cliente_id = excluded.sede_cliente_id, vehiculo_id = excluded.vehiculo_id,
+         tecnico_id = excluded.tecnico_id, configuracion_eje_id = excluded.configuracion_eje_id,
+         tipo = excluded.tipo, estado = excluded.estado, fecha = excluded.fecha,
+         kilometraje = excluded.kilometraje, hallazgos = excluded.hallazgos, accion = excluded.accion,
+         motivo_devolucion = excluded.motivo_devolucion, nota_coordinador = excluded.nota_coordinador,
+         firma_trazo = CASE WHEN excluded.firma_version IS orden.firma_version
+                             AND excluded.firma_nombre IS orden.firma_nombre
+                            THEN orden.firma_trazo ELSE NULL END,
+         firma_nombre = excluded.firma_nombre, firma_cedula = excluded.firma_cedula,
+         firma_cargo = excluded.firma_cargo, firma_version = excluded.firma_version,
+         firma_fecha_hora = excluded.firma_fecha_hora,
+         version = excluded.version, version_contenido = excluded.version_contenido,
+         sincronizada = 1, actualizada_en = excluded.actualizada_en`,
       [
-        o.id, o.folio, o.sedeId, o.clienteId, o.sedeClienteId, o.vehiculoId,
+        o.id, o.folio, o.codigoReferencia, o.sedeId, o.clienteId, o.sedeClienteId, o.vehiculoId,
         o.tecnicoId, o.configuracionEjeId, o.tipo, o.estado, o.fecha,
-        o.kilometraje, o.hallazgos, o.motivoDevolucion, o.notaCoordinador,
+        o.kilometraje, o.hallazgos, o.accion, o.motivoDevolucion, o.notaCoordinador,
+        o.firmaNombre, o.firmaCedula, o.firmaCargo, o.firmaVersion, o.firmaFechaHora,
         o.version, o.versionContenido, this.ahora(),
       ],
     );
@@ -1315,6 +1340,23 @@ export class RepositorioLocal {
   }
 }
 
+/**
+ * Columnas que lee `aOrden`, en un solo sitio.
+ *
+ * Las dos consultas de órdenes tenían su lista escrita a mano y le faltaban
+ * accion, firma_trazo, firma_cargo y firma_fecha_hora: esos campos de
+ * OrdenLocal llegaban SIEMPRE nulos aunque estuvieran guardados. Una prueba
+ * exige que cada campo que lee `aOrden` esté aquí.
+ */
+export const COLUMNAS_ORDEN = [
+  "id", "folio", "codigo_referencia", "sede_id", "vehiculo_id", "cliente_id", "tecnico_id",
+  "tecnico_nombre", "enviada_revision_en", "limite_cliente", "estado",
+  "motivo_devolucion", "nota_coordinador", "fecha", "configuracion_eje_id",
+  "kilometraje", "hallazgos", "accion",
+  "firma_nombre", "firma_cedula", "firma_version", "firma_trazo", "firma_cargo", "firma_fecha_hora",
+  "version", "version_contenido", "sincronizada",
+].join(", ");
+
 function aOrden(f: Record<string, unknown>): OrdenLocal {
   return {
     id: String(f["id"]),
@@ -1334,6 +1376,7 @@ function aOrden(f: Record<string, unknown>): OrdenLocal {
     configuracionEjeId: String(f["configuracion_eje_id"]),
     kilometraje: f["kilometraje"] === null ? null : Number(f["kilometraje"]),
     hallazgos: (f["hallazgos"] as string) ?? null,
+    accion: (f["accion"] as string) ?? null,
     firmaNombre: (f["firma_nombre"] as string) ?? null,
     firmaCedula: (f["firma_cedula"] as string) ?? null,
     firmaVersion: f["firma_version"] === null ? null : Number(f["firma_version"]),

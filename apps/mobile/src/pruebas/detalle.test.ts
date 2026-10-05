@@ -38,6 +38,7 @@ const ordenBase: OrdenLocal = {
   configuracionEjeId: "cfg-1",
   kilometraje: 78900,
   hallazgos: null,
+  accion: null,
   firmaNombre: null,
   firmaCedula: null,
   firmaVersion: null,

@@ -28,6 +28,8 @@ function unaOrden(extra: Record<string, unknown> = {}) {
     folio: "OS-FUN-000001", tipo: "preventivo", estado: "en_proceso",
     fecha: "2026-09-21", kilometraje: null, hallazgos: null,
     motivoDevolucion: null, notaCoordinador: null, version: 3, versionContenido: 1,
+    codigoReferencia: null, accion: null, firmaNombre: null, firmaCedula: null,
+    firmaCargo: null, firmaVersion: null, firmaFechaHora: null,
     ...extra,
   };
 }
@@ -164,6 +166,39 @@ describe("lo descargado no pisa el trabajo sin enviar", () => {
 
     const [m] = await repo.medicionesDe("ord-1");
     expect(m?.profundidad).toBe(4);
+  });
+
+  it("volver a descargar una orden firmada en este celular conserva la firma", async () => {
+    // La descarga guardaba con INSERT OR REPLACE: lo que el servidor no
+    // mandaba volvía a NULL. La firma desaparecía y la app pedía firmar otra
+    // vez una orden que el servidor ya tenía firmada.
+    await descargador.descargar(servidorCon(unPaquete()));
+    await repo.firmar("ord-1", {
+      nombre: "Luis Reyna", cedula: "77221004", trazo: "[[[0,0],[9,9]]]", consentimiento: "2026-09-v1",
+    });
+    // El envío llegó, como lo deja el motor: cola vacía y orden sincronizada.
+    for (const op of await repo.operacionesPendientes()) await repo.marcarOperacionAplicada(op.id);
+    await repo.confirmarSincronizacion("ord-1", null);
+    const firmada = await repo.buscarOrden("ord-1");
+    // Sin esto la comparación del trazo pasaría con null contra null.
+    expect(firmada?.firmaTrazo).toBeTruthy();
+
+    await descargador.descargar(servidorCon(unPaquete({
+      ordenes: [unaOrden({
+        estado: "en_revision", accion: "Calibración general", codigoReferencia: "FUN-K7M2",
+        firmaNombre: "Luis Reyna", firmaCedula: "77221004",
+        firmaVersion: firmada?.firmaVersion, firmaFechaHora: "2026-09-21T10:00:00.000Z",
+      })],
+    })));
+
+    const despues = await repo.buscarOrden("ord-1");
+    expect(despues?.estado).toBe("en_revision");
+    expect(despues?.firmaNombre).toBe("Luis Reyna");
+    expect(despues?.firmaVersion).toBe(firmada?.firmaVersion);
+    // El trazo no viaja: se conserva el que se capturó aquí.
+    expect(despues?.firmaTrazo).toBe(firmada?.firmaTrazo);
+    expect(despues?.accion).toBe("Calibración general");
+    expect(despues?.codigoReferencia).toBe("FUN-K7M2");
   });
 
   it("una orden ya sincronizada SÍ se actualiza", async () => {

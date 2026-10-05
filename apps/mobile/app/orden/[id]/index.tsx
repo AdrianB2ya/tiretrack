@@ -5,7 +5,8 @@ import { DiagramaLlantas, ResumenDiagrama } from "../../../src/ordenes/DiagramaL
 import { Aviso, Boton, Insignia } from "../../../src/diseno/componentes";
 import { useDatos, type DatosOrden } from "../../../src/app/ProveedorDatos";
 import { useUsuario } from "../../../src/app/ProveedorSesion";
-import { accionesDisponibles, requisitosParaEnviar } from "../../../src/ordenes/detalle";
+import { accionesDisponibles, requisitosParaEnviar, resumirFirma } from "../../../src/ordenes/detalle";
+import { siguienteSinCapturar } from "../../../src/ordenes/diagrama";
 import { colores, espacio, estadosOrden, texto } from "../../../src/diseno/tokens";
 
 /**
@@ -42,19 +43,26 @@ export default function PantallaDetalle() {
   const { orden, diagrama } = datos;
   const estado = estadosOrden[orden.estado as keyof typeof estadosOrden];
 
+  // Los nombres de la flota; si aún no se descargó, el identificador, que al
+  // menos se puede buscar y dictar por teléfono.
+  const ctx = datos.contexto;
   const detalle = {
     orden,
-    vehiculoCodigo: orden.vehiculoId,
-    vehiculoPlaca: null,
-    clienteNombre: orden.clienteId,
-    sedeClienteNombre: "",
+    vehiculoCodigo: ctx?.vehiculoCodigo ?? orden.vehiculoId,
+    vehiculoPlaca: ctx?.vehiculoPlaca ?? null,
+    clienteNombre: ctx?.clienteNombre ?? orden.clienteId,
+    sedeClienteNombre: ctx?.sedeClienteNombre ?? "",
     mediciones: datos.mediciones,
     posicionesTotales: diagrama.totalPosiciones,
     fotosSinSubir: 0,
   };
   const acciones = accionesDisponibles(detalle, { usuarioId: usuario.id, rol: usuario.rol });
   const capturar = acciones.find((a) => a.accion === "capturar");
+  const firmar = acciones.find((a) => a.accion === "firmar");
   const enviar = acciones.find((a) => a.accion === "enviar");
+  const firma = resumirFirma(orden);
+  // Continuar donde quedó: la primera posición sin capturar.
+  const siguiente = siguienteSinCapturar(diagrama, 0);
 
   return (
     <ScrollView style={estilos.pantalla} contentContainerStyle={estilos.contenido}>
@@ -62,6 +70,14 @@ export default function PantallaDetalle() {
         <Text style={estilos.folio}>{orden.folio ?? orden.codigoReferencia ?? "Sin folio"}</Text>
         {estado ? <Insignia color={estado.color}>{estado.etiqueta}</Insignia> : null}
       </View>
+      <Text style={estilos.vehiculo}>
+        {detalle.vehiculoCodigo}
+        {detalle.vehiculoPlaca ? ` · ${detalle.vehiculoPlaca}` : ""}
+      </Text>
+      <Text style={estilos.cliente}>
+        {detalle.clienteNombre}
+        {detalle.sedeClienteNombre ? ` · ${detalle.sedeClienteNombre}` : ""}
+      </Text>
 
       {orden.motivoDevolucion ? (
         <Aviso tono="peligro" titulo="Devuelta para corregir" detalle={orden.motivoDevolucion} />
@@ -90,8 +106,36 @@ export default function PantallaDetalle() {
         <Aviso tono="advertencia" titulo="Falta para poder enviar" detalle={enviar.motivo} />
       ) : null}
 
-      <Boton ancho deshabilitado={!capturar?.habilitada} onPress={() => undefined}>
-        Continuar captura
+      {/* Antes este botón no hacía nada: onPress={() => undefined}. */}
+      <Boton
+        ancho
+        testID="continuar-captura"
+        deshabilitado={!capturar?.habilitada || siguiente === null}
+        onPress={() => siguiente !== null && router.push(`/orden/${orden.id}/posicion/${siguiente}` as never)}
+      >
+        {siguiente === null ? "Todas las posiciones capturadas" : `Continuar captura (posición ${siguiente})`}
+      </Boton>
+
+      <Boton
+        ancho
+        tipo="secundario"
+        testID="datos-servicio"
+        onPress={() => router.push(`/orden/${orden.id}/datos` as never)}
+      >
+        Kilometraje y hallazgos
+      </Boton>
+
+      {firmar && !firmar.habilitada && firmar.motivo && capturar?.habilitada ? (
+        <Text style={estilos.motivo}>{firmar.motivo}</Text>
+      ) : null}
+      <Boton
+        ancho
+        tipo="secundario"
+        testID="firmar"
+        deshabilitado={!firmar?.habilitada}
+        onPress={() => router.push(`/orden/${orden.id}/firma` as never)}
+      >
+        {firma.estado === "sin_firmar" ? "Firma de quien recibe" : "Volver a firmar"}
       </Boton>
 
       <Boton
@@ -112,6 +156,9 @@ const estilos = StyleSheet.create({
   centrado: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colores.fondo },
   cabecera: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   folio: { ...texto.codigo, color: colores.primario },
+  vehiculo: { ...texto.subtitulo, color: colores.texto },
+  cliente: { ...texto.cuerpo, color: colores.textoTenue },
+  motivo: { ...texto.ayuda, color: colores.advertencia },
   requisitos: { gap: espacio.sm },
   requisito: { ...texto.cuerpo, color: colores.textoTenue },
   cumplido: { color: colores.exito },

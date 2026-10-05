@@ -66,6 +66,7 @@ const ordenBase: OrdenLocal = {
   configuracionEjeId: "cfg-1",
   kilometraje: 78900,
   hallazgos: "Desgaste irregular en el eje direccional",
+  accion: null,
   firmaNombre: "Luis Reyna",
   firmaCedula: "77221004",
   firmaVersion: 4,
