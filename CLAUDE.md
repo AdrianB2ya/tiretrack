@@ -2337,28 +2337,53 @@ ejecutado nunca en hardware. Cámara, almacenamiento seguro, SQLite y tamaños
 táctiles están validados con adaptadores en Node. Las pruebas dicen que la
 lógica es correcta; no dicen que la app abra.
 
-## Punto de retoma (2026-10-04)
+## Punto de retoma (2026-10-05)
 
-**Objetivo en curso:** ninguna tarea a medias. Lo documentado llega hasta la
-6.10 (empaquetado preparado); lo siguiente es **7.1, primer APK instalable**.
-Ojo: las casillas del "Plan de tareas" están desactualizadas (3.5 en adelante
-figura pendiente aunque está hecho y documentado arriba) y la numeración de
-las secciones ya no coincide con la del plan. Conviene reconciliarlas.
+**Objetivo en curso:** probar la app en un teléfono con Expo Go contra el
+servidor local. El APK (7.1) va **después**, por decisión del usuario.
+Las pantallas de firma y fotos existen pero no están montadas en ninguna
+ruta; montarlas también va después.
 
-**Verificado en esta máquina:** `npm run verify` sale con código 0:
-typecheck (paquetes, api, e2e, mobile), lint, y pruebas: raíz 421 pasan y
-**385 se saltan**; mobile 657 pasan. Las saltadas son las de PostgreSQL: aquí
-no hay base de pruebas. **No están verificadas localmente**; solo corren en CI.
-Nada se ha ejecutado aún en un teléfono.
+**Verificado en esta máquina** (Windows, PostgreSQL 16 local):
 
-**Siguiente comando** (requiere cuenta de Expo y red, ver `COMPILAR.md`):
+- `npm run verify` con `PRUEBAS_EXIGEN_BASE=1`: raíz **800/800**, mobile
+  660/660, cero omitidas. Antes, 385 se saltaban.
+- Servidor contra la base `tiretrack`: `/salud` y `/listo` en 200, ingreso
+  del técnico y `/sincronizacion` a través de RLS, por la IP de la red local.
+- Metro construye el paquete de Android (antes no compilaba).
+- **No verificado:** la app abierta en el teléfono. Nada se ha ejecutado aún
+  en hardware.
+
+**Entorno local** (no versionado):
+
+- `apps/api/.env`: conexiones con `tiretrack_app` / `tiretrack_auth` (con
+  LOGIN y clave local), `DIRECT_URL` con el dueño `tiretrack`/`test`, JWT
+  aleatorio, S3 de relleno (las fotos no funcionan en local).
+- Base de pruebas: `postgresql://tiretrack:test@localhost:5432/tiretrack_test`.
+- La semilla no asigna contraseñas a propósito; la del técnico de prueba
+  se puso a mano en la base local.
+
+**Siguientes comandos:**
 
 ```bash
-cd apps/mobile && eas login && eas build -p android --profile campo
+# Pruebas con base (sin la variable, las de integración se saltan)
+DATABASE_URL_TEST=postgresql://tiretrack:test@localhost:5432/tiretrack_test PRUEBAS_EXIGEN_BASE=1 npm run verify
+
+# Servidor
+cd apps/api && node --env-file=.env --import tsx src/server.ts
+
+# App para Expo Go (la URL va SIN /api/v1: ver abajo)
+cd apps/mobile && EXPO_PUBLIC_API_URL=http://<IP-LAN>:4000 npx expo start --lan --go
 ```
 
-Para cubrir las pruebas de base en local, antes: definir
-`DATABASE_URL_TEST`, `PRUEBAS_EXIGEN_BASE=1` y volver a correr `npm run verify`.
+**Pendiente de decisión:** la app (`_layout.tsx`, `eas.json`, `COMPILAR.md`)
+usa `.../api/v1` y el servidor monta las rutas sin prefijo. Con la
+configuración de `eas.json`, todo el tráfico daría 404 y la cola apartaría
+las operaciones. Hay que decidir de qué lado se corrige antes del APK.
+
+**Inestabilidad sin cerrar:** en una de 14 corridas completas bajo carga
+fuerte, `aislamiento` y `rol-acceso` fallaron juntas al preparar. No se
+reprodujo en 6 intentos dirigidos y no se capturó el mensaje.
 
 ## Decisiones abiertas
 
