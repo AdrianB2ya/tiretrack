@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import pg from "pg";
 import { nuevoId } from "@tiretrack/domain";
+import { zRespuestaLogin } from "@tiretrack/contracts";
 import { hayBaseDeDatos, poolAislado } from "./base";
 import { crearEsquemaCompleto, sembrar, SEMILLA, authFalso } from "./esquemas";
 import { construirServidor, enTransaccion, PREFIJO_API } from "../http/servidor";
@@ -182,7 +183,16 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
       expect(u).toEqual({
         id: SEMILLA.tecnico, nombre: "Carlos Méndez", email: "carlos@asistectire.com",
         rol: "tecnico", empresaId: SEMILLA.empresa, clienteId: null,
+        sedes: [SEMILLA.sede], sedePrincipal: null,
       });
+    });
+
+    it("la respuesta cumple el contrato de ingreso, sedes incluidas", async () => {
+      // El contrato exigía sedes y sedePrincipal y el login no los enviaba:
+      // la app guardaba undefined y "¿pertenece a esta sede?" daba siempre no.
+      const r = await ingresar({ email: "carlos@asistectire.com", password: "correcta" });
+      const p = zRespuestaLogin.safeParse(r.json());
+      expect(p.success ? [] : p.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`)).toEqual([]);
     });
 
     it("con credenciales incorrectas responde 401 sin decir qué falló", async () => {

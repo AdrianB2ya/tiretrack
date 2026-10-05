@@ -362,8 +362,34 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
     // No llevan clave de idempotencia: ingresar no es una operación de la cola,
     // y repetir un login simplemente devuelve una sesión nueva.
 
+    /**
+     * Sedes del usuario, para la respuesta de ingreso.
+     *
+     * El contrato (zUsuarioSesion) las exige y el login no las enviaba. Viven en
+     * UsuarioSede, fuera de las cinco tablas del rol de acceso: en vez de
+     * ampliarle los permisos, se leen con el rol de aplicación, ya con la
+     * empresa conocida y bajo RLS. Sin empresa (superadmin) no hay sedes.
+     */
+    async function sedesDe(usuario: { id: string; empresaId: string | null; rol: string; clienteId: string | null }) {
+      const ctx = contextoDe({ sub: usuario.id, empresaId: usuario.empresaId, rol: usuario.rol, clienteId: usuario.clienteId } as Claims);
+      if ("motivo" in ctx) return { sedes: [] as string[], sedePrincipal: null as string | null };
+      const filas = await enTransaccion(op.pool, ctx, async (db) => ({
+        confirmar: false,
+        valor: (
+          await db.query<{ sedeId: string; esPrincipal: boolean }>(
+            `SELECT "sedeId", "esPrincipal" FROM "UsuarioSede" WHERE "usuarioId" = $1 ORDER BY "sedeId"`,
+            [usuario.id],
+          )
+        ).rows,
+      }));
+      return {
+        sedes: filas.map((f) => f.sedeId),
+        sedePrincipal: filas.find((f) => f.esPrincipal)?.sedeId ?? null,
+      };
+    }
+
     /** Traduce el resultado del servicio a la respuesta HTTP. */
-    function respuestaDeAcceso(r: ResultadoLogin, reply: FastifyReply) {
+    async function respuestaDeAcceso(r: ResultadoLogin, reply: FastifyReply) {
       if (r.tipo === "ok") {
         // Se eligen los campos uno por uno. El usuario del servicio incluye el
         // HASH DE LA CONTRASEÑA y el contador de intentos fallidos: enviarlo
@@ -381,6 +407,7 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
             rol: r.usuario.rol,
             empresaId: r.usuario.empresaId,
             clienteId: r.usuario.clienteId,
+            ...(await sedesDe(r.usuario)),
           },
         });
       }
