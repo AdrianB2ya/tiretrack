@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { EditorPosicion, type CatalogoEditor } from "../../../../src/ordenes/EditorPosicion";
 import {
@@ -12,7 +12,10 @@ import { hermanaCapturada } from "../../../../src/ordenes/diagrama";
 import { useDatos, type DatosOrden } from "../../../../src/app/ProveedorDatos";
 import { useUsuario } from "../../../../src/app/ProveedorSesion";
 import { Vacio } from "../../../../src/diseno/componentes";
-import { colores } from "../../../../src/diseno/tokens";
+import { colores, espacio, texto } from "../../../../src/diseno/tokens";
+import { FotosDe } from "../../../../src/fotos/FotosDe";
+import { MAXIMO_POR_POSICION } from "../../../../src/fotos/GaleriaFotos";
+import { camaraDelDispositivo, manipuladorDelDispositivo } from "../../../../src/fotos/captura";
 
 /**
  * Captura de una posición.
@@ -24,7 +27,7 @@ import { colores } from "../../../../src/diseno/tokens";
 export default function PantallaPosicion() {
   const { id, numero } = useLocalSearchParams<{ id: string; numero: string }>();
   const router = useRouter();
-  const { cargarOrden, guardarMedicion, catalogoPara } = useDatos();
+  const { cargarOrden, guardarMedicion, catalogoPara, fotosDe, adjuntarFoto } = useDatos();
   const usuario = useUsuario();
 
   const posicion = Number(numero);
@@ -142,6 +145,19 @@ export default function PantallaPosicion() {
   }
 
   const numeroHermana = hermanaCapturada(datos.diagrama, posicion);
+  // La foto cuelga de la medición: hasta guardar la posición no hay a qué
+  // adjuntarla. Se dice en vez de esconder la cámara.
+  const previa = datos.mediciones.find((m) => m.posicion === posicion);
+  const fotos = previa ? (
+    <FotosDe
+      destino={{ ordenId: datos.orden.id, medicionId: previa.id, posicion }}
+      cargar={() => fotosDe(datos.orden.id, previa.id)}
+      dependencias={{ camara: camaraDelDispositivo, manipulador: manipuladorDelDispositivo, adjuntar: adjuntarFoto }}
+      maximo={MAXIMO_POR_POSICION}
+    />
+  ) : (
+    <Text style={estilos.notaFotos}>Guarda la posición para poder agregarle fotos.</Text>
+  );
 
   return (
     <EditorPosicion
@@ -154,6 +170,7 @@ export default function PantallaPosicion() {
       guardando={guardando}
       hermanaCapturada={numeroHermana}
       onCopiarHermana={numeroHermana ? copiar : undefined}
+      fotos={fotos}
     />
   );
 }
@@ -165,4 +182,5 @@ const estilos = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colores.fondo,
   },
+  notaFotos: { ...texto.ayuda, color: colores.textoTenue, paddingVertical: espacio.sm },
 });

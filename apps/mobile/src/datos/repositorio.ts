@@ -139,6 +139,13 @@ export interface FotoLocal {
   readonly ultimoError: string | null;
 }
 
+/** Foto como la muestra la galería. */
+export interface FotoEnGaleria {
+  readonly id: string;
+  readonly uriLocal: string;
+  readonly estado: "esperando" | "subida" | "fallida";
+}
+
 export interface TecnicoLocal {
   readonly id: string;
   readonly nombre: string;
@@ -1122,6 +1129,35 @@ export class RepositorioLocal {
    * Las que no tienen destino todavía esperan a que su operación de adjuntar
    * llegue al servidor.
    */
+  /**
+   * Fotos de una orden o de una de sus posiciones, con su estado para la
+   * galería. El estado va en texto en pantalla: el técnico necesita saber si
+   * su evidencia llegó antes de entregar el vehículo.
+   */
+  async fotosDe(ordenId: string, medicionId: string | null): Promise<FotoEnGaleria[]> {
+    const filas = await this.db.consultar<Record<string, unknown>>(
+      `SELECT id, uri_local, subida, ultimo_error_subida
+         FROM foto
+        WHERE orden_id = ? AND medicion_id IS ?
+        ORDER BY creada_en`,
+      [ordenId, medicionId],
+    );
+    return filas.map((f) => ({
+      id: String(f["id"]),
+      uriLocal: String(f["uri_local"]),
+      estado: aBool(f["subida"]) ? "subida" : f["ultimo_error_subida"] ? "fallida" : "esperando",
+    }));
+  }
+
+  /** Fotos de la orden que todavía no llegaron al servidor. */
+  async contarFotosSinSubir(ordenId: string): Promise<number> {
+    const r = await this.db.consultar<{ n: number }>(
+      `SELECT count(*) AS n FROM foto WHERE orden_id = ? AND subida = 0`,
+      [ordenId],
+    );
+    return Number(r[0]?.n ?? 0);
+  }
+
   async fotosPorSubir(): Promise<FotoLocal[]> {
     const ahora = this.ahora();
     const filas = await this.db.consultar<Record<string, unknown>>(

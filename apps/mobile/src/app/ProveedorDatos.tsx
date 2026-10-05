@@ -12,6 +12,7 @@ import type { Conexion } from "../datos/base";
 import {
   RepositorioLocal,
   type ContextoOrden,
+  type FotoEnGaleria,
   type MedicionLocal,
   type OrdenLocal,
   type PosicionEjeLocal,
@@ -68,6 +69,11 @@ export interface AccionesDatos {
   tecnicosDeSede(sedeId: string): Promise<TecnicoLocal[]>;
   reasignar(ordenId: string, tecnicoId: string, motivo: string): Promise<void>;
   medicionAnterior(vehiculoId: string, posicion: number, ordenId: string): Promise<MedicionLocal | null>;
+  /** Fotos de la orden (medicionId null) o de una posición. */
+  fotosDe(ordenId: string, medicionId: string | null): Promise<FotoEnGaleria[]>;
+  fotosSinSubir(ordenId: string): Promise<number>;
+  /** Registra la foto ya capturada y comprimida. Cambia el contenido: la firma lo nota. */
+  adjuntarFoto(f: Parameters<RepositorioLocal["adjuntarFoto"]>[0]): Promise<string>;
 }
 
 export interface DatosOrden {
@@ -91,6 +97,12 @@ export interface ProveedorDatosProps {
   /** Cada cuánto intentar sincronizar en segundo plano. 0 lo desactiva. */
   intervaloSincronizacionMs?: number;
   /**
+   * Sube los bytes de las fotos. Corre después de la cola: adjuntar (en la
+   * cola) es lo que trae la URL firmada para subir. Sin esto ninguna foto
+   * salía del celular.
+   */
+  subidor?: { subirPendientes(): Promise<unknown> };
+  /**
    * Quién tiene la sesión. Al cambiar, la lista se recarga: al cerrar sesión
    * la base ya se vació, pero las órdenes seguían en memoria y el siguiente
    * en entrar las habría visto. Al entrar alguien, se descarga enseguida: si
@@ -107,6 +119,7 @@ export function ProveedorDatos({
   children,
   intervaloSincronizacionMs = 60_000,
   usuarioId,
+  subidor,
 }: ProveedorDatosProps) {
   const repo = useMemo(() => new RepositorioLocal(db), [db]);
   const descargador = useMemo(() => new Descargador(repo), [repo]);
@@ -177,13 +190,17 @@ export function ProveedorDatos({
       // capturar ya está en el servidor cuando llega la copia de vuelta, y
       // no queda como "trabajo sin enviar" que bloquee la actualización.
       await descargador.descargar(descarga);
+      // Los bytes de las fotos, por fuera de la cola: una foto lenta no frena
+      // las mediciones. Un fallo aquí no tumba la sincronización: la foto
+      // queda esperando con su motivo y su próxima vuelta.
+      if (subidor) await subidor.subirPendientes().catch(() => undefined);
       // Refrescar después: la sincronización pudo asignar folios.
       await refrescar();
       return resumen;
     } finally {
       if (montado.current) setSincronizando(false);
     }
-  }, [motor, refrescar, descargador, descarga]);
+  }, [motor, refrescar, descargador, descarga, subidor]);
 
   const usuarioAnterior = useRef(usuarioId);
   useEffect(() => {
@@ -342,6 +359,24 @@ export function ProveedorDatos({
     [repo],
   );
 
+  const fotosDe = useCallback<AccionesDatos["fotosDe"]>(
+    async (ordenId, medicionId) => repo.fotosDe(ordenId, medicionId),
+    [repo],
+  );
+  const fotosSinSubir = useCallback<AccionesDatos["fotosSinSubir"]>(
+    async (ordenId) => repo.contarFotosSinSubir(ordenId),
+    [repo],
+  );
+  const adjuntarFoto = useCallback<AccionesDatos["adjuntarFoto"]>(
+    async (f) => {
+      const id = await repo.adjuntarFoto(f);
+      // Como guardar una medición: inmediato en el celular; la subida, aparte.
+      await refrescar();
+      return id;
+    },
+    [repo, refrescar],
+  );
+
   const valor = useMemo(
     () => ({
       cargando,
@@ -361,12 +396,15 @@ export function ProveedorDatos({
       tecnicosDeSede,
       reasignar,
       medicionAnterior,
+      fotosDe,
+      fotosSinSubir,
+      adjuntarFoto,
     }),
     [
       cargando, ordenes, pendientesDeEnviar, sincronizando, ultimaSincronizacion,
       refrescar, sincronizar, cargarOrden, guardarMedicion, actualizarDatosOrden,
       firmar, cambiarEstado, catalogoPara, bandejaRevision, tecnicosDeSede,
-      reasignar, medicionAnterior,
+      reasignar, medicionAnterior, fotosDe, fotosSinSubir, adjuntarFoto,
     ],
   );
 

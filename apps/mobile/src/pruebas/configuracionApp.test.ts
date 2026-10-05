@@ -57,7 +57,7 @@ describe("pantallas construidas y conectadas", () => {
     // firmar, aprobar ni devolver.
     const pantallas = [
       "CapturaFirma", "DecisionRevision", "FormularioDatosOrden", "PantallaCuenta",
-      "PantallaEnvio", "PantallaIngreso", "BandejaRevision", "ListaOrdenes",
+      "PantallaEnvio", "PantallaIngreso", "BandejaRevision", "ListaOrdenes", "FotosDe",
     ];
     const codigo = rutas();
     expect(pantallas.filter((p) => !new RegExp(`<${p}\\b`).test(codigo))).toEqual([]);

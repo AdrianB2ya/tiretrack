@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { Aviso, Boton, Campo, CampoNumerico, Insignia } from "../diseno/componentes";
 import { colores, conOpacidad, espacio, radio, tactil, texto } from "../diseno/tokens";
@@ -47,6 +47,8 @@ export interface EditorPosicionProps {
   hermanaCapturada?: number | null;
   onCopiarHermana?: () => void;
   guardando?: boolean;
+  /** Fotos de la posición: van después de registrar lo hecho, antes de guardar. */
+  fotos?: ReactNode;
 }
 
 export function EditorPosicion({
@@ -59,6 +61,7 @@ export function EditorPosicion({
   hermanaCapturada,
   onCopiarHermana,
   guardando = false,
+  fotos,
 }: EditorPosicionProps) {
   const [confirmando, setConfirmando] = useState(false);
 
@@ -259,6 +262,8 @@ export function EditorPosicion({
           placeholder="Lo que no cabe en los campos anteriores"
         />
       </Bloque>
+
+      {fotos}
 
       {/* Las advertencias se muestran juntas al intentar guardar, no una por
           campo mientras escribe: interrumpir la captura es peor. */}

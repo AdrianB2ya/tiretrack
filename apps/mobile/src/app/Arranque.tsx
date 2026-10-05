@@ -9,6 +9,8 @@ import { abrirAlmacenSeguro } from "../sesion/almacen";
 import { ServicioSesion } from "../sesion/servicio";
 import { ProveedorSesion } from "./ProveedorSesion";
 import { DatosDeLaSesion } from "./DatosDeLaSesion";
+import { SubidorFotos } from "../fotos/subidor";
+import { transporteDelDispositivo } from "../fotos/transporte";
 import { colores, espacio, texto } from "../diseno/tokens";
 
 /**
@@ -24,6 +26,7 @@ interface Servicios {
   sesion: ServicioSesion;
   motor: MotorSincronizacion;
   cliente: ClienteHttp;
+  subidor: SubidorFotos;
 }
 
 async function iniciar(apiUrl: string): Promise<Servicios> {
@@ -51,7 +54,10 @@ async function iniciar(apiUrl: string): Promise<Servicios> {
         }),
   });
   const motor = new MotorSincronizacion(repo, cliente);
-  return { db, sesion, motor, cliente };
+  // Sin un transporte real, el subidor nunca se usaba: ninguna foto salía
+  // del celular.
+  const subidor = new SubidorFotos(repo, transporteDelDispositivo);
+  return { db, sesion, motor, cliente, subidor };
 }
 
 /** Servicios que la pantalla de ingreso necesita antes de haber sesión. */
@@ -98,6 +104,7 @@ export function Arranque({ apiUrl, children }: { apiUrl: string; children: React
         sesion={servicios.sesion}
         motor={servicios.motor}
         descarga={servicios.cliente}
+        subidor={servicios.subidor}
       >
         {children}
       </DatosDeLaSesion>
