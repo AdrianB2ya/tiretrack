@@ -3,7 +3,7 @@ import pg from "pg";
 import { nuevoId } from "@tiretrack/domain";
 import { zRespuestaLogin } from "@tiretrack/contracts";
 import { hayBaseDeDatos, poolAislado } from "./base";
-import { crearEsquemaCompleto, sembrar, SEMILLA, authFalso } from "./esquemas";
+import { crearEsquemaCompleto, sembrar, SEMILLA, authFalso, CODIGO_FALSO } from "./esquemas";
 import { construirServidor, enTransaccion, PREFIJO_API } from "../http/servidor";
 import type { Claims } from "../acceso/servicio";
 import type { Almacenamiento } from "../fotos/almacenamiento";
@@ -27,6 +27,7 @@ const TOKENS: Record<string, Claims> = {
   "tok-tecnico": { sub: SEMILLA.tecnico, empresaId: SEMILLA.empresa, rol: "tecnico", clienteId: null },
   "tok-otro": { sub: SEMILLA.otroTecnico, empresaId: SEMILLA.empresa, rol: "tecnico", clienteId: null },
   "tok-coordinador": { sub: SEMILLA.coordinador, empresaId: SEMILLA.empresa, rol: "coordinador", clienteId: null },
+  "tok-admin": { sub: "11111111-1111-4111-8111-0000000000ad", empresaId: SEMILLA.empresa, rol: "administrador", clienteId: null },
   "tok-cliente": { sub: "u-cli", empresaId: SEMILLA.empresa, rol: "cliente", clienteId: SEMILLA.cliente },
   "tok-sin-empresa": { sub: "u-staff", empresaId: null, rol: "superadmin", clienteId: null },
   // El caso peligroso: rol inventado en un token cuyo usuario SÍ es el
@@ -119,6 +120,83 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
       const sin = await app.inject({ method: "GET", url: "/flota/clientes" });
       expect(con.statusCode).toBe(401); // existe: pide sesión
       expect(sin.statusCode).toBe(404);
+    });
+  });
+
+  describe("usuarios y activación (5.2)", () => {
+    const enviar = (metodo: "GET" | "POST", ruta: string, token: string | null, cuerpo?: unknown) =>
+      app.inject({
+        method: metodo,
+        url: PREFIJO_API + ruta,
+        headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
+        ...(cuerpo === undefined ? {} : { payload: JSON.stringify(cuerpo) }),
+      });
+    const nuevo = (extra: Record<string, unknown> = {}) => ({
+      id: nuevoId(), nombre: "Pedro Ruiz", cedula: "1082999111", email: "pedro@asistectire.com",
+      rol: "tecnico", sedes: [SEMILLA.sede], ...extra,
+    });
+
+    it("el administrador crea un usuario y recibe el código UNA vez", async () => {
+      const r = await enviar("POST", "/usuarios", "tok-admin", nuevo());
+      expect(r.statusCode).toBe(201);
+      expect(r.json().codigo).toBe(CODIGO_FALSO);
+      // El código no queda en la tabla de idempotencia: esta ruta no la usa.
+      const guardadas = await pool.query(`SELECT count(*)::int AS n FROM "OperacionAplicada" WHERE respuesta::text LIKE $1`, [`%${CODIGO_FALSO}%`]);
+      expect(guardadas.rows[0].n).toBe(0);
+    });
+
+    it("el usuario nace con sus sedes y sin contraseña utilizable", async () => {
+      const u = nuevo();
+      await enviar("POST", "/usuarios", "tok-admin", u);
+      const s = await pool.query(`SELECT "sedeId", "esPrincipal" FROM "UsuarioSede" WHERE "usuarioId" = $1`, [u.id]);
+      expect(s.rows).toEqual([{ sedeId: SEMILLA.sede, esPrincipal: true }]);
+    });
+
+    it("el coordinador no da de alta usuarios", async () => {
+      expect((await enviar("POST", "/usuarios", "tok-coordinador", nuevo())).statusCode).toBe(403);
+    });
+
+    it("un correo repetido en la empresa responde 409, no 500", async () => {
+      await enviar("POST", "/usuarios", "tok-admin", nuevo());
+      const r = await enviar("POST", "/usuarios", "tok-admin", nuevo());
+      expect(r.statusCode).toBe(409);
+      expect(r.json().error.codigo).toBe("CORREO_DUPLICADO");
+    });
+
+    it("el listado nunca incluye el hash ni el secreto", async () => {
+      await enviar("POST", "/usuarios", "tok-admin", nuevo());
+      const r = await enviar("GET", "/usuarios", "tok-admin");
+      expect(r.statusCode).toBe(200);
+      expect(r.body).not.toMatch(/passwordHash|dobleFactorSecreto|$2[aby]$/);
+      expect(r.json().find((x: { email: string }) => x.email === "pedro@asistectire.com")?.sinActivar).toBe(true);
+    });
+
+    it("un código nuevo para un usuario de la empresa; de otra, 404", async () => {
+      const u = nuevo();
+      await enviar("POST", "/usuarios", "tok-admin", u);
+      expect((await enviar("POST", `/usuarios/${u.id}/codigo`, "tok-admin", {})).statusCode).toBe(200);
+      expect((await enviar("POST", `/usuarios/${nuevoId()}/codigo`, "tok-admin", {})).statusCode).toBe(404);
+    });
+
+    it("activar: correcto, con doble factor pendiente, y código inválido", async () => {
+      const base = { email: "pedro@asistectire.com", codigo: "k7m2 x9qp", password: "CampoFundacion26" };
+      expect((await enviar("POST", "/auth/activar", null, base)).json()).toEqual({ activada: true });
+      const admin = await enviar("POST", "/auth/activar", null, { ...base, email: "admin@asistectire.com" });
+      expect(admin.statusCode).toBe(200);
+      expect(admin.json().configurar2fa.uri).toMatch(/^otpauth:/);
+      expect((await enviar("POST", "/auth/activar", null, { ...base, codigo: "AAAA-AAAA" })).statusCode).toBe(401);
+      // Contraseña corta: la frena el contrato antes de gastar el código.
+      expect((await enviar("POST", "/auth/activar", null, { ...base, password: "corta" })).statusCode).toBe(422);
+    });
+
+    it("sedes: el administrador crea una, con código único", async () => {
+      const sede = { id: nuevoId(), nombre: "Sede Ciénaga", codigo: "cng" };
+      const r = await enviar("POST", "/sedes", "tok-admin", sede);
+      expect(r.statusCode).toBe(201);
+      const fila = await pool.query(`SELECT codigo FROM "Sede" WHERE id = $1`, [sede.id]);
+      expect(fila.rows[0].codigo).toBe("CNG");
+      const repetida = await enviar("POST", "/sedes", "tok-admin", { ...sede, id: nuevoId() });
+      expect(repetida.statusCode).toBe(409);
     });
   });
 

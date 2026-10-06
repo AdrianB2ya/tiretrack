@@ -24,6 +24,7 @@ export * from "./catalogo/ambito";
 export * from "./folio/folio";
 export * from "./tiempo/habiles";
 export * from "./acceso/politica";
+export * from "./acceso/usuarios";
 export * from "./flota/reglas";
 export * from "./fotos/reglas";
 export * from "./informe/formato";

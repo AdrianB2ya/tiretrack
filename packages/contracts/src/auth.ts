@@ -56,6 +56,20 @@ export const zRespuestaRequiere2fa = z.object({
 
 export const zRefresh = z.object({ refreshToken: z.string().min(1) });
 
+/**
+ * Activación con el código que entregó el administrador (no hay correo).
+ * La persona elige su contraseña; si su rol exige doble factor, el mismo
+ * paso lo registra antes de terminar.
+ */
+export const zActivarCuenta = z.object({
+  email: z.string().trim().toLowerCase().email(),
+  codigo: z.string().trim().min(8).max(20),
+  password: z.string().min(10).max(128),
+  empresaId: zId.optional(),
+  codigo2fa: z.string().regex(/^[0-9]{6}$/).optional(),
+});
+export type ActivarCuenta = z.infer<typeof zActivarCuenta>;
+
 export const zSolicitarRecuperacion = z.object({
   email: z.string().trim().toLowerCase().email(),
 });

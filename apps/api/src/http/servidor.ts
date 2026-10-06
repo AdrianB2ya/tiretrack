@@ -9,7 +9,10 @@ import {
   zCrearDiseno,
   zCrearMarca,
   zCrearOrden,
+  zActivarCuenta,
+  zCrearSede,
   zCrearSedeCliente,
+  zCrearUsuario,
   zCrearVehiculo,
   zFiltroInforme,
   zFirma,
@@ -28,7 +31,8 @@ function sinIndefinidos<T extends Record<string, unknown>>(o: T): { [K in keyof 
 /** Consulta de la descarga: `desde` es la marca `hasta` que entregó el servidor. */
 const zConsultaDescarga = z.object({ desde: zInstante.optional() });
 import { ROLES, type Rol, type Veredicto } from "@tiretrack/domain";
-import type { Claims, ResultadoLogin } from "../acceso/servicio";
+import type { Claims, ResultadoActivacion, ResultadoLogin } from "../acceso/servicio";
+import { ServicioUsuarios } from "../usuarios/servicio";
 import { RepositorioOrdenesPg } from "../ordenes/repositorio";
 import { COMANDO, ServicioOrdenes } from "../ordenes/servicio";
 import { RepositorioMedicionesPg, ServicioMediciones } from "../mediciones/servicio";
@@ -66,8 +70,13 @@ import type { Almacenamiento } from "../fotos/almacenamiento";
 
 /** Lo que el servidor necesita de la autenticación. Nada más. */
 export interface ServicioAuthHttp {
-  login(entrada: { email: string; password: string; empresaId?: string; ip?: string }): Promise<ResultadoLogin>;
+  login(entrada: { email: string; password: string; empresaId?: string; codigo2fa?: string; ip?: string }): Promise<ResultadoLogin>;
   refrescar(refreshToken: string, ctx?: { ip?: string }): Promise<ResultadoLogin>;
+  /** Activación con el código que entregó el administrador (5.2). */
+  activar(e: {
+    email: string; codigo: string; password: string; empresaId?: string; codigo2fa?: string; ip?: string;
+  }): Promise<ResultadoActivacion>;
+  crearCodigoActivacion(usuarioId: string, ip?: string): Promise<{ codigo: string; expiraEn: Date } | null>;
 }
 
 export interface Contexto {
@@ -122,6 +131,10 @@ const ESTADO_POR_CODIGO: Record<string, number> = {
   VISTA_CLIENTE: 403,
   TECNICO_AJENO_A_SEDE: 403,
   ROL_NO_PERMITIDO: 403,
+  ROL_NO_ASIGNABLE: 403,
+
+  CORREO_DUPLICADO: 409,
+  CODIGO_DUPLICADO: 409,
 
   CONFLICTO_VERSION: 409,
   FIRMA_DESACTUALIZADA: 409,
@@ -242,6 +255,7 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
       catalogo: new ServicioCatalogo(new RepositorioCatalogoPg(cliente), reloj),
       flota: new ServicioFlota(new RepositorioFlotaPg(cliente)),
       informe: new ServicioInforme(db, reloj),
+      usuarios: new ServicioUsuarios(db),
       fotos: new ServicioFotos(
         new RepositorioFotosPg(cliente),
         op.almacen,
@@ -357,7 +371,35 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
   // quedan en la raíz (los agrega server.ts) porque los consulta la
   // infraestructura, no la app.
   void raiz.register(async (app) => {
-    // ── Acceso ──
+    /**
+   * Administración en línea (usuarios y sedes): autenticada y transaccional,
+   * pero SIN la tabla de idempotencia. Esa tabla guarda la respuesta, y la
+   * respuesta de crear un usuario lleva el código de activación: quedaría en
+   * claro en la base. Repetir un alta no duplica: el correo es único.
+   */
+  async function comoAdministracion(req: FastifyRequest, manejador: Manejador): Promise<Respuesta> {
+    const auth = req.headers.authorization;
+    const claims = auth?.startsWith("Bearer ") ? op.verificarToken(auth.slice(7)) : null;
+    if (!claims) return { status: 401, cuerpo: { error: { codigo: "NO_AUTENTICADO", mensaje: "Sesión inválida o vencida" } } };
+    const posible = contextoDe(claims);
+    if ("motivo" in posible) {
+      return { status: 403, cuerpo: { error: { codigo: posible.motivo, mensaje: "Esta sesión no administra la empresa" } } };
+    }
+    const ctx = posible;
+    return enTransaccion<Respuesta>(op.pool, ctx, async (db) => {
+      const respuesta = await manejador(servicios(db), ctx, req);
+      return { confirmar: respuesta.status < 300, valor: respuesta };
+    });
+  }
+
+  function administracion(manejador: Manejador) {
+    return async (req: FastifyRequest, reply: FastifyReply) => {
+      const r = await comoAdministracion(req, manejador);
+      return reply.status(r.status).send(r.cuerpo);
+    };
+  }
+
+  // ── Acceso ──
     //
     // No llevan clave de idempotencia: ingresar no es una operación de la cola,
     // y repetir un login simplemente devuelve una sesión nueva.
@@ -448,6 +490,29 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
       }
       const r = await op.auth.refrescar(refreshToken, { ...(req.ip ? { ip: req.ip } : {}) });
       return respuestaDeAcceso(r, reply);
+    });
+
+    /**
+     * Activación de la cuenta con el código del administrador. Pública, como
+     * el ingreso: quien activa todavía no tiene sesión.
+     */
+    app.post("/auth/activar", async (req, reply) => {
+      const p = zActivarCuenta.safeParse(req.body);
+      if (!p.success) {
+        const r = datosInvalidos(p.error.issues);
+        return reply.status(r.status).send(r.cuerpo);
+      }
+      const r = await op.auth.activar({ ...sinIndefinidos(p.data), ...(req.ip ? { ip: req.ip } : {}) });
+      if (r.tipo === "ok") return reply.status(200).send({ activada: true });
+      if (r.tipo === "configurar_2fa") {
+        // No es un error: el rol exige doble factor y hay que registrarlo.
+        return reply.status(200).send({ configurar2fa: { secreto: r.secreto, uri: r.uri } });
+      }
+      if (r.tipo === "elegir_empresa") {
+        return reply.status(409).send({ error: { codigo: "ELEGIR_EMPRESA" }, empresas: r.empresas });
+      }
+      const debil = r.veredicto.codigo?.startsWith("PASSWORD");
+      return reply.status(debil ? 422 : 401).send({ error: { codigo: r.veredicto.codigo, mensaje: r.veredicto.mensaje } });
     });
 
 
@@ -701,6 +766,58 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
       const r = await s.fotos.confirmarSubida(ctx, params(req).id as string);
       if (!r.ok) return rechazo(r.veredicto);
       return { status: 200, cuerpo: { confirmada: true } };
+    }));
+    // ── Usuarios y sedes (5.2) ──
+
+    app.get("/usuarios", administracion(async (s, ctx) => {
+      const r = await s.usuarios.listar(ctx);
+      return r.ok ? { status: 200, cuerpo: r.valor } : rechazo(r.veredicto);
+    }));
+
+    /**
+     * Alta: crea el usuario bajo RLS y, ya confirmado, el servicio de acceso
+     * emite el código. Si esto último fallara, el usuario existe sin código y
+     * el administrador puede pedir uno nuevo: no hay nada que deshacer.
+     */
+    app.post("/usuarios", async (req, reply) => {
+      const p = zCrearUsuario.safeParse(req.body);
+      if (!p.success) {
+        const r = datosInvalidos(p.error.issues);
+        return reply.status(r.status).send(r.cuerpo);
+      }
+      const creado = await comoAdministracion(req, async (s, ctx) => {
+        const r = await s.usuarios.crear(ctx, p.data);
+        return r.ok ? { status: 201, cuerpo: { id: r.valor.id } } : rechazo(r.veredicto);
+      });
+      if (creado.status >= 300) return reply.status(creado.status).send(creado.cuerpo);
+      const id = (creado.cuerpo as { id: string }).id;
+      const codigo = await op.auth.crearCodigoActivacion(id, req.ip);
+      return reply.status(201).send({ id, ...(codigo ? { codigo: codigo.codigo, expiraEn: codigo.expiraEn } : {}) });
+    });
+
+    /** Código nuevo: alta que venció, o ayuda para recuperar la cuenta. */
+    app.post("/usuarios/:id/codigo", async (req, reply) => {
+      const id = params(req).id as string;
+      const visto = await comoAdministracion(req, async (s, ctx) => {
+        const r = await s.usuarios.existe(ctx, id);
+        return r.ok ? { status: 200, cuerpo: {} } : rechazo(r.veredicto);
+      });
+      if (visto.status >= 300) return reply.status(visto.status).send(visto.cuerpo);
+      const codigo = await op.auth.crearCodigoActivacion(id, req.ip);
+      if (!codigo) return reply.status(404).send({ error: { codigo: "NO_EXISTE", mensaje: "El usuario no existe" } });
+      return reply.status(200).send({ codigo: codigo.codigo, expiraEn: codigo.expiraEn });
+    });
+
+    app.get("/sedes", administracion(async (s, ctx) => {
+      const r = await s.usuarios.sedes(ctx);
+      return r.ok ? { status: 200, cuerpo: r.valor } : rechazo(r.veredicto);
+    }));
+
+    app.post("/sedes", administracion(async (s, ctx, req) => {
+      const p = zCrearSede.safeParse(req.body);
+      if (!p.success) return datosInvalidos(p.error.issues);
+      const r = await s.usuarios.crearSede(ctx, sinIndefinidos(p.data));
+      return r.ok ? { status: 201, cuerpo: r.valor } : rechazo(r.veredicto);
     }));
   }, { prefix: PREFIJO_API });
 

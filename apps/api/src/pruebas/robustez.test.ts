@@ -26,6 +26,7 @@ const disponible = await hayBaseDeDatos();
 const TOKENS: Record<string, Claims> = {
   "tok-tecnico": { sub: SEMILLA.tecnico, empresaId: SEMILLA.empresa, rol: "tecnico", clienteId: null },
   "tok-coordinador": { sub: SEMILLA.coordinador, empresaId: SEMILLA.empresa, rol: "coordinador", clienteId: null },
+  "tok-admin": { sub: "11111111-1111-4111-8111-0000000000ad", empresaId: SEMILLA.empresa, rol: "administrador", clienteId: null },
 };
 
 const almacenFalso: Almacenamiento = {
@@ -137,6 +138,10 @@ describe.skipIf(!disponible)("robustez: ninguna entrada mala da 500", () => {
     ["POST", "/catalogo/marcas"],
     ["POST", "/catalogo/disenos"],
     ["POST", `/fotos/${nuevoId()}/confirmar`],
+    ["POST", "/auth/activar", null as unknown as string],
+    ["POST", "/usuarios", "tok-admin"],
+    ["POST", `/usuarios/${nuevoId()}/codigo`, "tok-admin"],
+    ["POST", "/sedes", "tok-admin"],
   ];
 
   it("cuerpos mal formados en cada ruta que recibe datos", async () => {

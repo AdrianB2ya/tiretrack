@@ -46,6 +46,13 @@ interface Modelo {
   readonly tabla: string;
   readonly campos: Campo[];
   readonly clavePrimaria: string[];
+  /**
+   * Claves únicas de Prisma (@@unique y @unique). Antes no se generaban, y tres
+   * veces una prueba pasó mientras producción respondía distinto: un ON CONFLICT
+   * sin clave en que apoyarse, un correo o un código de sede duplicados que se
+   * aceptaban.
+   */
+  readonly unicas: string[][];
 }
 
 function rutaEsquema(): string {
@@ -73,6 +80,8 @@ export function modelosDePrisma(texto = readFileSync(rutaEsquema(), "utf-8")): M
   return bloques.map(([, nombre, cuerpo]) => {
     const campos: Campo[] = [];
     const clavePrimaria: string[] = [];
+    const unicasPorCampo: string[][] = [];
+    const columnaDe = new Map<string, string>();
 
     for (const linea of (cuerpo as string).split("\n")) {
       const compuesta = /@@id\(\[([^\]]+)\]\)/.exec(linea);
@@ -88,7 +97,9 @@ export function modelosDePrisma(texto = readFileSync(rutaEsquema(), "utf-8")): M
       if (nombresDeModelo.has(tipo as string) || esLista) continue;
 
       const columna = /@map\("([^"]+)"\)/.exec(linea)?.[1] ?? (nombreCampo as string);
+      columnaDe.set(nombreCampo as string, columna);
       if (/@id\b/.test(linea)) clavePrimaria.push(columna);
+      if (/@unique\b/.test(linea)) unicasPorCampo.push([columna]);
 
       campos.push({
         columna,
@@ -98,8 +109,17 @@ export function modelosDePrisma(texto = readFileSync(rutaEsquema(), "utf-8")): M
       });
     }
 
+    const compuestas = [...(cuerpo as string).matchAll(/@@unique\(\[([^\]]+)\]/g)].map((m) =>
+      (m[1] as string).split(",").map((c) => columnaDe.get(c.trim()) ?? c.trim()),
+    );
     const mapaTabla = /@@map\("([^"]+)"\)/.exec(cuerpo as string)?.[1];
-    return { nombre: nombre as string, tabla: mapaTabla ?? (nombre as string), campos, clavePrimaria };
+    return {
+      nombre: nombre as string,
+      tabla: mapaTabla ?? (nombre as string),
+      campos,
+      clavePrimaria,
+      unicas: [...unicasPorCampo, ...compuestas],
+    };
   });
 }
 
@@ -168,6 +188,7 @@ export function ddlDePrueba(tablas: readonly string[], opciones: OpcionesEsquema
     if (m.clavePrimaria.length > 0) {
       columnas.push(`  PRIMARY KEY (${m.clavePrimaria.map((c) => `"${c}"`).join(", ")})`);
     }
+    for (const u of m.unicas) columnas.push(`  UNIQUE (${u.map((c) => `"${c}"`).join(", ")})`);
     for (const extra of opciones.extras?.[tabla] ?? []) columnas.push(`  ${extra}`);
     partes.push(`CREATE TABLE "${tabla}" (\n${columnas.join(",\n")}\n);`);
   }

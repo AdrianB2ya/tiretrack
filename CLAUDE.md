@@ -2382,7 +2382,10 @@ para que una prueba pase, el defecto está en producción, no en la prueba.
 
 Decisiones del usuario en esta ronda: **API bajo `/api/v1`**, el
 **coordinador ve solo sus sedes**, el **portal del cliente va dentro de la
-misma app** (rol cliente). Sin respuesta sobre las sedes en el login: se tomó
+misma app** (rol cliente). **Alta de usuarios con código de activación**: el administrador
+crea el usuario, la app muestra un código de un solo uso (72 h) para
+enviarlo por WhatsApp, y el usuario elige su propia contraseña. No hay
+servicio de correo. Sin respuesta sobre las sedes en el login: se tomó
 la opción que no amplía los permisos del rol de acceso.
 
 ### API bajo `/api/v1`
@@ -2550,6 +2553,41 @@ Lo que destapó:
   historial de estados).
 - **La descarga quita las cerradas**: el historial del cliente quedaba vacío.
   Opción `conservarCerradas`, activa solo para el rol cliente.
+
+## Usuarios, sedes y activación (5.2, servidor)
+
+Decisión del usuario: **código de activación** (no hay correo). Reglas en
+`packages/domain/src/acceso/usuarios.ts`; servicio `apps/api/src/usuarios/`;
+la activación vive en `ServicioAuth`.
+
+| Ruta | Quién | Qué |
+|---|---|---|
+| `GET/POST /usuarios` | administrador | listar; crear (devuelve el código **una sola vez**) |
+| `POST /usuarios/:id/codigo` | administrador | código nuevo: alta vencida o ayuda para recuperar la cuenta |
+| `GET/POST /sedes` | administrador | sedes de la empresa; el código entra en el folio |
+| `POST /auth/activar` | público | correo + código + contraseña nueva |
+
+- **Código `XXXX-XXXX`** sin letras confundibles (no O/0, I/1/L, S/5, B/8,
+  Z/2), vence a las 72 h, se acepta como se escriba (minúsculas, sin guion).
+  Un código nuevo **anula** los anteriores.
+- **Se guarda solo su huella.** Estas rutas **no usan la tabla de
+  idempotencia**: guarda la respuesta, y la respuesta lleva el código.
+- **El usuario nace sin contraseña utilizable** (hash de un secreto al azar):
+  nadie más que él la conoce.
+- **Un código equivocado cuenta como intento fallido** de la cuenta: es lo
+  que hace impráctico adivinarlo. Correo inexistente y código equivocado
+  responden igual.
+- **Administrador (2FA obligatorio): la activación no termina sin registrar
+  la app autenticadora** y comprobar un código. Si se activara sin eso, el
+  siguiente ingreso le pediría un código que no tiene.
+- El código lo emite el **servicio de acceso**: con el rol de aplicación, la
+  tabla de tokens solo admite el token propio.
+- El superadmin nunca se crea desde una empresa.
+
+**El esquema de pruebas ahora genera las claves únicas de Prisma.** Faltaban:
+un correo y un código de sede duplicados se aceptaban en las pruebas, y antes
+el folio había fallado por lo mismo. Es la cuarta diferencia entre pruebas y
+producción que aparece; la regla de la "Revisión contra la base real" sigue.
 
 ## Punto de retoma (2026-10-05)
 

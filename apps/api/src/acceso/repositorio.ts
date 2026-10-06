@@ -66,6 +66,10 @@ export interface RepositorioAcceso {
     ipSolicitud: string | null;
   }): Promise<void>;
   buscarTokenRecuperacion(hash: string): Promise<TokenGuardado | null>;
+  /** Un código nuevo invalida los anteriores: solo vale el último que se entregó. */
+  anularTokensDeUsuario(usuarioId: string, ahora: Date): Promise<void>;
+  /** Secreto de doble factor; activo solo cuando la persona comprobó un código. */
+  guardarDobleFactor(usuarioId: string, secreto: string | null, activo: boolean): Promise<void>;
   marcarTokenUsado(id: string, ahora: Date): Promise<void>;
 
   registrarAuditoria(a: {
@@ -205,6 +209,20 @@ export class RepositorioPg implements RepositorioAcceso {
       [hash],
     );
     return r.rows[0] ?? null;
+  }
+
+  async anularTokensDeUsuario(usuarioId: string, ahora: Date): Promise<void> {
+    await this.db.query(
+      `UPDATE "TokenRecuperacion" SET "usadoEn" = $2 WHERE "usuarioId" = $1 AND "usadoEn" IS NULL`,
+      [usuarioId, ahora],
+    );
+  }
+
+  async guardarDobleFactor(usuarioId: string, secreto: string | null, activo: boolean): Promise<void> {
+    await this.db.query(
+      `UPDATE "Usuario" SET "dobleFactorSecreto" = $2, "dobleFactorActivo" = $3 WHERE id = $1`,
+      [usuarioId, secreto, activo],
+    );
   }
 
   async marcarTokenUsado(id: string, ahora: Date): Promise<void> {

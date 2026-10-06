@@ -175,7 +175,22 @@ const USUARIO_COMPLETO = {
   dobleFactorSecreto: null,
 };
 
+/** Código que el doble de acceso emite y acepta. */
+export const CODIGO_FALSO = "K7M2-X9QP";
+
 export const authFalso: ServicioAuthHttp = {
+  // El servicio real se prueba contra la base en auth.test; aquí basta con
+  // que las rutas traduzcan bien cada resultado.
+  crearCodigoActivacion: async () => ({ codigo: CODIGO_FALSO, expiraEn: new Date("2026-09-24T10:00:00Z") }),
+  activar: async (e) => {
+    if (e.codigo.replace(/[^A-Z0-9]/gi, "").toUpperCase() !== "K7M2X9QP") {
+      return { tipo: "error", veredicto: { permitido: false, codigo: "CODIGO_INVALIDO", mensaje: "Correo o código de activación no válidos" } };
+    }
+    if (e.email.startsWith("admin") && !e.codigo2fa) {
+      return { tipo: "configurar_2fa", secreto: "JBSWY3DPEHPK3PXP", uri: "otpauth://totp/TireTrack:admin?secret=JBSWY3DPEHPK3PXP" };
+    }
+    return { tipo: "ok" };
+  },
   login: async (e) => {
     if (e.email === "ana@dos-empresas.com" && !e.empresaId) {
       return {

@@ -27,6 +27,11 @@ import {
   expiracionRecuperacion,
   expiracionRefresh,
   nuevoId,
+  estaBloqueado,
+  expiracionActivacion,
+  generarCodigoActivacion,
+  minutosRestantesDeBloqueo,
+  normalizarCodigoActivacion,
   registrarIntentoExitoso,
   registrarIntentoFallido,
   requiereDobleFactor,
@@ -57,6 +62,14 @@ export interface Claims {
   readonly rol: string;
   readonly clienteId: string | null;
 }
+
+/** Activar la cuenta con el código que entregó el administrador. */
+export type ResultadoActivacion =
+  | { tipo: "ok" }
+  | { tipo: "elegir_empresa"; empresas: { id: string; nombre: string }[] }
+  /** El rol exige doble factor: hay que registrarlo en la app autenticadora antes de terminar. */
+  | { tipo: "configurar_2fa"; secreto: string; uri: string }
+  | { tipo: "error"; veredicto: Veredicto };
 
 export type ResultadoLogin =
   | { tipo: "ok"; token: string; refreshToken: string; expiraEn: number; usuario: UsuarioAcceso }
@@ -335,6 +348,138 @@ export class ServicioAuth {
     await this.repo.revocarSesionesDeUsuario(token.usuarioId, ahora);
 
     return { permitido: true };
+  }
+
+  /**
+   * Código de activación para un usuario (alta, o ayuda para recuperar la
+   * cuenta). Se guarda solo su huella; el código en claro se entrega UNA vez.
+   * Anula los anteriores: si se envió dos veces por WhatsApp, vale el último.
+   */
+  async crearCodigoActivacion(
+    usuarioId: string,
+    ip?: string,
+  ): Promise<{ codigo: string; expiraEn: Date } | null> {
+    const ahora = this.reloj();
+    const usuario = await this.repo.buscarPorId(usuarioId);
+    if (!usuario) return null;
+
+    await this.repo.anularTokensDeUsuario(usuarioId, ahora);
+    const codigo = generarCodigoActivacion();
+    const expiraEn = expiracionActivacion(ahora);
+    await this.repo.crearTokenRecuperacion({
+      id: nuevoId(),
+      usuarioId,
+      tokenHash: hashear(normalizarCodigoActivacion(codigo)),
+      expiraEn,
+      ipSolicitud: ip ?? null,
+    });
+    await this.repo.registrarAuditoria({
+      empresaId: usuario.empresaId,
+      usuarioId,
+      accion: "recuperar_password",
+      detalle: { tipo: "codigo_activacion" },
+      ip,
+    });
+    return { codigo, expiraEn };
+  }
+
+  /**
+   * La persona escribe correo, código y su contraseña nueva.
+   *
+   * Si su rol exige doble factor, NO se termina hasta que registre la app
+   * autenticadora y escriba un código válido: si se activara sin eso, el
+   * siguiente ingreso le pediría un código que no tiene y quedaría afuera.
+   *
+   * Un código equivocado cuenta como intento fallido de la cuenta: es lo que
+   * hace impráctico adivinarlo.
+   */
+  async activar(e: {
+    email: string;
+    codigo: string;
+    password: string;
+    empresaId?: string;
+    codigo2fa?: string;
+    ip?: string;
+  }): Promise<ResultadoActivacion> {
+    const ahora = this.reloj();
+    // Mismo mensaje para correo inexistente y código equivocado: distinguirlos
+    // permite averiguar qué correos están registrados.
+    const invalido: ResultadoActivacion = {
+      tipo: "error",
+      veredicto: { permitido: false, codigo: "CODIGO_INVALIDO", mensaje: "Correo o código de activación no válidos" },
+    };
+
+    const fuerza = validarPassword(e.password);
+    if (!fuerza.permitido) return { tipo: "error", veredicto: fuerza };
+
+    const candidatos = await this.repo.buscarPorEmail(e.email.trim().toLowerCase(), e.empresaId);
+    if (candidatos.length === 0) return invalido;
+    if (candidatos.length > 1) {
+      return {
+        tipo: "elegir_empresa",
+        empresas: candidatos.map((u) => ({ id: u.empresaId ?? "", nombre: u.empresaNombre ?? "" })),
+      };
+    }
+    const usuario = candidatos[0] as UsuarioAcceso;
+    const estado = { intentosFallidos: usuario.intentosFallidos, bloqueadoHasta: usuario.bloqueadoHasta, activo: usuario.activo };
+    if (!usuario.activo) return invalido;
+    if (estaBloqueado(estado, ahora)) {
+      return {
+        tipo: "error",
+        veredicto: {
+          permitido: false,
+          codigo: "CUENTA_BLOQUEADA",
+          mensaje: `Demasiados intentos. Reintenta en ${minutosRestantesDeBloqueo(estado, ahora)} minutos`,
+        },
+      };
+    }
+
+    const fallar = async (r: ResultadoActivacion): Promise<ResultadoActivacion> => {
+      const f = registrarIntentoFallido(estado, ahora);
+      await this.repo.actualizarIntentos(usuario.id, f.intentosFallidos, f.bloqueadoHasta);
+      return r;
+    };
+
+    const token = await this.repo.buscarTokenRecuperacion(hashear(normalizarCodigoActivacion(e.codigo)));
+    if (!token || token.usuarioId !== usuario.id) return fallar(invalido);
+    const utilizable = tokenRecuperacionUtilizable(token, ahora);
+    if (!utilizable.permitido) return { tipo: "error", veredicto: utilizable };
+
+    if (requiereDobleFactor(usuario.rol, false)) {
+      if (!e.codigo2fa) {
+        // Se conserva el secreto entre intentos: si la persona ya lo registró
+        // y se equivocó de código, no debe volver a escanear.
+        const secreto = usuario.dobleFactorSecreto ?? generateSecret();
+        if (!usuario.dobleFactorSecreto) await this.repo.guardarDobleFactor(usuario.id, secreto, false);
+        return {
+          tipo: "configurar_2fa",
+          secreto,
+          uri: generateURI({ secret: secreto, label: usuario.email, issuer: "TireTrack" }),
+        };
+      }
+      if (!usuario.dobleFactorSecreto || !codigoTotpValido(e.codigo2fa, usuario.dobleFactorSecreto)) {
+        return fallar({
+          tipo: "error",
+          veredicto: { permitido: false, codigo: "CODIGO_2FA_INVALIDO", mensaje: "Código de verificación incorrecto" },
+        });
+      }
+      await this.repo.guardarDobleFactor(usuario.id, usuario.dobleFactorSecreto, true);
+    }
+
+    await this.repo.cambiarPassword(usuario.id, await this.hashearPassword(e.password), ahora);
+    await this.repo.marcarTokenUsado(token.id, ahora);
+    const limpio = registrarIntentoExitoso();
+    await this.repo.actualizarIntentos(usuario.id, limpio.intentosFallidos, limpio.bloqueadoHasta);
+    // Si alguien tenía la cuenta abierta, queda afuera.
+    await this.repo.revocarSesionesDeUsuario(usuario.id, ahora);
+    await this.repo.registrarAuditoria({
+      empresaId: usuario.empresaId,
+      usuarioId: usuario.id,
+      accion: "recuperar_password",
+      detalle: { tipo: "activacion" },
+      ip: e.ip,
+    });
+    return { tipo: "ok" };
   }
 
   /** Alta del doble factor. El secreto solo se muestra al configurarlo. */

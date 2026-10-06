@@ -272,6 +272,80 @@ describe.skipIf(!disponible)("autenticación", () => {
     });
   });
 
+  describe("activación con código", () => {
+    const NUEVA = "CampoFundacion26";
+    // Para la activación, el usuario nace sin secreto de doble factor.
+    const sinSecreto = () => db.query(`UPDATE "Usuario" SET "dobleFactorSecreto" = NULL, "dobleFactorActivo" = false WHERE id = 'u-adm'`);
+
+    it("el técnico activa su cuenta con el código y entra con SU contraseña", async () => {
+      const c = await servicio.crearCodigoActivacion("u-tec");
+      expect(c?.codigo).toMatch(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/);
+      // Escrito como lo dictan: minúsculas y sin guion.
+      const r = await servicio.activar({ email: "carlos@asistectire.com", codigo: c!.codigo.toLowerCase().replace("-", ""), password: NUEVA });
+      expect(r.tipo).toBe("ok");
+      expect((await servicio.login({ email: "carlos@asistectire.com", password: NUEVA })).tipo).toBe("ok");
+    });
+
+    it("el código sirve una sola vez", async () => {
+      const c = await servicio.crearCodigoActivacion("u-tec");
+      await servicio.activar({ email: "carlos@asistectire.com", codigo: c!.codigo, password: NUEVA });
+      const otra = await servicio.activar({ email: "carlos@asistectire.com", codigo: c!.codigo, password: "OtraClave2026x" });
+      expect(otra.tipo).toBe("error");
+    });
+
+    it("un código nuevo anula el anterior", async () => {
+      const viejo = await servicio.crearCodigoActivacion("u-tec");
+      await servicio.crearCodigoActivacion("u-tec");
+      const r = await servicio.activar({ email: "carlos@asistectire.com", codigo: viejo!.codigo, password: NUEVA });
+      expect(r.tipo).toBe("error");
+    });
+
+    it("el código de otro usuario no sirve, y cuenta como intento fallido", async () => {
+      const deOtro = await servicio.crearCodigoActivacion("u-adm");
+      const r = await servicio.activar({ email: "carlos@asistectire.com", codigo: deOtro!.codigo, password: NUEVA });
+      expect(r.tipo === "error" && r.veredicto.codigo).toBe("CODIGO_INVALIDO");
+      const f = await db.query(`SELECT "intentosFallidos" FROM "Usuario" WHERE id = 'u-tec'`);
+      expect(f.rows[0].intentosFallidos).toBe(1);
+    });
+
+    it("vence a las 72 horas", async () => {
+      const c = await servicio.crearCodigoActivacion("u-tec");
+      reloj = new Date(reloj.getTime() + 73 * 3_600_000);
+      const r = await servicio.activar({ email: "carlos@asistectire.com", codigo: c!.codigo, password: NUEVA });
+      expect(r.tipo).toBe("error");
+    });
+
+    it("una contraseña débil se rechaza antes de gastar el código", async () => {
+      const c = await servicio.crearCodigoActivacion("u-tec");
+      expect((await servicio.activar({ email: "carlos@asistectire.com", codigo: c!.codigo, password: "123" })).tipo).toBe("error");
+      expect((await servicio.activar({ email: "carlos@asistectire.com", codigo: c!.codigo, password: NUEVA })).tipo).toBe("ok");
+    });
+
+    it("el administrador no termina sin registrar el doble factor", async () => {
+      // Si se activara sin eso, el siguiente ingreso le pediría un código que no tiene.
+      await sinSecreto();
+      const c = await servicio.crearCodigoActivacion("u-adm");
+      const paso1 = await servicio.activar({ email: "marcela@asistectire.com", codigo: c!.codigo, password: NUEVA });
+      expect(paso1.tipo).toBe("configurar_2fa");
+      if (paso1.tipo !== "configurar_2fa") return;
+      expect(paso1.uri.startsWith("otpauth://")).toBe(true);
+
+      // Un código equivocado no termina la activación y el código sigue sirviendo.
+      expect((await servicio.activar({ email: "marcela@asistectire.com", codigo: c!.codigo, password: NUEVA, codigo2fa: "000000" })).tipo).toBe("error");
+
+      const ok = await servicio.activar({
+        email: "marcela@asistectire.com", codigo: c!.codigo, password: NUEVA,
+        codigo2fa: generateSync({ secret: paso1.secreto }),
+      });
+      expect(ok.tipo).toBe("ok");
+      // Y entra con contraseña + el código de SU app autenticadora.
+      const login = await servicio.login({
+        email: "marcela@asistectire.com", password: NUEVA, codigo2fa: generateSync({ secret: paso1.secreto }),
+      });
+      expect(login.tipo).toBe("ok");
+    });
+  });
+
   describe("refresco de sesión", () => {
     it("el refresh se guarda hasheado, nunca en claro", async () => {
       const r = await servicio.login({ email: "carlos@asistectire.com", password: PASSWORD });
