@@ -263,7 +263,7 @@ Estado: `[x]` hecha · `[ ]` pendiente
 ### Fase 6 · Informes
 - [x] 6.1 Informe con filtros (ruta `informe`: vista previa y recorrido por serial)
 - [x] 6.2 Exportación (CSV a la hoja de compartir del sistema)
-- [ ] 6.3 PDF de la orden
+- [x] 6.3 PDF de la orden (`GET /ordenes/:id/pdf`, botón en el detalle)
 
 ### Fase 7 · Distribución
 - [ ] 7.1 EAS y primer APK instalable
@@ -3119,13 +3119,41 @@ Una prueba nueva exige que **toda tabla** del celular esté en
   órdenes**. No se había manifestado solo porque, hasta la corrección de la
   descarga, la marca nunca llegaba a guardarse.
 
+## PDF de la orden (6.3)
+
+`packages/domain/src/informe/documentoOrden.ts` decide qué dice;
+`apps/api/src/informe/documento.ts` reúne los datos y lo dibuja con `pdfkit`
+(JavaScript puro, sin binarios); `GET /ordenes/:id/pdf`.
+
+Es la constancia que guarda el cliente, así que importa más lo que no puede
+decir:
+
+- **Sin aprobar dice "PRELIMINAR"**; anulada, "ANULADA".
+- **El cierre por vencimiento lo dice con todas las letras**: "el cliente no
+  la aprobó expresamente". Nunca aparenta aprobación.
+- **Una firma que ya no ampara el contenido lo advierte**; sin firma, también.
+- **Usa los datos congelados al aprobar** (cliente, NIT, vehículo, técnico),
+  no los vivos (prueba con el cliente renombrado después).
+- Tabla por posición con servicios por nombre, "SIN IDENTIFICAR" en vez de
+  blanco y la llanta que salió; hallazgos, acción, recomendaciones de la
+  visita y **la firma redibujada desde el trazo** (escalada a su caja).
+- **Descargarlo es una salida de datos**: queda en la auditoría
+  (`exportar_informe`, origen `pdf_orden`), por eso la transacción se
+  confirma. Mismo alcance que la orden (RLS; el cliente, solo las que esperan
+  su aprobación o están cerradas); fuera de eso, 404.
+
+App: "Descargar PDF de la orden" en el detalle. `ClienteHttp.descargarArchivo`
+baja el binario directo al disco del teléfono (`expo-file-system`), renueva
+la sesión una vez ante un 401, distingue "no disponible" de "sin señal", y se
+abre la hoja de compartir.
+
 ## Punto de retoma (2026-10-05)
 
 **Estado:** el usuario prueba la app en el teléfono con Expo Go (SDK 52). Siguen PDF (6.3), vista de auditoría (5.4) y guía de despliegue.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 909/909, mobile 875 + recorrido 429.
+**Verificado:** `npm run verify` con base: raíz 919/919, mobile 879 + recorrido 429.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

@@ -30,5 +30,6 @@ export * from "./acceso/usuarios";
 export * from "./flota/reglas";
 export * from "./fotos/reglas";
 export * from "./informe/formato";
+export * from "./informe/documentoOrden";
 export * from "./trabajos/reglas";
 export * from "./trabajos/programacion";

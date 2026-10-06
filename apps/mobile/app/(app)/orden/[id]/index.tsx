@@ -15,6 +15,9 @@ import { colores, espacio, estadosOrden, texto } from "../../../../src/diseno/to
 import { OrdenNoDisponible } from "../../../../src/ordenes/OrdenNoDisponible";
 import { Recomendaciones } from "../../../../src/ordenes/Recomendaciones";
 import type { RecomendacionLocal } from "../../../../src/datos/repositorio";
+import { BotonPdf } from "../../../../src/ordenes/BotonPdf";
+import { bajarACache, compartirUri } from "../../../../src/informe/compartirArchivo";
+import { useServicios } from "../../../../src/app/Arranque";
 
 /**
  * Detalle de la orden con su diagrama.
@@ -27,6 +30,7 @@ export default function PantallaDetalle() {
   const router = useRouter();
   const { cargarOrden, ordenes, fotosSinSubir, fotosDe, adjuntarFoto, cambiarEstado, recomendacionesDe, crearRecomendacion, resolverRecomendacion } = useDatos();
   const [recomendaciones, setRecomendaciones] = useState<RecomendacionLocal[]>([]);
+  const { descargarArchivo } = useServicios();
 
   // Aprobar cierra la orden; objetar la devuelve al técnico con el motivo.
   const decidirCliente = async (estado: "cerrada" | "en_proceso", motivo?: string) => {
@@ -141,6 +145,10 @@ export default function PantallaDetalle() {
       <Boton tipo="secundario" ancho testID="ver-evidencia" onPress={() => router.push(`/orden/${orden.id}/fotos` as never)}>
         Ver la evidencia en el servidor
       </Boton>
+      <BotonPdf
+        descargar={() => descargarArchivo(`/ordenes/${orden.id}/pdf`, bajarACache(`${orden.folio ?? orden.codigoReferencia ?? "orden"}.pdf`))}
+        compartir={(uri) => compartirUri(uri, "application/pdf")}
+      />
 
       <Recomendaciones
         ordenId={orden.id}

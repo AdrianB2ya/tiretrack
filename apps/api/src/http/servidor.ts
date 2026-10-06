@@ -45,6 +45,7 @@ import type { Claims, ResultadoActivacion, ResultadoLogin } from "../acceso/serv
 import { ServicioUsuarios } from "../usuarios/servicio";
 import { ServicioProgramaciones } from "../programaciones/servicio";
 import { ServicioRecomendaciones } from "../recomendaciones/servicio";
+import { ServicioDocumento } from "../informe/documento";
 import { RepositorioOrdenesPg } from "../ordenes/repositorio";
 import { COMANDO, ServicioOrdenes } from "../ordenes/servicio";
 import { RepositorioMedicionesPg, ServicioMediciones } from "../mediciones/servicio";
@@ -679,6 +680,40 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
       const r = await s.recomendaciones.resolver(ctx, params(req).id as string, p.data);
       return r.ok ? { status: 200, cuerpo: r.valor } : rechazo(r.veredicto);
     }));
+
+    /**
+     * PDF de la orden: la constancia del servicio. Es una salida de datos,
+     * así que queda en la auditoría como las exportaciones; por eso la
+     * transacción se confirma (una consulta la desharía).
+     */
+    app.get("/ordenes/:id/pdf", async (req, reply) => {
+      const auth = req.headers.authorization;
+      const claims = auth?.startsWith("Bearer ") ? op.verificarToken(auth.slice(7)) : null;
+      if (!claims) return reply.status(401).send({ error: { codigo: "NO_AUTENTICADO", mensaje: "Sesión inválida" } });
+      const posible = contextoDe(claims);
+      if ("motivo" in posible) return reply.status(403).send({ error: { codigo: posible.motivo, mensaje: "Esta sesión no ve órdenes" } });
+      const ctx = posible;
+      const id = zId.safeParse(params(req).id);
+      if (!id.success) return reply.status(404).send({ error: { codigo: "NO_EXISTE", mensaje: "La orden no existe" } });
+
+      const r = await enTransaccion(op.pool, ctx, async (db) => {
+        const documento = new ServicioDocumento(db);
+        const datos = await documento.datos(ctx, id.data);
+        if (!datos) return { confirmar: false, valor: null };
+        await new ServicioInforme(db, reloj).registrarAuditoria(ctx, "exportar_informe", {
+          origen: "pdf_orden", ordenId: id.data, folio: datos.orden.folio, estado: datos.orden.estado,
+        });
+        // Hora de Colombia, como todo "hoy" del sistema.
+        const generadoEn = new Date(reloj().getTime() - 5 * 3_600_000).toISOString().slice(0, 16).replace("T", " ");
+        return { confirmar: true, valor: { pdf: await documento.pdf(datos, generadoEn), nombre: documento.nombreArchivo(datos) } };
+      });
+      if (!r) return reply.status(404).send({ error: { codigo: "NO_EXISTE", mensaje: "La orden no existe" } });
+      return reply
+        .status(200)
+        .header("content-type", "application/pdf")
+        .header("content-disposition", `attachment; filename="${r.nombre}"`)
+        .send(r.pdf);
+    });
 
     /** La evidencia de la orden, con URL de lectura que vence. */
     app.get("/ordenes/:id/fotos", consulta(async (s, ctx, req) => {

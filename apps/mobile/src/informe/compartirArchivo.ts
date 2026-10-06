@@ -22,3 +22,28 @@ export async function compartirArchivo(nombre: string, contenido: string): Promi
     return { ok: false, mensaje: "No se pudo guardar el archivo en el teléfono" };
   }
 }
+
+/**
+ * Baja un archivo directo al disco del teléfono (caché), para `descargarArchivo`
+ * del cliente HTTP. Importación diferida, como el resto del hardware.
+ */
+export function bajarACache(nombre: string) {
+  return async (url: string, cabeceras: Record<string, string>): Promise<{ status: number; uri: string }> => {
+    const sistema = await import("expo-file-system");
+    const destino = `${sistema.cacheDirectory ?? ""}${nombre.replace(/[^\w.-]/g, "_")}`;
+    const r = await sistema.downloadAsync(url, destino, { headers: cabeceras });
+    return { status: r.status, uri: r.uri };
+  };
+}
+
+/** Abre la hoja de compartir con un archivo que ya está en el teléfono. */
+export async function compartirUri(uri: string, tipo: string): Promise<{ ok: true } | { ok: false; mensaje: string }> {
+  try {
+    const compartir = await import("expo-sharing");
+    if (!(await compartir.isAvailableAsync())) return { ok: false, mensaje: "Este teléfono no permite compartir archivos" };
+    await compartir.shareAsync(uri, { mimeType: tipo, dialogTitle: "Enviar orden" });
+    return { ok: true };
+  } catch {
+    return { ok: false, mensaje: "No se pudo abrir el archivo" };
+  }
+}

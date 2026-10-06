@@ -138,6 +138,32 @@ export class ClienteHttp implements ClienteSincronizacion, ClienteDescarga {
     }
   }
 
+  /**
+   * Un archivo binario (el PDF de la orden), bajado directo al disco del
+   * teléfono por `bajar` —en el dispositivo, expo-file-system—: no pasa por
+   * la memoria de la app. Con la sesión, renovándola una vez ante un 401.
+   */
+  async descargarArchivo(
+    ruta: string,
+    bajar: (url: string, cabeceras: Record<string, string>) => Promise<{ status: number; uri: string }>,
+  ): Promise<{ ok: true; uri: string } | { ok: false; status: number; mensaje: string }> {
+    const url = `${this.config.baseUrl}${ruta}`;
+    try {
+      let token = await this.config.obtenerToken();
+      if (!token) return { ok: false, status: 401, mensaje: "La sesión expiró. Vuelve a ingresar" };
+      let r = await bajar(url, { Authorization: `Bearer ${token}` });
+      if (r.status === 401 && this.config.renovarSesion && (await this.config.renovarSesion())) {
+        token = await this.config.obtenerToken();
+        if (token) r = await bajar(url, { Authorization: `Bearer ${token}` });
+      }
+      if (r.status >= 200 && r.status < 300) return { ok: true, uri: r.uri };
+      if (r.status === 404) return { ok: false, status: 404, mensaje: "Esta orden no está disponible para descargar" };
+      return { ok: false, status: r.status, mensaje: `El servidor respondió ${r.status}` };
+    } catch {
+      return { ok: false, status: 0, mensaje: "No hay señal. Descargar el PDF necesita conexión" };
+    }
+  }
+
   /** Petición con la sesión, renovándola UNA vez ante un 401. */
   private async conSesion(
     metodo: "GET" | "POST",

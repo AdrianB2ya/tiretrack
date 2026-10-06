@@ -177,7 +177,7 @@ const enLinea = vi.fn(async (_metodo: string, ruta: string) => {
 
 function montar(Pantalla: ComponentType, repo: RepositorioLocal, onError: (e: Error) => void, exige = true) {
   return render(
-    <ProveedorServicios value={{ sesion, apiUrl: "http://x", enLinea: enLinea as never, descargarTexto: vi.fn() as never }}>
+    <ProveedorServicios value={{ sesion, apiUrl: "http://x", enLinea: enLinea as never, descargarTexto: vi.fn() as never, descargarArchivo: (async () => ({ ok: false, status: 0, mensaje: "sin señal" })) as never }}>
       <ProveedorSesion servicio={sesion}>
         <DatosDeLaSesion db={db} sesion={sesion} motor={new MotorSincronizacion(repo, { enviar: async () => ({ tipo: "sin_conexion" as const, mensaje: "sin red" }) })} descarga={{ traer: async () => null }} intervaloSincronizacionMs={0}>
           <Atrapa onError={onError}>
@@ -340,7 +340,7 @@ describe("cerrar sesión", () => {
     }
     const errores: Error[] = [];
     const { container } = render(
-      <ProveedorServicios value={{ sesion, apiUrl: "http://x", enLinea: enLinea as never, descargarTexto: vi.fn() as never }}>
+      <ProveedorServicios value={{ sesion, apiUrl: "http://x", enLinea: enLinea as never, descargarTexto: vi.fn() as never, descargarArchivo: (async () => ({ ok: false, status: 0, mensaje: "sin señal" })) as never }}>
         <ProveedorSesion servicio={sesion}>
           <DatosDeLaSesion db={db} sesion={sesion} motor={new MotorSincronizacion(repo, { enviar: async () => ({ tipo: "sin_conexion" as const, mensaje: "x" }) })} descarga={{ traer: async () => null }} intervaloSincronizacionMs={0}>
             <Atrapa onError={(e) => errores.push(e)}>

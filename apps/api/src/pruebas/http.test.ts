@@ -5,6 +5,7 @@ import { zRespuestaLogin } from "@tiretrack/contracts";
 import { hayBaseDeDatos, poolAislado } from "./base";
 import { crearEsquemaCompleto, sembrar, SEMILLA, authFalso, CODIGO_FALSO } from "./esquemas";
 import { construirServidor, enTransaccion, PREFIJO_API } from "../http/servidor";
+import { ServicioDocumento } from "../informe/documento";
 import type { Claims } from "../acceso/servicio";
 import type { Almacenamiento } from "../fotos/almacenamiento";
 
@@ -473,6 +474,37 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
       // No es una operación de la cola: repetirlo devuelve una sesión nueva.
       const r = await ingresar({ email: "carlos@asistectire.com", password: "correcta" });
       expect(r.statusCode).not.toBe(400);
+    });
+  });
+
+  describe("PDF de la orden", () => {
+    const pdf = (token: string, orden = ORDEN) =>
+      app.inject({ method: "GET", url: `${PREFIJO_API}/ordenes/${orden}/pdf`, headers: { authorization: `Bearer ${token}` } });
+
+    it("se descarga como PDF y queda en la auditoría", async () => {
+      await guardarMedicion(medicion(1, { serial: "MX1", profundidad: 9 }));
+      const antes = (await pool.query(`SELECT count(*)::int AS n FROM "Auditoria"`)).rows[0].n;
+      const r = await pdf("tok-coordinador");
+      expect(r.statusCode).toBe(200);
+      expect(r.headers["content-type"]).toBe("application/pdf");
+      expect(r.rawPayload.subarray(0, 5).toString()).toBe("%PDF-");
+      const despues = await pool.query(`SELECT detalle FROM "Auditoria" ORDER BY "creadoEn" DESC LIMIT 1`);
+      expect((await pool.query(`SELECT count(*)::int AS n FROM "Auditoria"`)).rows[0].n).toBe(antes + 1);
+      expect(despues.rows[0].detalle).toMatchObject({ origen: "pdf_orden", ordenId: ORDEN });
+    });
+
+    it("usa los datos congelados al aprobar, no los vivos", async () => {
+      // Un documento cerrado no cambia porque cambien los datos maestros.
+      await pool.query(`UPDATE "OrdenServicio" SET "clienteNombre" = 'Reyna (al aprobar)', "vehiculoCodigo" = 'CA-12-VIEJO' WHERE id = $1`, [ORDEN]);
+      await pool.query(`UPDATE "Cliente" SET nombre = 'Reyna renombrada'`);
+      const d = await new ServicioDocumento(pool).datos({ rol: "coordinador" }, ORDEN);
+      expect(d?.cliente.nombre).toBe("Reyna (al aprobar)");
+      expect(d?.vehiculo.codigo).toBe("CA-12-VIEJO");
+    });
+
+    it("el cliente no descarga una orden que aún se está trabajando; una inexistente es 404", async () => {
+      expect((await pdf("tok-cliente")).statusCode).toBe(404);
+      expect((await pdf("tok-coordinador", nuevoId())).statusCode).toBe(404);
     });
   });
 

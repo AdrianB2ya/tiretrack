@@ -66,6 +66,7 @@ export interface ServiciosEnLinea {
   apiUrl: string;
   enLinea: ClienteHttp["enLinea"];
   descargarTexto: ClienteHttp["descargarTexto"];
+  descargarArchivo: ClienteHttp["descargarArchivo"];
 }
 
 const ContextoServicios = createContext<ServiciosEnLinea | null>(null);
@@ -108,7 +109,7 @@ export function Arranque({ apiUrl, children }: { apiUrl: string; children: React
 
   return (
     <ContextoServicios.Provider
-      value={{ sesion: servicios.sesion, apiUrl, enLinea: servicios.cliente.enLinea.bind(servicios.cliente), descargarTexto: servicios.cliente.descargarTexto.bind(servicios.cliente) }}
+      value={{ sesion: servicios.sesion, apiUrl, enLinea: servicios.cliente.enLinea.bind(servicios.cliente), descargarTexto: servicios.cliente.descargarTexto.bind(servicios.cliente), descargarArchivo: servicios.cliente.descargarArchivo.bind(servicios.cliente) }}
     >
     <ProveedorSesion servicio={servicios.sesion}>
       <DatosDeLaSesion
