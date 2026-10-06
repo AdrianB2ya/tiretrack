@@ -173,3 +173,32 @@ export function filtrar(
 
   return resultado;
 }
+
+/**
+ * Filtros a los que lleva cada tarjeta del panel. Cuentan EXACTAMENTE lo
+ * mismo que la tarjeta (`calcularIndicadores`): tocar "2 devueltas" y ver
+ * otra cantidad sería peor que no filtrar.
+ */
+export type FiltroOrdenes = "devueltas" | "en_curso" | "cliente";
+
+export const TITULO_FILTRO: Record<FiltroOrdenes, string> = {
+  devueltas: "Devueltas sin corregir",
+  en_curso: "En curso",
+  cliente: "Esperando al cliente",
+};
+
+export function esFiltroOrdenes(v: unknown): v is FiltroOrdenes {
+  return v === "devueltas" || v === "en_curso" || v === "cliente";
+}
+
+export function filtrarOrdenes(
+  ordenes: readonly OrdenParaLista[],
+  filtro: FiltroOrdenes | null,
+): readonly OrdenParaLista[] {
+  if (!filtro) return ordenes;
+  return ordenes.filter(({ orden: o }) => {
+    if (filtro === "devueltas") return o.estado === "en_proceso" && Boolean(o.motivoDevolucion);
+    if (filtro === "en_curso") return o.estado === "en_proceso" && !o.motivoDevolucion;
+    return o.estado === "pendiente_cliente";
+  });
+}

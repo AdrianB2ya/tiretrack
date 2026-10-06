@@ -2870,13 +2870,42 @@ por posición, 1.
 posición 3 de OS-FUN-000004. Con la descarga arreglada, el celular recibe la
 medición del servidor; si hay que corregirla, el coordinador la devuelve.
 
+## Barra de navegación de la oficina (2026-10-06)
+
+Pedido del usuario tras la primera prueba: tocaba una tarjeta del panel,
+llegaba a una lista y no tenía cómo moverse.
+
+`src/app/navegacion.ts` (qué hay para cada rol), `BarraNavegacion.tsx`
+(presentación), `NavegacionInferior.tsx` (unión con el enrutador), ruta `mas`.
+
+- **Coordinador y administrador: Panel · Órdenes · Revisar · Más.** "Revisar"
+  muestra cuántas esperan ("Revisar (3)"). La activa va en texto y con
+  `aria-selected`.
+- **El técnico no tiene barra**: entra directo a sus órdenes (4.4: un panel
+  intermedio sería un toque más con guantes). El cliente tampoco.
+- Entre pestañas se navega con `replace`: "atrás" no recorre el historial de
+  toques.
+- **"Más"** reúne lo que no es diario (programar orden, visitas recurrentes,
+  flota, informe, usuarios, sedes, plantillas, cuenta), cada uno con una
+  línea de para qué sirve, y solo lo que el rol puede hacer. **El panel
+  quedó con decisiones**: con ocho botones encima, las tarjetas urgentes no
+  cabían en la pantalla.
+- **Las tarjetas del panel abren la lista ya filtrada**
+  (`/ordenes?filtro=devueltas|en_curso|cliente`), con "Ver todas". El filtro
+  cuenta exactamente lo mismo que la tarjeta (`filtrarOrdenes` frente a
+  `calcularIndicadores`, con prueba).
+- La lista dice "Órdenes" para la oficina y "Mis órdenes" para el técnico, y
+  su mensaje vacío explica qué hacer.
+- Una prueba exige que cada destino de la barra y de "Más" tenga su archivo
+  de ruta.
+
 ## Punto de retoma (2026-10-05)
 
 **Estado:** el usuario prueba la app en el teléfono con Expo Go (SDK 52). Siguen PDF (6.3), vista de auditoría (5.4) y guía de despliegue.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 886/886, mobile 839/839.
+**Verificado:** `npm run verify` con base: raíz 886/886, mobile 847/847.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

@@ -6,6 +6,7 @@ import type { OrdenEnBandeja } from "../src/coordinador/bandeja";
 import { useDatos } from "../src/app/ProveedorDatos";
 import { useUsuario } from "../src/app/ProveedorSesion";
 import { BarraDeSesion } from "../src/app/BarraDeSesion";
+import { NavegacionInferior } from "../src/app/NavegacionInferior";
 import { colores } from "../src/diseno/tokens";
 
 /**
@@ -48,6 +49,7 @@ export default function PantallaRevision() {
         // aprobar ni devolver.
         onAbrir={(ordenId) => router.push(`/orden/${ordenId}/decidir` as never)}
       />
+      <NavegacionInferior activa="revision" />
     </View>
   );
 }
