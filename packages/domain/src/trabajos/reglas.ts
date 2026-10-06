@@ -1,6 +1,6 @@
 import { type Veredicto, PERMITIDO, negar } from "../tipos";
 import { leerDOT, ANIOS_VIDA_DOT } from "../llanta/dot";
-import { proximaEjecucion, siguienteHabil, type Frecuencia } from "../tiempo/habiles";
+import { ocurrencia, proximaEjecucion, siguienteHabil, type Frecuencia } from "../tiempo/habiles";
 
 /**
  * Trabajos programados: cierre por vencimiento, órdenes recurrentes y alertas.
@@ -43,6 +43,8 @@ export interface Programacion {
   readonly vehiculoId: string;
   readonly frecuencia: Frecuencia;
   readonly cada: number;
+  /** Ancla de la recurrencia: todas las fechas se cuentan desde aquí. */
+  readonly inicio: string;
   readonly proxima: string;
   readonly activa: boolean;
 }
@@ -50,6 +52,14 @@ export interface Programacion {
 export interface EstadoVehiculo {
   readonly activo: boolean;
   readonly tieneOrdenAbierta: boolean;
+}
+
+/** El técnico fijo de la programación (decisión del usuario, 2026-10-06). */
+export interface EstadoTecnico {
+  /** Activo y con rol de técnico. */
+  readonly disponible: boolean;
+  /** Sigue asignado a la sede de la programación. */
+  readonly enSede: boolean;
 }
 
 /**
@@ -63,6 +73,7 @@ export interface EstadoVehiculo {
 export function debeGenerarOrden(
   p: Programacion,
   vehiculo: EstadoVehiculo,
+  tecnico: EstadoTecnico,
   hoy: string,
 ): Veredicto {
   if (!p.activa) return negar("INACTIVA", "La programación está deshabilitada");
@@ -75,7 +86,23 @@ export function debeGenerarOrden(
     // anterior, la siguiente se genera normalmente.
     return negar("ORDEN_ABIERTA", "El vehículo ya tiene una orden sin cerrar");
   }
+  if (!tecnico.disponible || !tecnico.enSede) {
+    // No se genera a nombre de alguien que ya no trabaja ahí: la orden
+    // quedaría en la lista de nadie. Tampoco se avanza la fecha: cuando
+    // corrijan el técnico, la visita se genera en la siguiente vuelta.
+    return negar(
+      "TECNICO_NO_DISPONIBLE",
+      tecnico.disponible
+        ? "El técnico ya no está asignado a esta sede: elige otro"
+        : "El técnico está inactivo: elige otro",
+    );
+  }
   return PERMITIDO;
+}
+
+/** Saltar la vuelta avanza la fecha solo cuando esperar no cambiaría nada. */
+export function avanzaAlSaltar(codigo: string | undefined): boolean {
+  return codigo === "ORDEN_ABIERTA" || codigo === "VEHICULO_INACTIVO";
 }
 
 /**
@@ -86,18 +113,23 @@ export function debeGenerarOrden(
  * correrse tres días hacia adelante cada vez que eso pase.
  */
 export function avanzarProxima(p: Programacion, hoy: string): string {
-  let siguiente = proximaEjecucion(p.proxima, p.frecuencia, p.cada);
-
-  // Si quedó en el pasado porque el trabajo no corrió en varios ciclos, se
-  // adelanta hasta alcanzar el presente en vez de generar una orden por cada
-  // ciclo perdido: nadie quiere seis órdenes de golpe.
-  let vueltas = 0;
-  while (siguiente <= hoy && vueltas < 120) {
-    siguiente = proximaEjecucion(siguiente, p.frecuencia, p.cada);
-    vueltas++;
+  // La primera ocurrencia —contada desde el inicio— posterior a la
+  // programada Y a hoy. Si el trabajo no corrió en varios ciclos, salta hasta
+  // el presente en vez de generar una orden por cada ciclo perdido: nadie
+  // quiere seis órdenes de golpe.
+  //
+  // Contar desde el inicio, y no desde `proxima`, evita que un corrimiento
+  // por fin de semana se arrastre a todas las fechas siguientes.
+  for (let k = 1; k <= LIMITE_OCURRENCIAS; k++) {
+    const f = ocurrencia(p.inicio, p.frecuencia, p.cada, k);
+    if (f > p.proxima && f > hoy) return f;
   }
-  return siguienteHabil(siguiente);
+  // Más de 27 años de ciclos diarios: datos corruptos. Ante la duda, un
+  // periodo después de hoy, que es lo menos sorprendente.
+  return siguienteHabil(proximaEjecucion(hoy, p.frecuencia, p.cada));
 }
+
+const LIMITE_OCURRENCIAS = 10_000;
 
 // ── Alertas de llanta ───────────────────────────────────────────────────────
 

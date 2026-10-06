@@ -248,7 +248,7 @@ Estado: `[x]` hecha · `[ ]` pendiente
 - [x] 4.1 Nueva orden en cascada (ruta `nueva-orden`)
 - [x] 4.2 Bandeja de aprobación
 - [x] 4.3 Devolución y reasignación (ruta `orden/[id]/decidir`)
-- [ ] 4.4 Programación recurrente (el trabajo programado existe desde la 1.9; no hay pantalla)
+- [ ] 4.4 Programación recurrente (trabajos en marcha y técnico fijo; falta la pantalla)
 
 > Las secciones de abajo numeradas 4.x–6.x **no corresponden** a estas
 > casillas: a partir de la 5.0 se usaron para la capa HTTP, la sincronización
@@ -2720,13 +2720,79 @@ desde la app también nacía con la fecha de mañana.
   `creadoEn` (UTC) contra un día; hay que convertirlo a Colombia cuando se
   haga la pantalla.
 
+## Trabajos programados en marcha (4.4, servidor)
+
+**Decisiones del usuario (2026-10-06):** la orden recurrente va a un
+**técnico fijo** de la programación; las acciones automáticas quedan a
+nombre de **Sistema** (usuario vacío), y la orden recurrente, creada por
+**quien hizo la programación**.
+
+### Nada los arrancaba
+
+El cierre tácito y las órdenes recurrentes existían desde la 1.9, probados,
+y **ningún código los ejecutaba**. En producción ninguna orden se habría
+cerrado por vencimiento ni se habría generado una recurrente. Mismo patrón
+que la descarga (6.7).
+
+Y si hubieran corrido, **habrían fallado en la primera vuelta**: asignaban
+la orden a un "usuario del sistema" inexistente, en columnas que exigen un
+usuario real. La prueba no lo veía porque escribía su esquema a mano, sin
+esas llaves. Ahora usa el esquema generado con las llaves de producción.
+
+### Cómo corren (`trabajos/planificador.ts`)
+
+- Al arrancar la API y cada `TRABAJOS_CADA_MINUTOS` (15 por defecto; 0 los
+  apaga en esa instancia).
+- **Empresa por empresa, con su contexto de RLS**, como rol de aplicación.
+  La lista sale de `empresas_para_trabajos()` (rls.sql, `@seccion:trabajos`):
+  función con privilegio propio que devuelve **solo ids** de las empresas
+  activas. No se usó `BYPASSRLS` ni la conexión del dueño.
+- `"Empresa"` tiene `FORCE ROW LEVEL SECURITY`, que aplica también al dueño:
+  sin la política `trabajos_dueno` (lectura, solo para el rol que corre la
+  migración) la función vería cero empresas y los trabajos no harían nada,
+  en silencio. **En local el dueño es superusuario y no ejercita esa
+  política**: revisar en el primer despliegue que el registro muestre
+  empresas procesadas.
+- **Una conexión por empresa que se destruye al terminar**: el contexto va
+  a nivel de sesión (cada ítem abre su transacción) y una conexión devuelta
+  al pool con la empresa puesta la heredaría otra petición.
+- Candado por empresa (`pg_try_advisory_lock`): con dos instancias, la
+  segunda se la salta.
+- Un fallo en una empresa no detiene a las demás ni tumba el proceso.
+
+La prueba del planificador corre **como `tiretrack_app` con RLS activo**:
+como superusuario las políticas no aplican y pasaría aunque faltara el
+contexto. Mutaciones: sin contexto fallan 4 pruebas; devolviendo la conexión
+al pool sin destruirla, falla la de fuga.
+
+### La recurrencia se corría
+
+- **`cada` se ignoraba** salvo en días: "cada 2 meses" salía mensual.
+- **Cada fecha se contaba desde la anterior**, ya corrida por el fin de
+  semana: "el 15 de cada mes" pasaba al 17 y se quedaba ahí. Ahora
+  `ocurrencia(inicio, frecuencia, cada, k)` cuenta **desde el inicio**.
+- El 31 cae en el último día de los meses cortos y vuelve al 31 después
+  (`sumarMeses`).
+
+### Técnico fijo y su ausencia
+
+Migración `20261006120000_programacion_tecnico`: `tecnicoId`,
+`creadoPorId` y `ultimoAviso` en la programación, `usuarioId` opcional en el
+historial, y las llaves compuestas de la programación (cliente, sede y
+técnico de la sede), igual que la orden.
+
+- Si el técnico está **inactivo o ya no está en la sede**, no se genera ni
+  se avanza la fecha: al corregirlo, la visita sale en la siguiente vuelta.
+- Todo salto deja su motivo en **`ultimoAviso`**: una programación que no
+  produce nada parece que funciona si nadie dice por qué.
+
 ## Punto de retoma (2026-10-05)
 
 **Estado:** el usuario prueba la app en el teléfono con Expo Go (SDK 52). Siguen PDF (6.3), programación recurrente (4.4), vista de auditoría (5.4) y guía de despliegue.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas e informe ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 855/855, mobile 819/819.
+**Verificado:** `npm run verify` con base: raíz 870/870, mobile 819/819.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

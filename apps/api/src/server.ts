@@ -5,6 +5,7 @@ import { ServicioAuth } from "./acceso/servicio";
 import { RepositorioPg } from "./acceso/repositorio";
 import { AlmacenamientoS3 } from "./fotos/almacenamiento";
 import { configurarUtc, OPCIONES_SESION_UTC } from "./db/utc";
+import { iniciarTrabajos } from "./trabajos/planificador";
 
 /**
  * Arranque del servidor.
@@ -75,10 +76,18 @@ export async function arrancar(config: Config): Promise<Servicios> {
   const direccion = app.server.address();
   const puerto = typeof direccion === "object" && direccion ? direccion.port : config.PORT;
 
+  // Cierre tácito y órdenes recurrentes. Sin esto no corrían nunca.
+  const detenerTrabajos =
+    config.TRABAJOS_CADA_MINUTOS > 0
+      ? iniciarTrabajos({ pool, intervaloMs: config.TRABAJOS_CADA_MINUTOS * 60_000, registro: app.log })
+      : async () => undefined;
+
   let cerrando = false;
   const cerrar = async () => {
     if (cerrando) return;
     cerrando = true;
+    // Primero los trabajos: su ronda usa el pool que se cierra al final.
+    await detenerTrabajos();
     // Fastify espera a las peticiones en curso antes de resolver.
     await app.close();
     await Promise.all([pool.end(), poolAuth.end()]);

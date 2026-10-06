@@ -1,5 +1,6 @@
 import type pg from "pg";
 import {
+  avanzaAlSaltar,
   avanzarProxima,
   debeCerrarsePorVencimiento,
   debeGenerarOrden,
@@ -27,7 +28,14 @@ import {
  *      cerrar una orden que no debía, no.
  *
  * El contexto de empresa lo fija el llamador por cada tenant: estos trabajos
- * no se saltan RLS, recorren las empresas activas una por una.
+ * no se saltan RLS, recorren las empresas activas una por una
+ * (`planificador.ts`).
+ *
+ * Las acciones quedan a nombre de **Sistema** —usuario vacío en el historial
+ * y en la auditoría—, nunca de una persona (decisión del usuario,
+ * 2026-10-06). Antes se atribuían a un "usuario del sistema" que no existía:
+ * la columna del técnico y la del historial exigen un usuario real, así que
+ * el primer cierre tácito en producción habría fallado.
  */
 
 export interface ResultadoTrabajo {
@@ -41,9 +49,12 @@ const vacio = (): ResultadoTrabajo => ({ procesados: 0, exitosos: 0, fallidos: 0
 
 export class TrabajosProgramados {
   constructor(
-    private readonly db: pg.Client | pg.Pool,
-    /** Usuario del sistema al que se atribuyen las acciones automáticas. */
-    private readonly usuarioSistemaId: string,
+    /**
+     * Una conexión dedicada, nunca el pool: cada ítem abre y cierra su propia
+     * transacción, y en un pool el BEGIN y el COMMIT podrían caer en
+     * conexiones distintas.
+     */
+    private readonly db: pg.Client | pg.PoolClient,
     private readonly reloj: () => Date = () => new Date(),
   ) {}
 
@@ -118,9 +129,9 @@ export class TrabajosProgramados {
         await this.db.query(
           `INSERT INTO "OrdenEstadoHistorial"
              (id,"ordenId","estadoAnterior","estadoNuevo","usuarioId",motivo,"visibleCliente")
-           VALUES ($1,$2,'pendiente_cliente','cerrada',$3,
+           VALUES ($1,$2,'pendiente_cliente','cerrada',NULL,
                    'Cerrada por vencimiento del plazo de aprobación', true)`,
-          [nuevoId(), orden.id, this.usuarioSistemaId],
+          [nuevoId(), orden.id],
         );
 
         // Una orden cerrada sola sin rastro es indistinguible de una
@@ -168,27 +179,39 @@ export class TrabajosProgramados {
       clienteId: string;
       sedeClienteId: string;
       vehiculoId: string;
+      tecnicoId: string;
+      creadoPorId: string;
       tipo: string;
       frecuencia: Frecuencia;
       cada: number;
+      inicio: string;
       proxima: string;
       activa: boolean;
       vehiculoActivo: boolean;
       configuracionEjeId: string;
       codigoSede: string;
       ordenesAbiertas: number;
+      tecnicoDisponible: boolean;
+      tecnicoEnSede: boolean;
     }>(
       `SELECT p.id, p."empresaId", p."sedeId", p."clienteId", p."sedeClienteId",
-              p."vehiculoId", p.tipo::text AS tipo, p.frecuencia::text AS frecuencia,
-              p.cada, to_char(p.proxima,'YYYY-MM-DD') AS proxima, p.activa,
+              p."vehiculoId", p."tecnicoId", p."creadoPorId",
+              p.tipo::text AS tipo, p.frecuencia::text AS frecuencia, p.cada,
+              to_char(p.inicio,'YYYY-MM-DD') AS inicio,
+              to_char(p.proxima,'YYYY-MM-DD') AS proxima, p.activa,
               v.activo AS "vehiculoActivo", v."configuracionEjeId",
               s.codigo AS "codigoSede",
               (SELECT count(*)::int FROM "OrdenServicio" o
                 WHERE o."vehiculoId" = p."vehiculoId"
-                  AND o.estado NOT IN ('cerrada','anulada')) AS "ordenesAbiertas"
+                  AND o.estado NOT IN ('cerrada','anulada')) AS "ordenesAbiertas",
+              coalesce(u.activo AND u.rol = 'tecnico', false) AS "tecnicoDisponible",
+              EXISTS (SELECT 1 FROM "UsuarioSede" us
+                       WHERE us."usuarioId" = p."tecnicoId" AND us."sedeId" = p."sedeId"
+                         AND us.activa) AS "tecnicoEnSede"
          FROM "ProgramacionRecurrente" p
          JOIN "Vehiculo" v ON v.id = p."vehiculoId"
          JOIN "Sede" s ON s.id = p."sedeId"
+         LEFT JOIN "Usuario" u ON u.id = p."tecnicoId"
         WHERE p.activa = true AND p.proxima <= $1::date`,
       [hoy],
     );
@@ -197,20 +220,27 @@ export class TrabajosProgramados {
       r.procesados++;
 
       const veredicto = debeGenerarOrden(
-        { ...p, proxima: p.proxima },
+        p,
         { activo: p.vehiculoActivo, tieneOrdenAbierta: p.ordenesAbiertas > 0 },
+        { disponible: p.tecnicoDisponible, enSede: p.tecnicoEnSede },
         hoy,
       );
 
       if (!veredicto.permitido) {
-        // Se salta la vuelta pero se avanza la fecha: si no, mañana vuelve a
-        // intentarlo y el registro se llena de intentos idénticos.
-        if (veredicto.codigo === "ORDEN_ABIERTA" || veredicto.codigo === "VEHICULO_INACTIVO") {
-          await this.db.query(
-            `UPDATE "ProgramacionRecurrente" SET proxima = $2::date WHERE id = $1`,
-            [p.id, avanzarProxima({ ...p, proxima: p.proxima }, hoy)],
-          );
-        }
+        // Se guarda el motivo en la programación: una que no produce nada
+        // parece que funciona si nadie dice por qué. Se avanza la fecha solo
+        // cuando esperar no cambiaría nada; si falta el técnico, se espera a
+        // que lo corrijan y la visita se genera en la siguiente vuelta.
+        await this.db.query(
+          `UPDATE "ProgramacionRecurrente"
+              SET "ultimoAviso" = $2, proxima = coalesce($3::date, proxima)
+            WHERE id = $1`,
+          [
+            p.id,
+            `${hoy}: ${veredicto.mensaje}`,
+            avanzaAlSaltar(veredicto.codigo) ? avanzarProxima(p, hoy) : null,
+          ],
+        );
         r.detalles.push(`${p.id}: ${veredicto.mensaje}`);
         continue;
       }
@@ -221,15 +251,17 @@ export class TrabajosProgramados {
         const folio = await this.siguienteFolio(p.empresaId, p.sedeId, p.codigoSede);
         const ordenId = nuevoId();
 
+        // Asignada al técnico fijo de la programación y creada a nombre de
+        // quien la programó: es quien decidió que esa visita se hiciera.
         await this.db.query(
           `INSERT INTO "OrdenServicio"
              (id,"empresaId","sedeId","clienteId","sedeClienteId","vehiculoId",
               tecnico_id,"configuracionEjeId",folio,tipo,estado,fecha,"creadoPorId",
               "clientRequestId")
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::"TipoServicio",'programada',$11::date,$7,$12)`,
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::"TipoServicio",'programada',$11::date,$12,$13)`,
           [
             ordenId, p.empresaId, p.sedeId, p.clienteId, p.sedeClienteId, p.vehiculoId,
-            this.usuarioSistemaId, p.configuracionEjeId, folio, p.tipo, hoy,
+            p.tecnicoId, p.configuracionEjeId, folio, p.tipo, hoy, p.creadoPorId,
             // Clave determinista: si el trabajo corre dos veces el mismo día
             // por un reinicio, la restricción única evita la orden duplicada.
             `recurrente-${p.id}-${p.proxima}`,
@@ -239,13 +271,13 @@ export class TrabajosProgramados {
         await this.db.query(
           `INSERT INTO "OrdenEstadoHistorial"
              (id,"ordenId","estadoAnterior","estadoNuevo","usuarioId",motivo,"visibleCliente")
-           VALUES ($1,$2,NULL,'programada',$3,'Generada por programación recurrente',true)`,
-          [nuevoId(), ordenId, this.usuarioSistemaId],
+           VALUES ($1,$2,NULL,'programada',NULL,'Generada por programación recurrente',true)`,
+          [nuevoId(), ordenId],
         );
 
         await this.db.query(
-          `UPDATE "ProgramacionRecurrente" SET proxima = $2::date WHERE id = $1`,
-          [p.id, avanzarProxima({ ...p, proxima: p.proxima }, hoy)],
+          `UPDATE "ProgramacionRecurrente" SET proxima = $2::date, "ultimoAviso" = NULL WHERE id = $1`,
+          [p.id, avanzarProxima(p, hoy)],
         );
 
         await this.auditar(p.empresaId, "crear", {
@@ -350,8 +382,8 @@ export class TrabajosProgramados {
   ): Promise<void> {
     await this.db.query(
       `INSERT INTO "Auditoria" (id,"empresaId","usuarioId","usuarioNombre",rol,accion,detalle)
-       VALUES ($1,$2,$3,'Sistema','sistema',$4::"AccionAuditoria",$5)`,
-      [nuevoId(), empresaId, this.usuarioSistemaId, accion, JSON.stringify(detalle)],
+       VALUES ($1,$2,NULL,'Sistema','sistema',$3::"AccionAuditoria",$4)`,
+      [nuevoId(), empresaId, accion, JSON.stringify(detalle)],
     );
   }
 }

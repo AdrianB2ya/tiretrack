@@ -3,6 +3,7 @@ import {
   debeCerrarsePorVencimiento,
   debeGenerarOrden,
   avanzarProxima,
+  avanzaAlSaltar,
   evaluarAlertas,
   deduplicarAlertas,
   ordenarPorSeveridad,
@@ -52,36 +53,50 @@ describe("generación de órdenes recurrentes", () => {
     vehiculoId: "veh-1",
     frecuencia: "mensual",
     cada: 1,
+    inicio: "2026-08-14",
     proxima: "2026-09-14",
     activa: true,
   };
   const vehiculoSano = { activo: true, tieneOrdenAbierta: false };
+  const tecnicoSano = { disponible: true, enSede: true };
 
   it("genera cuando toca", () => {
-    expect(debeGenerarOrden(prog, vehiculoSano, HOY_ISO).permitido).toBe(true);
+    expect(debeGenerarOrden(prog, vehiculoSano, tecnicoSano, HOY_ISO).permitido).toBe(true);
   });
 
   it("no genera antes de tiempo", () => {
-    const r = debeGenerarOrden({ ...prog, proxima: "2026-10-01" }, vehiculoSano, HOY_ISO);
+    const r = debeGenerarOrden({ ...prog, proxima: "2026-10-01" }, vehiculoSano, tecnicoSano, HOY_ISO);
     expect(r.codigo).toBe("AUN_NO");
   });
 
   it("no genera si la programación está deshabilitada", () => {
-    expect(debeGenerarOrden({ ...prog, activa: false }, vehiculoSano, HOY_ISO).codigo).toBe(
+    expect(debeGenerarOrden({ ...prog, activa: false }, vehiculoSano, tecnicoSano, HOY_ISO).codigo).toBe(
       "INACTIVA",
     );
   });
 
   it("no genera para un vehículo dado de baja", () => {
-    const r = debeGenerarOrden(prog, { activo: false, tieneOrdenAbierta: false }, HOY_ISO);
+    const r = debeGenerarOrden(prog, { activo: false, tieneOrdenAbierta: false }, tecnicoSano, HOY_ISO);
     expect(r.codigo).toBe("VEHICULO_INACTIVO");
   });
 
   it("se salta la vuelta si el vehículo ya tiene una orden abierta", () => {
     // Sin esto, en tres meses hay cuatro órdenes abiertas del mismo camión y
     // la bandeja del coordinador es inservible.
-    const r = debeGenerarOrden(prog, { activo: true, tieneOrdenAbierta: true }, HOY_ISO);
+    const r = debeGenerarOrden(prog, { activo: true, tieneOrdenAbierta: true }, tecnicoSano, HOY_ISO);
     expect(r.codigo).toBe("ORDEN_ABIERTA");
+    expect(avanzaAlSaltar(r.codigo)).toBe(true);
+  });
+
+  it("no genera a nombre de un técnico inactivo o que ya no está en la sede", () => {
+    // La orden quedaría en la lista de nadie.
+    const inactivo = debeGenerarOrden(prog, vehiculoSano, { disponible: false, enSede: true }, HOY_ISO);
+    expect(inactivo.codigo).toBe("TECNICO_NO_DISPONIBLE");
+    expect(inactivo.mensaje).toMatch(/inactivo/);
+    const fuera = debeGenerarOrden(prog, vehiculoSano, { disponible: true, enSede: false }, HOY_ISO);
+    expect(fuera.mensaje).toMatch(/sede/);
+    // Y no avanza la fecha: al corregir el técnico, la visita se genera.
+    expect(avanzaAlSaltar(inactivo.codigo)).toBe(false);
   });
 });
 
@@ -91,6 +106,7 @@ describe("avance de la próxima ejecución", () => {
     vehiculoId: "veh-1",
     frecuencia: "mensual",
     cada: 1,
+    inicio: "2026-08-14",
     proxima: "2026-09-14",
     activa: true,
   };
@@ -107,7 +123,7 @@ describe("avance de la próxima ejecución", () => {
 
   it("no acumula ciclos perdidos", () => {
     // El servidor estuvo caído seis meses: nadie quiere seis órdenes de golpe.
-    const vieja = { ...prog, proxima: "2026-03-10" };
+    const vieja = { ...prog, inicio: "2026-02-10", proxima: "2026-03-10" };
     const siguiente = avanzarProxima(vieja, HOY_ISO);
     expect(siguiente > HOY_ISO).toBe(true);
     expect(siguiente.startsWith("2026-10")).toBe(true);
@@ -123,8 +139,30 @@ describe("avance de la próxima ejecución", () => {
     }
   });
 
+  it("'el 15 de cada mes' no se corre por los fines de semana", () => {
+    // 15 de noviembre de 2026 es domingo: esa visita va el lunes 16. Contando
+    // desde la anterior, diciembre habría quedado el 16, enero el 16…
+    const p: Programacion = { ...prog, inicio: "2026-10-15", proxima: "2026-11-16" };
+    expect(avanzarProxima(p, "2026-11-16")).toBe("2026-12-15");
+  });
+
+  it("'cada' multiplica el periodo en todas las frecuencias", () => {
+    // Antes solo valía para los días: "cada 2 meses" salía mensual.
+    const base: Programacion = { ...prog, inicio: "2026-09-14", proxima: "2026-09-14" };
+    expect(avanzarProxima({ ...base, frecuencia: "mensual", cada: 2 }, "2026-09-14")).toBe("2026-11-16");
+    expect(avanzarProxima({ ...base, frecuencia: "semanal", cada: 2 }, "2026-09-14")).toBe("2026-09-28");
+    expect(avanzarProxima({ ...base, frecuencia: "quincenal", cada: 2 }, "2026-09-14")).toBe("2026-10-14");
+  });
+
+  it("el 31 sigue siendo fin de mes en los meses cortos", () => {
+    const p: Programacion = { ...prog, inicio: "2026-08-31", proxima: "2026-08-31" };
+    expect(avanzarProxima(p, "2026-08-31")).toBe("2026-09-30");
+    // Y no queda pegado al 30: octubre vuelve al 31 (sábado → lunes 2 de noviembre).
+    expect(avanzarProxima({ ...p, proxima: "2026-09-30" }, "2026-09-30")).toBe("2026-11-02");
+  });
+
   it("respeta la frecuencia por días hábiles", () => {
-    const r = avanzarProxima({ ...prog, frecuencia: "dias_habiles", cada: 5 }, "2026-09-14");
+    const r = avanzarProxima({ ...prog, inicio: "2026-09-14", frecuencia: "dias_habiles", cada: 5 }, "2026-09-14");
     expect(r).toBe("2026-09-21");
   });
 });

@@ -63,6 +63,13 @@ const esquema = z.object({
   S3_BUCKET: z.string().min(1),
   S3_ACCESS_KEY_ID: z.string().min(1),
   S3_SECRET_ACCESS_KEY: z.string().min(1),
+
+  /**
+   * Minutos entre vueltas del cierre tácito y las órdenes recurrentes. 0 los
+   * apaga en esta instancia (por ejemplo, si se corren aparte). Más de un día
+   * no tiene sentido: el cierre tácito se atrasaría.
+   */
+  TRABAJOS_CADA_MINUTOS: z.coerce.number().int().min(0).max(1440).default(15),
 });
 
 export type Config = z.infer<typeof esquema> & {

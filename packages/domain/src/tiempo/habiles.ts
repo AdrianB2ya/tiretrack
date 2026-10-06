@@ -98,23 +98,47 @@ export const FRECUENCIAS = [
 export type Frecuencia = (typeof FRECUENCIAS)[number];
 
 /**
- * Próxima ejecución de un servicio recurrente. Si el resultado cae en fin de
- * semana se corre al siguiente hábil: nadie atiende el sábado.
+ * Suma meses sin desbordar: el 31 de enero más un mes es el 28 (o 29) de
+ * febrero, no el 3 de marzo como haría `setUTCMonth`.
  */
-export function proximaEjecucion(desdeISO: string, frecuencia: Frecuencia, cada = 1): string {
+export function sumarMeses(iso: string, meses: number): string {
+  const [a, m, d] = iso.split("-").map(Number) as [number, number, number];
+  const indice = a * 12 + (m - 1) + meses;
+  const anio = Math.floor(indice / 12);
+  const mes = indice - anio * 12;
+  const ultimo = new Date(Date.UTC(anio, mes + 1, 0)).getUTCDate();
+  return aISO(new Date(Date.UTC(anio, mes, Math.min(d, ultimo))));
+}
+
+/**
+ * La ocurrencia número `k` de una recurrencia, contada DESDE SU INICIO.
+ *
+ * Contar desde la ocurrencia anterior arrastra los corrimientos: el 15 de un
+ * mes que cae en sábado pasa al lunes 17, y desde el 17 el mes siguiente
+ * sería el 17, y así sucesivamente — "el 15 de cada mes" se iba corriendo
+ * cada vez que tocaba fin de semana. Desde el inicio, el corrimiento de una
+ * fecha no afecta a la siguiente.
+ *
+ * `cada` multiplica el periodo: semanal cada 2 es cada dos semanas, mensual
+ * cada 3 es trimestral. Si cae en fin de semana se corre al siguiente hábil.
+ */
+export function ocurrencia(inicioISO: string, frecuencia: Frecuencia, cada: number, k: number): string {
+  const n = k * Math.max(1, Math.trunc(cada));
   switch (frecuencia) {
     case "dias_habiles":
-      return sumarDiasHabiles(desdeISO, cada);
+      return sumarDiasHabiles(inicioISO, n);
     case "dias_calendario":
-      return siguienteHabil(sumarDias(desdeISO, cada));
+      return siguienteHabil(sumarDias(inicioISO, n));
     case "semanal":
-      return siguienteHabil(sumarDias(desdeISO, 7));
+      return siguienteHabil(sumarDias(inicioISO, 7 * n));
     case "quincenal":
-      return siguienteHabil(sumarDias(desdeISO, 15));
-    case "mensual": {
-      const d = aFecha(desdeISO);
-      d.setUTCMonth(d.getUTCMonth() + 1);
-      return siguienteHabil(aISO(d));
-    }
+      return siguienteHabil(sumarDias(inicioISO, 15 * n));
+    case "mensual":
+      return siguienteHabil(sumarMeses(inicioISO, n));
   }
+}
+
+/** La ejecución siguiente a `desdeISO`, un periodo después. */
+export function proximaEjecucion(desdeISO: string, frecuencia: Frecuencia, cada = 1): string {
+  return ocurrencia(desdeISO, frecuencia, cada, 1);
 }

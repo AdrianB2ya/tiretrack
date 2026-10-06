@@ -156,6 +156,8 @@ model Usuario {
   ordenesAsignadas    OrdenServicio[]       @relation("TecnicoOrden")
   ordenesCreadas      OrdenServicio[]       @relation("CreadorOrden")
   ordenesAprobadas    OrdenServicio[]       @relation("AprobadorOrden")
+  programacionesAsignadas ProgramacionRecurrente[] @relation("TecnicoProgramacion")
+  programacionesCreadas   ProgramacionRecurrente[] @relation("CreadorProgramacion")
   medicionesCapturadas LlantaRegistro[]     @relation("CapturadorLlanta")
   recomendaciones     Recomendacion[]
 
@@ -625,7 +627,9 @@ model OrdenEstadoHistorial {
   orden          OrdenServicio @relation(fields: [ordenId], references: [id], onDelete: Cascade)
   estadoAnterior EstadoOrden?
   estadoNuevo    EstadoOrden
-  usuarioId      String
+  /// Vacío = Sistema (cierre tácito, orden recurrente): una acción automática
+  /// nunca se atribuye a una persona.
+  usuarioId      String?
   motivo         String?
   visibleCliente Boolean       @default(false)
   creadoEn       DateTime      @default(now())
@@ -813,12 +817,21 @@ model ProgramacionRecurrente {
   sedeCliente   SedeCliente  @relation(fields: [sedeClienteId], references: [id])
   vehiculoId    String
   vehiculo      Vehiculo     @relation(fields: [vehiculoId], references: [id])
+  /// Técnico fijo: la orden le llega directo (decisión del usuario, 2026-10-06).
+  tecnicoId     String
+  tecnico       Usuario      @relation("TecnicoProgramacion", fields: [tecnicoId], references: [id])
+  /// Quien la programó: figura como creador de cada orden que genera.
+  creadoPorId   String
+  creadoPor     Usuario      @relation("CreadorProgramacion", fields: [creadoPorId], references: [id])
   tipo          TipoServicio
   frecuencia    Frecuencia
   cada          Int          @default(1)
   inicio        DateTime     @db.Date
   proxima       DateTime     @db.Date
   activa        Boolean      @default(true)
+  /// Por qué no se generó la última vez (técnico inactivo, orden abierta…).
+  /// Sin esto, una programación que no produce nada parece que funciona.
+  ultimoAviso   String?
   creadoEn      DateTime     @default(now())
   desactivadoEn DateTime?
 

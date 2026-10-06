@@ -101,8 +101,9 @@ export interface RepositorioOrdenes {
     motivo: string | null;
     visibleCliente: boolean;
   }): Promise<void>;
+  /** usuarioId null = Sistema (cierre tácito, orden recurrente). */
   historialDe(ordenId: string, soloVisiblesCliente: boolean): Promise<
-    { estadoNuevo: EstadoOrden; usuarioId: string; motivo: string | null; creadoEn: Date }[]
+    { estadoNuevo: EstadoOrden; usuarioId: string | null; motivo: string | null; creadoEn: Date }[]
   >;
   datosParaCongelar(ordenId: string): Promise<DatosCongelado | null>;
   contarPosiciones(ordenId: string): Promise<number>;
@@ -305,10 +306,10 @@ export class RepositorioOrdenesPg implements RepositorioOrdenes {
   async historialDe(
     ordenId: string,
     soloVisiblesCliente: boolean,
-  ): Promise<{ estadoNuevo: EstadoOrden; usuarioId: string; motivo: string | null; creadoEn: Date }[]> {
+  ): Promise<{ estadoNuevo: EstadoOrden; usuarioId: string | null; motivo: string | null; creadoEn: Date }[]> {
     const r = await this.db.query<{
       estadoNuevo: EstadoOrden;
-      usuarioId: string;
+      usuarioId: string | null;
       motivo: string | null;
       creadoEn: Date;
     }>(

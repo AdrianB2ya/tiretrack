@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import pg from "pg";
 import { hayBaseDeDatos, conectarAislado } from "./base";
+import { ddlDePrueba } from "./generar-esquema";
 import { TrabajosProgramados } from "../trabajos/programados";
 
 /**
@@ -9,12 +10,39 @@ import { TrabajosProgramados } from "../trabajos/programados";
  * Lo que más importa aquí: que un fallo en un ítem no tumbe el lote, que no
  * se generen órdenes duplicadas al reintentar, y que toda acción automática
  * quede en auditoría.
+ *
+ * El esquema se GENERA desde Prisma, con las llaves foráneas de producción
+ * que tocan estos trabajos. Antes se escribía a mano, sin ellas: el trabajo
+ * asignaba las órdenes a un "usuario del sistema" que no existía, y nada lo
+ * detectaba. En producción habría fallado en la primera vuelta.
  */
 
 const disponible = await hayBaseDeDatos();
 
 const EMP = "emp-job";
-const SISTEMA = "u-sistema";
+
+const TABLAS = [
+  "Empresa", "Sede", "Usuario", "UsuarioSede", "Cliente", "SedeCliente",
+  "ConfiguracionEje", "PosicionEje", "Vehiculo", "Consecutivo",
+  "OrdenServicio", "OrdenEstadoHistorial", "LlantaRegistro",
+  "ProgramacionRecurrente", "Auditoria", "SesionUsuario", "TokenRecuperacion",
+];
+
+/** Las de producción (manual.sql y Prisma) que estos trabajos pueden violar. */
+const RESTRICCIONES: Record<string, string[]> = {
+  Consecutivo: [`UNIQUE ("empresaId", "sedeId", tipo)`],
+  OrdenServicio: [
+    `UNIQUE ("empresaId", folio)`,
+    `UNIQUE ("empresaId", "clientRequestId")`,
+    `FOREIGN KEY ("tecnico_id", "sedeId") REFERENCES "UsuarioSede" ("usuarioId", "sedeId")`,
+    `FOREIGN KEY ("creadoPorId") REFERENCES "Usuario" (id)`,
+  ],
+  ProgramacionRecurrente: [
+    `FOREIGN KEY ("tecnicoId", "sedeId") REFERENCES "UsuarioSede" ("usuarioId", "sedeId")`,
+    `FOREIGN KEY ("creadoPorId") REFERENCES "Usuario" (id)`,
+  ],
+  LlantaRegistro: [`FOREIGN KEY ("ordenId") REFERENCES "OrdenServicio"(id) ON DELETE CASCADE`],
+};
 
 let db: pg.Client;
 let trabajos: TrabajosProgramados;
@@ -23,83 +51,8 @@ let reloj = new Date("2026-09-14T06:00:00.000Z");
 describe.skipIf(!disponible)("trabajos programados", () => {
   beforeAll(async () => {
     db = await conectarAislado(import.meta.url);
-
-    await db.query(`
-      DROP TABLE IF EXISTS "Auditoria","OrdenEstadoHistorial","LlantaRegistro",
-                           "OrdenServicio","ProgramacionRecurrente","Consecutivo",
-                           "PosicionEje","Vehiculo","Sede","SesionUsuario",
-                           "TokenRecuperacion" CASCADE;
-      DROP TYPE IF EXISTS "EstadoOrden","AccionAuditoria","TipoServicio","Frecuencia" CASCADE;
-
-      CREATE TYPE "EstadoOrden" AS ENUM
-        ('borrador','programada','en_proceso','en_revision','pendiente_cliente','cerrada','anulada');
-      CREATE TYPE "TipoServicio" AS ENUM ('preventivo','correctivo');
-      CREATE TYPE "Frecuencia" AS ENUM
-        ('dias_habiles','dias_calendario','semanal','quincenal','mensual');
-      CREATE TYPE "AccionAuditoria" AS ENUM
-        ('crear','actualizar','cambiar_estado','sistema','exportar_informe');
-
-      CREATE TABLE "Sede" (id text PRIMARY KEY, "empresaId" text NOT NULL, codigo text NOT NULL);
-      CREATE TABLE "Vehiculo" (
-        id text PRIMARY KEY, "configuracionEjeId" text NOT NULL,
-        codigo text, activo boolean NOT NULL DEFAULT true
-      );
-      CREATE TABLE "PosicionEje" (
-        "configuracionEjeId" text NOT NULL, numero integer NOT NULL,
-        "profundidadMinima" numeric(5,2),
-        PRIMARY KEY ("configuracionEjeId", numero)
-      );
-      CREATE TABLE "Consecutivo" (
-        id text PRIMARY KEY, "empresaId" text NOT NULL, "sedeId" text NOT NULL,
-        tipo text NOT NULL DEFAULT 'OS', prefijo text NOT NULL DEFAULT 'OS',
-        valor integer NOT NULL DEFAULT 0,
-        UNIQUE ("empresaId","sedeId",tipo)
-      );
-      CREATE TABLE "OrdenServicio" (
-        id text PRIMARY KEY, "empresaId" text NOT NULL, "sedeId" text NOT NULL,
-        "clienteId" text NOT NULL, "sedeClienteId" text NOT NULL, "vehiculoId" text NOT NULL,
-        tecnico_id text NOT NULL, "configuracionEjeId" text NOT NULL,
-        folio text, tipo "TipoServicio" NOT NULL,
-        estado "EstadoOrden" NOT NULL DEFAULT 'borrador',
-        fecha date NOT NULL, "limiteCliente" date,
-        "cierreTacito" boolean NOT NULL DEFAULT false, "motivoCierre" text,
-        version integer NOT NULL DEFAULT 0,
-        "clientRequestId" text, "creadoPorId" text NOT NULL,
-        UNIQUE ("empresaId","clientRequestId")
-      );
-      CREATE TABLE "OrdenEstadoHistorial" (
-        id text PRIMARY KEY, "ordenId" text NOT NULL,
-        "estadoAnterior" "EstadoOrden", "estadoNuevo" "EstadoOrden" NOT NULL,
-        "usuarioId" text NOT NULL, motivo text,
-        "visibleCliente" boolean NOT NULL DEFAULT false
-      );
-      CREATE TABLE "LlantaRegistro" (
-        id text PRIMARY KEY, "ordenId" text NOT NULL REFERENCES "OrdenServicio"(id) ON DELETE CASCADE,
-        posicion integer NOT NULL, serial text, dot text, profundidad numeric(5,2)
-      );
-      CREATE TABLE "ProgramacionRecurrente" (
-        id text PRIMARY KEY, "empresaId" text NOT NULL, "sedeId" text NOT NULL,
-        "clienteId" text NOT NULL, "sedeClienteId" text NOT NULL, "vehiculoId" text NOT NULL,
-        tipo "TipoServicio" NOT NULL, frecuencia "Frecuencia" NOT NULL,
-        cada integer NOT NULL DEFAULT 1, inicio date NOT NULL, proxima date NOT NULL,
-        activa boolean NOT NULL DEFAULT true
-      );
-      CREATE TABLE "Auditoria" (
-        id text PRIMARY KEY, "empresaId" text, "usuarioId" text, "usuarioNombre" text,
-        rol text, accion "AccionAuditoria" NOT NULL, detalle jsonb,
-        "creadoEn" timestamptz NOT NULL DEFAULT clock_timestamp()
-      );
-      CREATE TABLE "SesionUsuario" (
-        id text PRIMARY KEY, "usuarioId" text NOT NULL, "refreshHash" text UNIQUE NOT NULL,
-        "expiraEn" timestamptz NOT NULL, "revocadaEn" timestamptz
-      );
-      CREATE TABLE "TokenRecuperacion" (
-        id text PRIMARY KEY, "usuarioId" text NOT NULL, "tokenHash" text UNIQUE NOT NULL,
-        "expiraEn" timestamptz NOT NULL, "usadoEn" timestamptz
-      );
-    `);
-
-    trabajos = new TrabajosProgramados(db, SISTEMA, () => reloj);
+    await db.query(ddlDePrueba(TABLAS, { extras: RESTRICCIONES }));
+    trabajos = new TrabajosProgramados(db, () => reloj);
   }, 60_000);
 
   afterAll(async () => {
@@ -108,13 +61,31 @@ describe.skipIf(!disponible)("trabajos programados", () => {
 
   beforeEach(async () => {
     reloj = new Date("2026-09-14T06:00:00.000Z");
-    await db.query(`TRUNCATE "Auditoria","OrdenEstadoHistorial","LlantaRegistro",
-                             "OrdenServicio","ProgramacionRecurrente","Consecutivo",
-                             "PosicionEje","Vehiculo","Sede","SesionUsuario",
-                             "TokenRecuperacion" CASCADE`);
-    await db.query(`INSERT INTO "Sede" (id,"empresaId",codigo) VALUES ('sede-fun',$1,'FUN')`, [EMP]);
-    await db.query(`INSERT INTO "Vehiculo" (id,"configuracionEjeId",codigo) VALUES ('veh-1','cfg-1','CA-12')`);
-    await db.query(`INSERT INTO "PosicionEje" VALUES ('cfg-1',1,3.0),('cfg-1',7,2.5)`);
+    await db.query(`TRUNCATE ${TABLAS.map((t) => `"${t}"`).join(",")} CASCADE`);
+    await db.query(`INSERT INTO "Empresa" (id,nombre,nit) VALUES ($1,'Asistectire','900')`, [EMP]);
+    await db.query(`INSERT INTO "Sede" (id,"empresaId",nombre,codigo) VALUES ('sede-fun',$1,'Fundación','FUN')`, [EMP]);
+    await db.query(
+      `INSERT INTO "Usuario" (id,"empresaId",nombre,cedula,email,"passwordHash",rol) VALUES
+         ('u-tec1',$1,'Carlos Méndez','1001','carlos@x.co','x','tecnico'),
+         ('u-coo',$1,'Jorge Ramírez','1003','jorge@x.co','x','coordinador')`,
+      [EMP],
+    );
+    await db.query(`INSERT INTO "UsuarioSede" ("usuarioId","sedeId") VALUES ('u-tec1','sede-fun'),('u-coo','sede-fun')`);
+    await db.query(`INSERT INTO "Cliente" (id,"empresaId",nombre,nit) VALUES ('cli-1',$1,'Transportes Reyna','800')`, [EMP]);
+    await db.query(`INSERT INTO "SedeCliente" (id,"clienteId",nombre) VALUES ('sc-1','cli-1','Planta')`);
+    await db.query(
+      `INSERT INTO "ConfiguracionEje" (id,"empresaId",nombre,"totalPosiciones") VALUES ('cfg-1',$1,'Camión',8)`,
+      [EMP],
+    );
+    await db.query(
+      `INSERT INTO "Vehiculo" (id,"sedeClienteId","configuracionEjeId",codigo,placa,nombre,tipo)
+       VALUES ('veh-1','sc-1','cfg-1','CA-12','SXK482','Tractocamión 12','tractocamion')`,
+    );
+    await db.query(
+      `INSERT INTO "PosicionEje" (id,"configuracionEjeId",numero,eje,lado,"tipoEje","profundidadMinima") VALUES
+         ('pe-1','cfg-1',1,1,'izquierdo','direccional',3.0),
+         ('pe-7','cfg-1',7,4,'izquierdo','arrastre',2.5)`,
+    );
   });
 
   async function orden(id: string, extra: Record<string, string | null> = {}) {
@@ -178,10 +149,13 @@ describe.skipIf(!disponible)("trabajos programados", () => {
     it("registra la transición en el historial", async () => {
       await orden("o1", { limiteCliente: "2026-09-11" });
       await trabajos.cerrarPlazosVencidos();
-      const h = await db.query(`SELECT motivo, "visibleCliente" FROM "OrdenEstadoHistorial"`);
+      const h = await db.query(`SELECT motivo, "visibleCliente", "usuarioId" FROM "OrdenEstadoHistorial"`);
       expect(h.rows[0].motivo).toContain("vencimiento");
       // El cliente sí ve que su orden se cerró
       expect(h.rows[0].visibleCliente).toBe(true);
+      // Y no aparece nadie como autor: el cierre tácito nunca se atribuye a
+      // una persona.
+      expect(h.rows[0].usuarioId).toBeNull();
     });
 
     it("deja rastro en auditoría", async () => {
@@ -261,7 +235,7 @@ describe.skipIf(!disponible)("trabajos programados", () => {
 
       const otra = await conectarAislado(import.meta.url);
       try {
-        const segundo = new TrabajosProgramados(otra, SISTEMA, () => reloj);
+        const segundo = new TrabajosProgramados(otra, () => reloj);
         const [a, b] = await Promise.all([
           trabajos.cerrarPlazosVencidos(),
           segundo.cerrarPlazosVencidos(),
@@ -282,16 +256,17 @@ describe.skipIf(!disponible)("trabajos programados", () => {
     async function programacion(extra: Record<string, unknown> = {}) {
       await db.query(
         `INSERT INTO "ProgramacionRecurrente"
-           (id,"empresaId","sedeId","clienteId","sedeClienteId","vehiculoId",tipo,
-            frecuencia,cada,inicio,proxima,activa)
-         VALUES ('p-1',$1,'sede-fun','cli-1','sc-1','veh-1','preventivo',
-                 $2::"Frecuencia",$3,'2026-08-14',$4::date,$5)`,
+           (id,"empresaId","sedeId","clienteId","sedeClienteId","vehiculoId","tecnicoId","creadoPorId",
+            tipo,frecuencia,cada,inicio,proxima,activa)
+         VALUES ('p-1',$1,'sede-fun','cli-1','sc-1','veh-1','u-tec1','u-coo','preventivo',
+                 $2::"Frecuencia",$3,$6::date,$4::date,$5)`,
         [
           EMP,
           extra["frecuencia"] ?? "mensual",
           extra["cada"] ?? 1,
           extra["proxima"] ?? "2026-09-14",
           extra["activa"] ?? true,
+          extra["inicio"] ?? "2026-08-14",
         ],
       );
     }
@@ -379,6 +354,52 @@ describe.skipIf(!disponible)("trabajos programados", () => {
       expect(a.rows[0].detalle.origen).toBe("programacion_recurrente");
     });
 
+    it("la orden va al técnico fijo, creada por quien la programó, y la acción es del Sistema", async () => {
+      await programacion();
+      await trabajos.generarOrdenesRecurrentes();
+      const o = await db.query(`SELECT tecnico_id, "creadoPorId" FROM "OrdenServicio"`);
+      expect(o.rows[0]).toEqual({ tecnico_id: "u-tec1", creadoPorId: "u-coo" });
+      const h = await db.query(`SELECT "usuarioId" FROM "OrdenEstadoHistorial"`);
+      expect(h.rows[0].usuarioId).toBeNull();
+      const a = await db.query(`SELECT "usuarioId", "usuarioNombre" FROM "Auditoria"`);
+      expect(a.rows[0]).toEqual({ usuarioId: null, usuarioNombre: "Sistema" });
+    });
+
+    it("con el técnico inactivo no la genera, dice por qué y espera a que lo corrijan", async () => {
+      await db.query(`UPDATE "Usuario" SET activo = false WHERE id = 'u-tec1'`);
+      await programacion();
+      const r = await trabajos.generarOrdenesRecurrentes();
+      expect(r.exitosos).toBe(0);
+      const p = await db.query(
+        `SELECT to_char(proxima,'YYYY-MM-DD') AS proxima, "ultimoAviso" FROM "ProgramacionRecurrente"`,
+      );
+      expect(p.rows[0].ultimoAviso).toMatch(/inactivo/);
+      // No avanza: la visita no se pierde.
+      expect(p.rows[0].proxima).toBe("2026-09-14");
+
+      await db.query(`UPDATE "Usuario" SET activo = true WHERE id = 'u-tec1'`);
+      expect((await trabajos.generarOrdenesRecurrentes()).exitosos).toBe(1);
+      const despues = await db.query(`SELECT "ultimoAviso" FROM "ProgramacionRecurrente"`);
+      expect(despues.rows[0].ultimoAviso).toBeNull();
+    });
+
+    it("un técnico que dejó la sede tampoco recibe la orden", async () => {
+      await programacion();
+      await db.query(`UPDATE "UsuarioSede" SET activa = false WHERE "usuarioId" = 'u-tec1'`);
+      const r = await trabajos.generarOrdenesRecurrentes();
+      expect(r.exitosos).toBe(0);
+      const p = await db.query(`SELECT "ultimoAviso" FROM "ProgramacionRecurrente"`);
+      expect(p.rows[0].ultimoAviso).toMatch(/sede/);
+    });
+
+    it("saltar por una orden abierta también queda dicho en la programación", async () => {
+      await orden("abierta", { estado: "en_proceso" });
+      await programacion();
+      await trabajos.generarOrdenesRecurrentes();
+      const p = await db.query(`SELECT "ultimoAviso" FROM "ProgramacionRecurrente"`);
+      expect(p.rows[0].ultimoAviso).toMatch(/2026-09-14: .*sin cerrar/);
+    });
+
     it("no acumula ciclos perdidos si el servidor estuvo caído", async () => {
       // Nadie quiere seis órdenes de golpe al volver.
       await programacion({ proxima: "2026-03-10" });
@@ -395,8 +416,9 @@ describe.skipIf(!disponible)("trabajos programados", () => {
   describe("alertas", () => {
     async function medicion(ordenId: string, posicion: number, datos: Record<string, unknown>) {
       await db.query(
-        `INSERT INTO "LlantaRegistro" (id,"ordenId",posicion,serial,dot,profundidad)
-         VALUES ($1,$2,$3,$4,$5,$6)`,
+        `INSERT INTO "LlantaRegistro"
+           (id,"ordenId","configuracionEjeId","capturadoPorId",posicion,serial,dot,profundidad)
+         VALUES ($1,$2,'cfg-1','u-tec1',$3,$4,$5,$6)`,
         [
           `lr-${ordenId}-${posicion}`,
           ordenId,

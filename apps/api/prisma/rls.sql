@@ -355,3 +355,34 @@ DROP POLICY IF EXISTS tecnico_solo_asignadas ON "OrdenServicio";
 CREATE POLICY tecnico_solo_asignadas ON "OrdenServicio"
   AS RESTRICTIVE
   USING (app_rol() <> 'tecnico' OR tecnico_id = app_usuario_id());
+
+-- @seccion:trabajos
+-- ── Empresas para los trabajos programados ──────────────────────────────────
+-- El cierre tácito y las órdenes recurrentes corren solos, empresa por
+-- empresa, con el contexto de cada una: no se saltan el aislamiento. Pero
+-- para recorrerlas hay que saber cuáles existen, y con RLS el rol de
+-- aplicación sin contexto no ve ninguna.
+--
+-- Esta función es la única excepción, y estrecha: devuelve SOLO los ids de
+-- las empresas activas. Ni nombre ni NIT. No se le dio BYPASSRLS al rol ni
+-- se conectan los trabajos como dueño, que abrirían toda la base.
+CREATE OR REPLACE FUNCTION empresas_para_trabajos() RETURNS SETOF text
+  LANGUAGE sql STABLE SECURITY DEFINER
+  SET search_path = public
+  AS $$ SELECT id FROM "Empresa" WHERE activa ORDER BY id $$;
+
+REVOKE ALL ON FUNCTION empresas_para_trabajos() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION empresas_para_trabajos() TO tiretrack_app;
+
+-- La función corre como el dueño de las tablas, y "Empresa" tiene FORCE ROW
+-- LEVEL SECURITY, que también aplica al dueño: sin esta política la función
+-- vería cero empresas y los trabajos no correrían nunca, en silencio. Se
+-- concede SOLO al rol que ejecuta la migración —el dueño, que de todos modos
+-- puede desactivar RLS en su tabla—, y solo para leer.
+DO $$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS trabajos_dueno ON "Empresa"';
+  EXECUTE format('CREATE POLICY trabajos_dueno ON "Empresa" FOR SELECT TO %I USING (true)', current_user);
+END
+$$;
+-- @fin:trabajos

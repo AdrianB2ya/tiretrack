@@ -167,3 +167,29 @@ CREATE INDEX recomendacion_abierta_por_vehiculo
 CREATE INDEX llanta_serial_busqueda
   ON "LlantaRegistro" (lower("serial") text_pattern_ops)
   WHERE "serial" IS NOT NULL;
+
+-- ── La programación recurrente, encadenada a su empresa ─────────────────────
+-- Igual que la orden que genera: una programación de Asistectire no puede
+-- apuntar al cliente, la sede o el técnico de otra empresa.
+
+ALTER TABLE "ProgramacionRecurrente"
+  ADD CONSTRAINT programacion_cliente_empresa_fk
+  FOREIGN KEY ("clienteId", "empresaId")
+  REFERENCES "Cliente" ("id", "empresaId");
+
+ALTER TABLE "ProgramacionRecurrente"
+  ADD CONSTRAINT programacion_sede_empresa_fk
+  FOREIGN KEY ("sedeId", "empresaId")
+  REFERENCES "Sede" ("id", "empresaId");
+
+ALTER TABLE "ProgramacionRecurrente"
+  ADD CONSTRAINT programacion_sedecliente_cliente_fk
+  FOREIGN KEY ("sedeClienteId", "clienteId")
+  REFERENCES "SedeCliente" ("id", "clienteId");
+
+-- El técnico fijo debe estar asignado a la sede: si no, la orden generada
+-- violaría orden_tecnico_sede_fk y el trabajo fallaría cada día sin aviso.
+ALTER TABLE "ProgramacionRecurrente"
+  ADD CONSTRAINT programacion_tecnico_sede_fk
+  FOREIGN KEY ("tecnicoId", "sedeId")
+  REFERENCES "UsuarioSede" ("usuarioId", "sedeId");
