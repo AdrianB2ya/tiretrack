@@ -79,7 +79,15 @@ export async function capturarFoto(
   camara: Camara,
   manipulador: Manipulador,
 ): Promise<ResultadoCaptura> {
-  if (!(await camara.pedirPermiso())) return { tipo: "sin_permiso" };
+  // Pedir el permiso también puede fallar (módulo nativo ausente, sistema
+  // que lo niega con error): se informa en vez de escaparse sin atrapar.
+  let permitido: boolean;
+  try {
+    permitido = await camara.pedirPermiso();
+  } catch (e) {
+    return { tipo: "error", mensaje: (e as Error).message };
+  }
+  if (!permitido) return { tipo: "sin_permiso" };
 
   let original: ImagenCapturada | null;
   try {

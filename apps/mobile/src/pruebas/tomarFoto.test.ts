@@ -35,6 +35,19 @@ describe("tomar y adjuntar", () => {
     const r = await tomarYAdjuntar(deps({ pedirPermiso: async () => false }), destino);
     expect(r.tipo).toBe("aviso");
   });
+
+  // El recorrido "tocar todo" de la auditoría encontró que estos dos fallos se
+  // escapaban sin atrapar: tocar "Tomar foto" no hacía nada visible.
+  it("si pedir el permiso falla, se avisa en vez de escaparse", async () => {
+    const r = await tomarYAdjuntar(deps({ pedirPermiso: async () => { throw new Error("módulo de cámara ausente"); } }), destino);
+    expect(r).toEqual({ tipo: "aviso", mensaje: expect.stringContaining("módulo de cámara ausente") });
+  });
+
+  it("si la foto no se puede guardar en el teléfono, se dice que no quedó", async () => {
+    const d = deps();
+    d.adjuntar.mockRejectedValue(new Error("tope de fotos de la posición"));
+    expect(await tomarYAdjuntar(d, destino)).toEqual({ tipo: "aviso", mensaje: "La foto no se guardó: tope de fotos de la posición" });
+  });
 });
 
 describe("transporte de fotos", () => {

@@ -25,7 +25,7 @@ export function BarraDeSesion() {
         <View style={{ paddingHorizontal: espacio.md, paddingTop: espacio.sm }}>
           <Aviso
             tono="advertencia"
-            titulo="No se pudo actualizar desde el servidor"
+            titulo="No se pudo sincronizar con el servidor"
             detalle={`Se muestra lo que hay en el teléfono. Detalle: ${errorDescarga}`}
           />
         </View>

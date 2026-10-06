@@ -1,15 +1,15 @@
 import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { useRouter } from "expo-router";
-import { PanelCoordinador, calcularIndicadores, type Accion } from "../src/coordinador/PanelCoordinador";
-import { useDatos } from "../src/app/ProveedorDatos";
-import { useUsuario } from "../src/app/ProveedorSesion";
-import { BarraDeSesion } from "../src/app/BarraDeSesion";
-import { NavegacionInferior } from "../src/app/NavegacionInferior";
-import { colores, espacio } from "../src/diseno/tokens";
-import { Boton } from "../src/diseno/componentes";
+import { PanelCoordinador, calcularIndicadores, type Accion } from "../../src/coordinador/PanelCoordinador";
+import { useDatos } from "../../src/app/ProveedorDatos";
+import { useUsuario } from "../../src/app/ProveedorSesion";
+import { BarraDeSesion } from "../../src/app/BarraDeSesion";
+import { NavegacionInferior } from "../../src/app/NavegacionInferior";
+import { colores, espacio } from "../../src/diseno/tokens";
+import { Boton } from "../../src/diseno/componentes";
 import { fechaEnColombia } from "@tiretrack/domain";
-import type { OrdenLocal } from "../src/datos/repositorio";
+import type { OrdenLocal } from "../../src/datos/repositorio";
 
 /**
  * Panel del coordinador: lo que requiere su decisión hoy.

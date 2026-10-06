@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { PantallaEnvio } from "../../../src/ordenes/PantallaEnvio";
-import { useDatos, type DatosOrden } from "../../../src/app/ProveedorDatos";
-import { useUsuario } from "../../../src/app/ProveedorSesion";
-import { colores } from "../../../src/diseno/tokens";
+import { PantallaEnvio } from "../../../../src/ordenes/PantallaEnvio";
+import { useDatos, type DatosOrden } from "../../../../src/app/ProveedorDatos";
+import { useUsuario } from "../../../../src/app/ProveedorSesion";
+import { colores } from "../../../../src/diseno/tokens";
+import { OrdenNoDisponible } from "../../../../src/ordenes/OrdenNoDisponible";
 
 /**
  * Envío de la orden a revisión.
@@ -19,7 +20,7 @@ export default function PantallaEnviarOrden() {
   const { cargarOrden, cambiarEstado, pendientesDeEnviar, fotosSinSubir } = useDatos();
   const usuario = useUsuario();
 
-  const [datos, setDatos] = useState<DatosOrden | null>(null);
+  const [datos, setDatos] = useState<DatosOrden | null | undefined>(undefined);
   const [enviando, setEnviando] = useState(false);
   const [sinSubir, setSinSubir] = useState(0);
 
@@ -51,6 +52,8 @@ export default function PantallaEnviarOrden() {
     }
   }, [id, cambiarEstado, router]);
 
+  // null: no está en el teléfono. Antes la rueda giraba para siempre.
+  if (datos === null) return <OrdenNoDisponible />;
   if (!datos) {
     return (
       <View style={estilos.centrado}>

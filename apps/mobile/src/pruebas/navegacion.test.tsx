@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { opcionesMas, pestanasPara } from "../app/navegacion";
@@ -9,8 +9,11 @@ import { filtrarOrdenes, type OrdenParaLista } from "../ordenes/lista";
 import { calcularIndicadores } from "../coordinador/PanelCoordinador";
 import { unaOrden } from "./fabrica";
 
-/** Ruta de expo-router → archivo en app/. */
-const archivoDe = (ruta: string) => join(__dirname, "..", "..", "app", `${ruta.split("?")[0]}.tsx`);
+/** Ruta de expo-router → archivo en app/ o en un grupo "(nombre)" de app/. */
+const app = join(__dirname, "..", "..", "app");
+const existeRuta = (ruta: string) =>
+  [app, ...readdirSync(app).filter((n) => n.startsWith("(")).map((n) => join(app, n))]
+    .some((base) => existsSync(join(base, `${ruta.split("?")[0]}.tsx`)));
 
 describe("navegación de la oficina", () => {
   it("cada rol tiene su barra, con lo que puede hacer", () => {
@@ -38,7 +41,7 @@ describe("navegación de la oficina", () => {
     const rutas = (["administrador", "coordinador", "tecnico", "cliente"] as const)
       .flatMap((r) => [...pestanasPara(r), ...opcionesMas(r)])
       .map((d) => d.ruta);
-    expect(rutas.filter((r) => !existsSync(archivoDe(r)))).toEqual([]);
+    expect(rutas.filter((r) => !existeRuta(r))).toEqual([]);
   });
 
   it("la barra marca la activa en texto y cuántas esperan revisión", () => {

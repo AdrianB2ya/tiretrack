@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
 import { fechaEnColombia, puedeGestionarProgramaciones } from "@tiretrack/domain";
-import { PantallaProgramaciones, type FuentesProgramaciones } from "../src/coordinador/PantallaProgramaciones";
-import type { ProgramacionListada } from "../src/coordinador/programacion";
-import { useServicios } from "../src/app/Arranque";
-import { useDatos } from "../src/app/ProveedorDatos";
-import { useUsuario } from "../src/app/ProveedorSesion";
-import { Vacio } from "../src/diseno/componentes";
+import { PantallaProgramaciones, type FuentesProgramaciones } from "../../src/coordinador/PantallaProgramaciones";
+import type { ProgramacionListada } from "../../src/coordinador/programacion";
+import { useServicios } from "../../src/app/Arranque";
+import { useDatos } from "../../src/app/ProveedorDatos";
+import { useUsuario } from "../../src/app/ProveedorSesion";
+import { Vacio } from "../../src/diseno/componentes";
 
 /** Visitas recurrentes: en línea; las listas para elegir salen del celular. */
 export default function RutaProgramaciones() {

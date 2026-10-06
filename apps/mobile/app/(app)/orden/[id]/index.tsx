@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { DiagramaLlantas, ResumenDiagrama } from "../../../src/ordenes/DiagramaLlantas";
-import { Aviso, Boton, Insignia } from "../../../src/diseno/componentes";
-import { useDatos, type DatosOrden } from "../../../src/app/ProveedorDatos";
-import { useUsuario } from "../../../src/app/ProveedorSesion";
-import { accionesDisponibles, requisitosParaEnviar, resumirFirma } from "../../../src/ordenes/detalle";
-import { siguienteSinCapturar } from "../../../src/ordenes/diagrama";
-import { FotosDe } from "../../../src/fotos/FotosDe";
-import { DecisionCliente } from "../../../src/cliente/DecisionCliente";
-import { camaraDelDispositivo, manipuladorDelDispositivo } from "../../../src/fotos/captura";
+import { DiagramaLlantas, ResumenDiagrama } from "../../../../src/ordenes/DiagramaLlantas";
+import { Aviso, Boton, Insignia } from "../../../../src/diseno/componentes";
+import { useDatos, type DatosOrden } from "../../../../src/app/ProveedorDatos";
+import { useUsuario } from "../../../../src/app/ProveedorSesion";
+import { accionesDisponibles, requisitosParaEnviar, resumirFirma } from "../../../../src/ordenes/detalle";
+import { siguienteSinCapturar } from "../../../../src/ordenes/diagrama";
+import { FotosDe } from "../../../../src/fotos/FotosDe";
+import { DecisionCliente } from "../../../../src/cliente/DecisionCliente";
+import { camaraDelDispositivo, manipuladorDelDispositivo } from "../../../../src/fotos/captura";
 import { estaAbierta, fechaEnColombia, MAXIMO_POR_ORDEN, puedeAprobar, type EstadoOrden } from "@tiretrack/domain";
-import { colores, espacio, estadosOrden, texto } from "../../../src/diseno/tokens";
+import { colores, espacio, estadosOrden, texto } from "../../../../src/diseno/tokens";
+import { OrdenNoDisponible } from "../../../../src/ordenes/OrdenNoDisponible";
 
 /**
  * Detalle de la orden con su diagrama.
@@ -36,7 +37,7 @@ export default function PantallaDetalle() {
     }
   };
   const usuario = useUsuario();
-  const [datos, setDatos] = useState<DatosOrden | null>(null);
+  const [datos, setDatos] = useState<DatosOrden | null | undefined>(undefined);
   const [sinSubir, setSinSubir] = useState(0);
   const [decidiendo, setDecidiendo] = useState(false);
 
@@ -53,6 +54,8 @@ export default function PantallaDetalle() {
     void recargar();
   }, [recargar, ordenes]);
 
+  // null: no está en el teléfono. Antes la rueda giraba para siempre.
+  if (datos === null) return <OrdenNoDisponible />;
   if (!datos) {
     return (
       <View style={estilos.centrado}>

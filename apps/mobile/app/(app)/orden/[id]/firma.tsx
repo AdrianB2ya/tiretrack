@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { CapturaFirma } from "../../../src/ordenes/CapturaFirma";
-import { useDatos } from "../../../src/app/ProveedorDatos";
+import { CapturaFirma } from "../../../../src/ordenes/CapturaFirma";
+import { useDatos } from "../../../../src/app/ProveedorDatos";
 
 /**
  * Firma de quien recibe el vehículo.

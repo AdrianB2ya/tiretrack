@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { DecisionRevision } from "../../../src/coordinador/BandejaRevision";
-import type { OrdenEnBandeja } from "../../../src/coordinador/bandeja";
-import { useDatos } from "../../../src/app/ProveedorDatos";
-import { useUsuario } from "../../../src/app/ProveedorSesion";
-import { Boton } from "../../../src/diseno/componentes";
-import { colores, espacio, texto } from "../../../src/diseno/tokens";
+import { DecisionRevision } from "../../../../src/coordinador/BandejaRevision";
+import type { OrdenEnBandeja } from "../../../../src/coordinador/bandeja";
+import { useDatos } from "../../../../src/app/ProveedorDatos";
+import { useUsuario } from "../../../../src/app/ProveedorSesion";
+import { Boton } from "../../../../src/diseno/componentes";
+import { colores, espacio, texto } from "../../../../src/diseno/tokens";
 
 /**
  * Decisión del coordinador: aprobar, devolver con motivo o reasignar.

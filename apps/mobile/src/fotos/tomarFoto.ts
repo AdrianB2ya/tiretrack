@@ -50,14 +50,20 @@ export async function tomarYAdjuntar(
 
   const marca = (deps.ahora ?? (() => new Date()))().toISOString().replace(/[-:]/g, "").slice(0, 15);
   const nombre = destino.posicion !== null ? `posicion-${destino.posicion}-${marca}.jpg` : `orden-${marca}.jpg`;
-  const id = await deps.adjuntar({
-    ordenId: destino.ordenId,
-    medicionId: destino.medicionId,
-    uriLocal: r.imagen.uri,
-    nombre,
-    // La compresión entrega JPEG; si falló, la original de la cámara también lo es.
-    tipoMime: "image/jpeg",
-    tamanoBytes: r.imagen.tamanoBytes,
-  });
-  return { tipo: "adjuntada", id };
+  try {
+    const id = await deps.adjuntar({
+      ordenId: destino.ordenId,
+      medicionId: destino.medicionId,
+      uriLocal: r.imagen.uri,
+      nombre,
+      // La compresión entrega JPEG; si falló, la original de la cámara también lo es.
+      tipoMime: "image/jpeg",
+      tamanoBytes: r.imagen.tamanoBytes,
+    });
+    return { tipo: "adjuntada", id };
+  } catch (e) {
+    // La foto se tomó pero no se pudo guardar en el teléfono (tope de fotos,
+    // disco lleno): se dice, para que no crea que quedó.
+    return { tipo: "aviso", mensaje: `La foto no se guardó: ${(e as Error).message}` };
+  }
 }

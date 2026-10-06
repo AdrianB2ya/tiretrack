@@ -2,14 +2,14 @@ import { useCallback } from "react";
 import { ActivityIndicator, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { puedeAprobar } from "@tiretrack/domain";
-import { ListaOrdenes } from "../src/ordenes/ListaOrdenes";
-import { TITULO_FILTRO, esFiltroOrdenes, filtrarOrdenes } from "../src/ordenes/lista";
-import { useDatos } from "../src/app/ProveedorDatos";
-import { useUsuario } from "../src/app/ProveedorSesion";
-import { BarraDeSesion } from "../src/app/BarraDeSesion";
-import { NavegacionInferior } from "../src/app/NavegacionInferior";
-import { Boton } from "../src/diseno/componentes";
-import { colores, espacio, texto } from "../src/diseno/tokens";
+import { ListaOrdenes } from "../../src/ordenes/ListaOrdenes";
+import { TITULO_FILTRO, esFiltroOrdenes, filtrarOrdenes } from "../../src/ordenes/lista";
+import { useDatos } from "../../src/app/ProveedorDatos";
+import { useUsuario } from "../../src/app/ProveedorSesion";
+import { BarraDeSesion } from "../../src/app/BarraDeSesion";
+import { NavegacionInferior } from "../../src/app/NavegacionInferior";
+import { Boton } from "../../src/diseno/componentes";
+import { colores, espacio, texto } from "../../src/diseno/tokens";
 
 /**
  * "Mis órdenes".

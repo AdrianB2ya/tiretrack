@@ -206,7 +206,16 @@ export function ProveedorDatos({
 
     setSincronizando(true);
     try {
-      const resumen = await motor.sincronizar();
+      // La sincronización corre sola cada minuto, sin nadie esperándola: si
+      // algo falla (la base del teléfono, un dato inesperado), se informa y
+      // la siguiente vuelta lo intenta de nuevo. Nunca deja un error suelto.
+      let resumen: ResumenSincronizacion;
+      try {
+        resumen = await motor.sincronizar();
+      } catch (e) {
+        if (montado.current) setErrorDescarga(`No se pudo enviar: ${(e as Error).message || "error desconocido"}`);
+        return null;
+      }
       if (montado.current) setUltima(resumen);
       // Primero se envía y después se trae: así lo que el técnico acaba de
       // capturar ya está en el servidor cuando llega la copia de vuelta, y

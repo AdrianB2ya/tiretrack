@@ -1,11 +1,11 @@
 import { View } from "react-native";
 import { useRouter } from "expo-router";
-import { MenuMas } from "../src/app/MenuMas";
-import { NavegacionInferior } from "../src/app/NavegacionInferior";
-import { BarraDeSesion } from "../src/app/BarraDeSesion";
-import { opcionesMas } from "../src/app/navegacion";
-import { useUsuario } from "../src/app/ProveedorSesion";
-import { colores } from "../src/diseno/tokens";
+import { MenuMas } from "../../src/app/MenuMas";
+import { NavegacionInferior } from "../../src/app/NavegacionInferior";
+import { BarraDeSesion } from "../../src/app/BarraDeSesion";
+import { opcionesMas } from "../../src/app/navegacion";
+import { useUsuario } from "../../src/app/ProveedorSesion";
+import { colores } from "../../src/diseno/tokens";
 
 /** Pestaña "Más": las pantallas de gestión que no son del día a día. */
 export default function RutaMas() {

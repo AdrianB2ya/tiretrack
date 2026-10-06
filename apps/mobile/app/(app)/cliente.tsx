@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
-import { PortalCliente } from "../src/cliente/PortalCliente";
-import { BarraDeSesion } from "../src/app/BarraDeSesion";
-import { NavegacionInferior } from "../src/app/NavegacionInferior";
-import { useDatos } from "../src/app/ProveedorDatos";
-import { colores } from "../src/diseno/tokens";
+import { PortalCliente } from "../../src/cliente/PortalCliente";
+import { BarraDeSesion } from "../../src/app/BarraDeSesion";
+import { NavegacionInferior } from "../../src/app/NavegacionInferior";
+import { useDatos } from "../../src/app/ProveedorDatos";
+import { colores } from "../../src/diseno/tokens";
 import { fechaEnColombia } from "@tiretrack/domain";
 
 /** Portal del cliente: aprobar servicios y consultar su historial. */

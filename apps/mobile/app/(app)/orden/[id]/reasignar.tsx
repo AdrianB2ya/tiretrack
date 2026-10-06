@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ReasignarOrden } from "../../../src/coordinador/ReasignarOrden";
-import { useDatos, type DatosOrden } from "../../../src/app/ProveedorDatos";
-import type { TecnicoLocal } from "../../../src/datos/repositorio";
-import { colores } from "../../../src/diseno/tokens";
+import { ReasignarOrden } from "../../../../src/coordinador/ReasignarOrden";
+import { useDatos, type DatosOrden } from "../../../../src/app/ProveedorDatos";
+import type { TecnicoLocal } from "../../../../src/datos/repositorio";
+import { colores } from "../../../../src/diseno/tokens";
+import { OrdenNoDisponible } from "../../../../src/ordenes/OrdenNoDisponible";
 
 /** Reasignación de una orden. Vuelve a la bandeja al confirmar. */
 export default function PantallaReasignar() {
@@ -12,7 +13,7 @@ export default function PantallaReasignar() {
   const router = useRouter();
   const { cargarOrden, tecnicosDeSede, reasignar } = useDatos();
 
-  const [datos, setDatos] = useState<DatosOrden | null>(null);
+  const [datos, setDatos] = useState<DatosOrden | null | undefined>(undefined);
   const [tecnicos, setTecnicos] = useState<TecnicoLocal[]>([]);
   const [procesando, setProcesando] = useState(false);
 
@@ -21,8 +22,9 @@ export default function PantallaReasignar() {
     void (async () => {
       if (!id) return;
       const d = await cargarOrden(id);
-      if (!vigente || !d) return;
+      if (!vigente) return;
       setDatos(d);
+      if (!d) return;
       // La sede sale de la orden: solo se ofrecen técnicos que pueden
       // trabajar donde está el vehículo.
       setTecnicos(await tecnicosDeSede(d.orden.sedeId));
@@ -46,6 +48,8 @@ export default function PantallaReasignar() {
     [id, reasignar, router],
   );
 
+  // null: no está en el teléfono. Antes la rueda giraba para siempre.
+  if (datos === null) return <OrdenNoDisponible />;
   if (!datos) {
     return (
       <View style={estilos.centrado}>

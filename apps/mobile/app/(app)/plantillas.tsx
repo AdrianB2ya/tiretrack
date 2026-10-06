@@ -1,10 +1,10 @@
 import { useMemo } from "react";
 import { nuevoId, puedeGestionarConfiguraciones } from "@tiretrack/domain";
-import { PantallaPlantillas, type FuentesPlantillas } from "../src/flota/PantallaPlantillas";
-import { useServicios } from "../src/app/Arranque";
-import { useDatos } from "../src/app/ProveedorDatos";
-import { useUsuario } from "../src/app/ProveedorSesion";
-import { Vacio } from "../src/diseno/componentes";
+import { PantallaPlantillas, type FuentesPlantillas } from "../../src/flota/PantallaPlantillas";
+import { useServicios } from "../../src/app/Arranque";
+import { useDatos } from "../../src/app/ProveedorDatos";
+import { useUsuario } from "../../src/app/ProveedorSesion";
+import { Vacio } from "../../src/diseno/componentes";
 
 /**
  * Plantillas de ejes. Crear y versionar es en línea: una plantilla define cómo

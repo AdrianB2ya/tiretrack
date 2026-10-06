@@ -1,21 +1,22 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { EditorPosicion, type CatalogoEditor } from "../../../../src/ordenes/EditorPosicion";
+import { EditorPosicion, type CatalogoEditor } from "../../../../../src/ordenes/EditorPosicion";
 import {
   borradorDesde,
   borradorNuevo,
   copiarDeHermana,
   type BorradorMedicion,
-} from "../../../../src/ordenes/reglasEditorPosicion";
-import { hermanaCapturada } from "../../../../src/ordenes/diagrama";
-import { useDatos, type DatosOrden } from "../../../../src/app/ProveedorDatos";
-import { useUsuario } from "../../../../src/app/ProveedorSesion";
-import { Vacio } from "../../../../src/diseno/componentes";
-import { colores, espacio, texto } from "../../../../src/diseno/tokens";
-import { FotosDe } from "../../../../src/fotos/FotosDe";
-import { MAXIMO_POR_POSICION } from "../../../../src/fotos/GaleriaFotos";
-import { camaraDelDispositivo, manipuladorDelDispositivo } from "../../../../src/fotos/captura";
+} from "../../../../../src/ordenes/reglasEditorPosicion";
+import { hermanaCapturada } from "../../../../../src/ordenes/diagrama";
+import { useDatos, type DatosOrden } from "../../../../../src/app/ProveedorDatos";
+import { useUsuario } from "../../../../../src/app/ProveedorSesion";
+import { Vacio } from "../../../../../src/diseno/componentes";
+import { colores, espacio, texto } from "../../../../../src/diseno/tokens";
+import { FotosDe } from "../../../../../src/fotos/FotosDe";
+import { MAXIMO_POR_POSICION } from "../../../../../src/fotos/GaleriaFotos";
+import { camaraDelDispositivo, manipuladorDelDispositivo } from "../../../../../src/fotos/captura";
+import { OrdenNoDisponible } from "../../../../../src/ordenes/OrdenNoDisponible";
 
 /**
  * Captura de una posición.
@@ -31,10 +32,11 @@ export default function PantallaPosicion() {
   const usuario = useUsuario();
 
   const posicion = Number(numero);
-  const [datos, setDatos] = useState<DatosOrden | null>(null);
+  const [datos, setDatos] = useState<DatosOrden | null | undefined>(undefined);
   const [borrador, setBorrador] = useState<BorradorMedicion | null>(null);
   const [catalogo, setCatalogo] = useState<CatalogoEditor | null>(null);
   const [guardando, setGuardando] = useState(false);
+  const [noExistePosicion, setNoExistePosicion] = useState(false);
 
   // Carga inicial: la orden y el borrador de esta posición.
   useEffect(() => {
@@ -42,12 +44,14 @@ export default function PantallaPosicion() {
     void (async () => {
       if (!id) return;
       const d = await cargarOrden(id);
-      if (!vigente || !d) return;
+      if (!vigente) return;
+      if (!d) return setDatos(null);
 
       const casilla = [...d.diagrama.ejes]
         .flatMap((e) => [...e.izquierda, ...e.derecha])
         .find((c) => c.numero === posicion);
-      if (!casilla) return;
+      // Una posición que el vehículo no tiene: se dice, no se queda cargando.
+      if (!casilla) return setNoExistePosicion(true);
 
       const previa = d.mediciones.find((m) => m.posicion === posicion);
       setDatos(d);
@@ -128,6 +132,8 @@ export default function PantallaPosicion() {
     if (origen) setBorrador(copiarDeHermana(borrador, origen));
   }, [datos, borrador, posicion]);
 
+  if (datos === null) return <OrdenNoDisponible />;
+  if (noExistePosicion) return <OrdenNoDisponible mensaje={`El vehículo de esta orden no tiene la posición ${posicion}.`} />;
   if (!datos || !borrador || !catalogo) {
     return (
       <View style={estilos.centrado}>

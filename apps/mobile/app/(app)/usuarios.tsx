@@ -1,11 +1,11 @@
 import { useMemo } from "react";
 import { Share } from "react-native";
 import { nuevoId, puedeGestionarUsuarios } from "@tiretrack/domain";
-import { PantallaUsuarios, type FuentesUsuarios, type UsuarioListado } from "../src/admin/PantallaUsuarios";
-import { useServicios } from "../src/app/Arranque";
-import { useDatos } from "../src/app/ProveedorDatos";
-import { useUsuario } from "../src/app/ProveedorSesion";
-import { Vacio } from "../src/diseno/componentes";
+import { PantallaUsuarios, type FuentesUsuarios, type UsuarioListado } from "../../src/admin/PantallaUsuarios";
+import { useServicios } from "../../src/app/Arranque";
+import { useDatos } from "../../src/app/ProveedorDatos";
+import { useUsuario } from "../../src/app/ProveedorSesion";
+import { Vacio } from "../../src/diseno/componentes";
 
 /** Usuarios de la empresa: alta con código de activación. En línea. */
 export default function RutaUsuarios() {

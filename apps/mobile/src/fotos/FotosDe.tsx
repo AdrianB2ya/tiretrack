@@ -37,6 +37,10 @@ export function FotosDe({ destino, cargar, dependencias, maximo, deshabilitada =
       const r = await tomarYAdjuntar(dependencias, destino);
       if (r.tipo === "aviso") setAviso(r.mensaje);
       if (r.tipo === "adjuntada") await recargar();
+    } catch (e) {
+      // Segunda red: lo que se escape de la captura se muestra, no queda
+      // como un error sin atrapar ("toqué y no pasó nada").
+      setAviso(`No se pudo tomar la foto: ${(e as Error).message}`);
     } finally {
       setTomando(false);
     }

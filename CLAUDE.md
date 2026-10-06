@@ -2939,13 +2939,78 @@ enviar": el almacenamiento tenía valores de relleno. Para no instalar MinIO
 Las fotos que el teléfono ya tenía pendientes llevan la URL de relleno; al
 vencer (10 minutos) el celular pide otra y sale por el disco.
 
+## Auditoría de la app y guardia de sesión (2026-10-06)
+
+Pedido del usuario tras el "Render error: Esta pantalla requiere sesión
+iniciada" al cerrar sesión: auditoría general para que no falle nada más.
+
+### Cerrar sesión: guardia en el grupo `(app)`
+
+Las pantallas que seguían montadas debajo (panel, lista) se redibujaban sin
+usuario y `useUsuario` falla a propósito (4.4). Todo lo que exige sesión vive
+ahora en `app/(app)/`, cuya disposición tiene **la guardia**: sin sesión el
+grupo entero se desmonta y lleva al ingreso. Es el patrón de autenticación de
+Expo Router; el grupo no cambia las direcciones (`/panel` sigue igual). Fuera
+quedan `index`, `ingresar` y `activar`. Una prueba exige que ninguna
+pantalla que use la sesión quede fuera del grupo.
+
+En Windows, **Metro bloquea las carpetas de `app/`**: para moverlas hubo que
+detenerlo.
+
+### Recorrido de pantallas (`src/pruebas/recorrido.test.tsx`)
+
+Descubre las pantallas leyendo `app/` (una nueva entra sola) y, con datos
+reales en SQLite, para técnico, coordinador, administrador y cliente:
+
+- **Dibujar**: cada pantalla con una orden existente y con una inexistente;
+  falla si revienta, si queda en blanco o si escribe en la consola (avisos
+  de React incluidos).
+- **Tocar todo**: cada botón, pestaña y opción, uno por uno; falla si algo
+  revienta o deja una promesa rechazada sin atrapar.
+- La guardia al cerrar sesión, y las redes de seguridad.
+
+Lo que encontró:
+
+| Hallazgo | Efecto |
+|---|---|
+| Cinco pantallas de orden (detalle, datos, envío, reasignar, editor) con una orden o posición que no está en el teléfono | **Rueda de carga para siempre**, sin salida |
+| Pedir permiso de cámara o guardar la foto en el teléfono podían fallar sin atrapar | Tocar "Tomar foto" no hacía nada visible |
+
+Ahora `OrdenNoDisponible` dice qué pasó y ofrece volver al inicio, y la foto
+avisa "No se pudo tomar la foto" / "La foto no se guardó" con el motivo.
+
+**Lo que el recorrido no ve**: el aviso de listas anidadas no lo emite
+`react-native-web`; lo cubre la prueba estática de `configuracionApp`.
+Verificado con mutación: sin la guardia de sesión, falla la prueba de cerrar
+sesión.
+
+### Redes de seguridad
+
+- **`ErrorBoundary`** en las dos disposiciones (`ErrorDePantalla`): si una
+  pantalla revienta, en vez de la pantalla roja (o la app cerrada en
+  producción) se explica, se ofrece reintentar o volver al inicio, y se
+  muestra el detalle para soporte.
+- **La sincronización nunca deja un error suelto**: corre sola cada minuto;
+  si enviar falla, se informa en la barra ("No se pudo sincronizar con el
+  servidor") y la siguiente vuelta reintenta.
+
+### Barrido del servidor real
+
+Con cada rol, todas las consultas: **cero respuestas 5xx**. Dos
+observaciones para decidir (quedan en "Decisiones abiertas"):
+
+- El **superadmin** recibe 403 en todo (no tiene empresa; la suplantación no
+  está construida): en la app entra a un panel vacío con aviso de error.
+- El **cliente y el técnico pueden consultar el informe** por la API
+  (`/informe/resumen`, `/informe/exportar`); la app no se los ofrece.
+
 ## Punto de retoma (2026-10-05)
 
 **Estado:** el usuario prueba la app en el teléfono con Expo Go (SDK 52). Siguen PDF (6.3), vista de auditoría (5.4) y guía de despliegue.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 896/896, mobile 848/848.
+**Verificado:** `npm run verify` con base: raíz 896/896, mobile 1160/1160.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):
@@ -2996,7 +3061,10 @@ reprodujo después.
 
 No decidir por cuenta propia. Preguntar cuando toque el tema.
 
-- Restricciones por rol para exportar informes (¿el técnico debería?)
+- Restricciones por rol para exportar informes (¿el técnico debería?). Hoy el
+  servidor deja consultar y exportar a técnico y cliente; la app no se lo ofrece.
+- Superadmin en la app: recibe 403 en todo y ve un panel vacío; falta la
+  suplantación (o una pantalla propia).
 - Alcance del coordinador: ¿toda la empresa o solo sus sedes?
 - Quién aprueba las marcas creadas en campo antes de volverlas globales
 - Si se bloquea exportar órdenes sin cerrar

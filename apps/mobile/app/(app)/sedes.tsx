@@ -1,9 +1,9 @@
 import { useMemo } from "react";
 import { nuevoId, puedeGestionarUsuarios } from "@tiretrack/domain";
-import { PantallaSedes, type FuentesSedes } from "../src/admin/PantallaSedes";
-import { useServicios } from "../src/app/Arranque";
-import { useUsuario } from "../src/app/ProveedorSesion";
-import { Vacio } from "../src/diseno/componentes";
+import { PantallaSedes, type FuentesSedes } from "../../src/admin/PantallaSedes";
+import { useServicios } from "../../src/app/Arranque";
+import { useUsuario } from "../../src/app/ProveedorSesion";
+import { Vacio } from "../../src/diseno/componentes";
 
 /** Sedes de la empresa. En línea. */
 export default function RutaSedes() {

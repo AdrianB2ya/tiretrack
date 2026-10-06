@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { puedeEditarMediciones, type EstadoOrden } from "@tiretrack/domain";
-import { FormularioDatosOrden } from "../../../src/ordenes/FormularioDatosOrden";
-import { useDatos, type DatosOrden } from "../../../src/app/ProveedorDatos";
-import { useUsuario } from "../../../src/app/ProveedorSesion";
-import { colores } from "../../../src/diseno/tokens";
+import { FormularioDatosOrden } from "../../../../src/ordenes/FormularioDatosOrden";
+import { useDatos, type DatosOrden } from "../../../../src/app/ProveedorDatos";
+import { useUsuario } from "../../../../src/app/ProveedorSesion";
+import { colores } from "../../../../src/diseno/tokens";
+import { OrdenNoDisponible } from "../../../../src/ordenes/OrdenNoDisponible";
 
 /** Kilometraje, hallazgos y acción realizada. */
 export default function RutaDatosOrden() {
@@ -13,7 +14,7 @@ export default function RutaDatosOrden() {
   const router = useRouter();
   const { cargarOrden, actualizarDatosOrden } = useDatos();
   const usuario = useUsuario();
-  const [datos, setDatos] = useState<DatosOrden | null>(null);
+  const [datos, setDatos] = useState<DatosOrden | null | undefined>(undefined);
   const [guardando, setGuardando] = useState(false);
 
   useEffect(() => {
@@ -28,6 +29,8 @@ export default function RutaDatosOrden() {
     };
   }, [id, cargarOrden]);
 
+  // null: no está en el teléfono. Antes la rueda giraba para siempre.
+  if (datos === null) return <OrdenNoDisponible />;
   if (!datos) {
     return (
       <View style={estilos.centrado}>

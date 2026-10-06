@@ -1,10 +1,10 @@
 import { useCallback, useMemo, useState } from "react";
 import { useFocusEffect, useRouter } from "expo-router";
-import { FormularioNuevaOrden } from "../src/ordenes/FormularioNuevaOrden";
-import { armarOrden, puedeCrearOrden, type QuienCrea } from "../src/ordenes/nuevaOrden";
-import { useDatos } from "../src/app/ProveedorDatos";
-import { useUsuario } from "../src/app/ProveedorSesion";
-import { Vacio } from "../src/diseno/componentes";
+import { FormularioNuevaOrden } from "../../src/ordenes/FormularioNuevaOrden";
+import { armarOrden, puedeCrearOrden, type QuienCrea } from "../../src/ordenes/nuevaOrden";
+import { useDatos } from "../../src/app/ProveedorDatos";
+import { useUsuario } from "../../src/app/ProveedorSesion";
+import { Vacio } from "../../src/diseno/componentes";
 import { fechaEnColombia } from "@tiretrack/domain";
 
 /** Orden nueva: programada por el coordinador, o imprevista del técnico. */

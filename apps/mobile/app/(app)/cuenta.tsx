@@ -1,7 +1,7 @@
 import { useRouter } from "expo-router";
-import { PantallaCuenta } from "../src/sesion/PantallaCuenta";
-import { useSesion } from "../src/app/ProveedorSesion";
-import { useDatos } from "../src/app/ProveedorDatos";
+import { PantallaCuenta } from "../../src/sesion/PantallaCuenta";
+import { useSesion } from "../../src/app/ProveedorSesion";
+import { useDatos } from "../../src/app/ProveedorDatos";
 
 /** Cuenta y cierre de sesión. */
 export default function RutaCuenta() {

@@ -25,6 +25,15 @@ function opcionesDe(plugin: string): Record<string, unknown> | undefined {
   return undefined;
 }
 
+/**
+ * Carpetas donde Expo Router busca una dirección: app/ y sus grupos
+ * "(nombre)", que no aparecen en la URL (/panel vive en app/(app)/panel.tsx).
+ */
+function raicesDeRutas(): string[] {
+  const app = join(raiz, "app");
+  return [app, ...readdirSync(app).filter((n) => n.startsWith("(") && n.endsWith(")")).map((n) => join(app, n))];
+}
+
 /** Archivos .ts/.tsx bajo una carpeta, recursivo. */
 function fuentes(carpeta: string): string[] {
   return readdirSync(carpeta, { withFileTypes: true }).flatMap((e) => {
@@ -79,8 +88,8 @@ describe("pantallas construidas y conectadas", () => {
       const ruta = d.replace(/\$\{[^}]+\}/g, "[x]").replace(/^\//, "");
       const partes = ruta.split("/").map((s) => (s === "[x]" ? null : s));
       // /orden/[x]/datos → app/orden/[id]/datos.tsx o .../datos/index.tsx
-      const candidatas = [partes, [...partes, "index"]].map((ps) => {
-        let dir = join(raiz, "app");
+      const candidatas = raicesDeRutas().flatMap((base) => [partes, [...partes, "index"]].map((ps) => {
+        let dir = base;
         for (const [i, p] of ps.entries()) {
           const final = i === ps.length - 1;
           if (p === null) {
@@ -98,7 +107,7 @@ describe("pantallas construidas y conectadas", () => {
           }
         }
         return null;
-      });
+      }));
       return !candidatas.some((c) => c !== null && existsSync(c));
     });
     expect(faltantes).toEqual([]);
@@ -143,8 +152,21 @@ describe("raíz de las pantallas", () => {
 
   it("la raíz fijada contiene las pantallas de entrada", () => {
     const carpeta = String(opcionesDe("expo-router")?.["root"] ?? "./app");
-    for (const pantalla of ["_layout.tsx", "index.tsx", "ingresar.tsx", "ordenes.tsx"]) {
+    for (const pantalla of ["_layout.tsx", "index.tsx", "ingresar.tsx"]) {
       expect(existsSync(join(raiz, carpeta, pantalla)), `falta ${pantalla} en ${carpeta}`).toBe(true);
     }
+    // Las que exigen sesión, dentro de su grupo con la guardia.
+    for (const pantalla of ["_layout.tsx", "ordenes.tsx", "panel.tsx"]) {
+      expect(existsSync(join(raiz, carpeta, "(app)", pantalla)), `falta (app)/${pantalla}`).toBe(true);
+    }
+  });
+
+  it("ninguna pantalla que use la sesión queda fuera del grupo con guardia", () => {
+    // Fuera de (app), al cerrar sesión se dibujaría sin usuario: era el
+    // "Render error: Esta pantalla requiere sesión iniciada".
+    const fuera = readdirSync(join(raiz, "app"))
+      .filter((n) => n.endsWith(".tsx"))
+      .filter((n) => readFileSync(join(raiz, "app", n), "utf8").includes("useUsuario("));
+    expect(fuera).toEqual([]);
   });
 });

@@ -70,6 +70,9 @@ export interface ServiciosEnLinea {
 
 const ContextoServicios = createContext<ServiciosEnLinea | null>(null);
 
+/** Para montar pantallas en las pruebas sin el arranque del dispositivo. */
+export const ProveedorServicios = ContextoServicios.Provider;
+
 export function useServicios(): ServiciosEnLinea {
   const ctx = useContext(ContextoServicios);
   if (!ctx) throw new Error("useServicios debe usarse dentro de Arranque");
