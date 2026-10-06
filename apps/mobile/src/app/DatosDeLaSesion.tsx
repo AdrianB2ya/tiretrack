@@ -9,11 +9,15 @@ import { ProveedorDatos, type ProveedorDatosProps } from "./ProveedorDatos";
  */
 export function DatosDeLaSesion(props: Omit<ProveedorDatosProps, "usuarioId" | "conservarCerradas">) {
   const { cargando, usuario } = useSesion();
+  // El superadmin no tiene empresa: el servidor le responde 403 a la
+  // descarga. Sincronizar solo llenaría la barra de errores cada minuto.
+  const plataforma = usuario?.rol === "superadmin";
   return (
     <ProveedorDatos
       {...props}
-      usuarioId={cargando ? undefined : (usuario?.id ?? null)}
+      usuarioId={cargando ? undefined : plataforma ? null : (usuario?.id ?? null)}
       conservarCerradas={usuario?.rol === "cliente"}
+      {...(plataforma ? { intervaloSincronizacionMs: 0 } : {})}
     />
   );
 }

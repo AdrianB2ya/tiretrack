@@ -3004,13 +3004,39 @@ observaciones para decidir (quedan en "Decisiones abiertas"):
 - El **cliente y el técnico pueden consultar el informe** por la API
   (`/informe/resumen`, `/informe/exportar`); la app no se los ofrece.
 
+## Informe para técnico y cliente; pantalla de plataforma (2026-10-06)
+
+**Decisiones del usuario:** el técnico y el cliente **ven el informe**; el
+superadmin, por ahora, una **pantalla que explica su cuenta** (la
+suplantación se construye antes de una segunda empresa o de dar soporte).
+
+### Informe
+
+- En "Más" del técnico y del cliente. El alcance lo pone el servidor: el
+  técnico, sus órdenes asignadas (RLS); el cliente, su `clienteId` (RLS) y
+  **solo las órdenes que esperan su aprobación o están cerradas**, como en
+  su portal: lo que se mide o se revisa es preliminar y vería números que
+  después cambian. Toda exportación sigue quedando en la auditoría.
+
+### Superadmin
+
+- Entra a `/plataforma`: su cuenta administra TireTrack, no ve datos de
+  empresas, y la sesión de soporte (motivo, ticket, vencimiento) aún no
+  existe. Barra: Plataforma · Más (cuenta).
+- **No sincroniza**: no tiene empresa y el servidor le responde 403; antes
+  llenaba la barra de errores cada minuto.
+- **No podía entrar a la app**: la sesión local exigía empresa (`NOT NULL`)
+  y la suya es nula, aunque el contrato ya lo permitía. **Migración 11**
+  rehace la tabla `sesion` con `empresa_id` opcional y conserva la sesión
+  que hubiera. Lo encontró el recorrido de pantallas al sumar el rol.
+
 ## Punto de retoma (2026-10-05)
 
 **Estado:** el usuario prueba la app en el teléfono con Expo Go (SDK 52). Siguen PDF (6.3), vista de auditoría (5.4) y guía de despliegue.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 896/896, mobile 1160/1160.
+**Verificado:** `npm run verify` con base: raíz 897/897, mobile 1247/1247.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):
@@ -3061,13 +3087,12 @@ reprodujo después.
 
 No decidir por cuenta propia. Preguntar cuando toque el tema.
 
-- Restricciones por rol para exportar informes (¿el técnico debería?). Hoy el
-  servidor deja consultar y exportar a técnico y cliente; la app no se lo ofrece.
-- Superadmin en la app: recibe 403 en todo y ve un panel vacío; falta la
-  suplantación (o una pantalla propia).
+- Suplantación del superadmin (motivo, ticket, vencimiento): decidido
+  construirla antes de una segunda empresa o de dar soporte real.
 - Alcance del coordinador: ¿toda la empresa o solo sus sedes?
 - Quién aprueba las marcas creadas en campo antes de volverlas globales
-- Si se bloquea exportar órdenes sin cerrar
+- Si se bloquea exportar órdenes sin cerrar (el cliente ya no las ve en su
+  informe; la oficina y el técnico sí)
 - Cómo se cuenta la alineación al facturar (hoy se marca por llanta, pero se
   ejecuta por eje)
 

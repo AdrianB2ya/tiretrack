@@ -798,6 +798,20 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
       expect(r.headers["x-ordenes-sin-cerrar"]).toBeDefined();
     });
 
+    it("el cliente ve en el informe solo lo que espera su aprobación y lo cerrado", async () => {
+      // Decisión del usuario: el cliente y el técnico ven el informe. Lo que
+      // se sigue midiendo o revisando es preliminar: no se le muestra.
+      await conUnaMedicion();
+      const enProceso = await app.inject({ method: "GET", url: `${PREFIJO_API}/informe/resumen`, headers: { authorization: "Bearer tok-cliente" } });
+      expect(enProceso.json()).toMatchObject({ registros: 0 });
+      await pool.query(`UPDATE "OrdenServicio" SET estado = 'pendiente_cliente' WHERE id = $1`, [ORDEN]);
+      const lista = await app.inject({ method: "GET", url: `${PREFIJO_API}/informe/resumen`, headers: { authorization: "Bearer tok-cliente" } });
+      expect(lista.json()).toMatchObject({ registros: 1 });
+      // El técnico ve las suyas, en cualquier estado.
+      await pool.query(`UPDATE "OrdenServicio" SET estado = 'en_proceso' WHERE id = $1`, [ORDEN]);
+      expect((await traer("/informe/resumen")).json()).toMatchObject({ registros: 1 });
+    });
+
     it("la vista previa cuenta lo mismo que saldría en el archivo", async () => {
       await conUnaMedicion();
       await guardarMedicion(medicion(2, { profundidad: 7, serial: "MX2" }));

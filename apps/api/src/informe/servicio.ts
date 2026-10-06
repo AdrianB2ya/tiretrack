@@ -95,13 +95,19 @@ export class ServicioInforme {
    * posición para traerlos sería el problema de las N+1 consultas con 22
    * posiciones por orden.
    */
-  async consultar(_ctx: Contexto, f: FiltroInforme = {}): Promise<FilaCruda[]> {
+  async consultar(ctx: Contexto, f: FiltroInforme = {}): Promise<FilaCruda[]> {
     const cond: string[] = [];
     const params: unknown[] = [];
     const add = (sql: string, valor: unknown) => {
       params.push(valor);
       cond.push(sql.replace("?", `$${params.length}`));
     };
+
+    // El cliente ve en el informe lo mismo que en su portal: lo que espera su
+    // aprobación y lo cerrado. Lo que el técnico mide o el coordinador revisa
+    // es preliminar —puede corregirse— y vería números que después cambian.
+    // RLS ya lo limita a su clienteId; el técnico, a sus órdenes asignadas.
+    if (ctx.rol === "cliente") cond.push(`o.estado IN ('pendiente_cliente','cerrada')`);
 
     if (f.clienteId) add('o."clienteId" = ?', f.clienteId);
     if (f.vehiculoId) add('o."vehiculoId" = ?', f.vehiculoId);

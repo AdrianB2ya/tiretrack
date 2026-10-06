@@ -65,6 +65,7 @@ const usuarios: Record<string, UsuarioSesion> = {
   coordinador: { id: "u-coo", nombre: "Jorge Ramírez", email: "j@x.co", rol: "coordinador", empresaId: "emp-1", clienteId: null, sedes: [SEDE], sedePrincipal: SEDE },
   administrador: { id: "u-adm", nombre: "Marcela Ospina", email: "m@x.co", rol: "administrador", empresaId: "emp-1", clienteId: null, sedes: [SEDE], sedePrincipal: SEDE },
   cliente: { id: "u-cli", nombre: "Luis Reyna", email: "l@x.co", rol: "cliente", empresaId: "emp-1", clienteId: "cli-1", sedes: [], sedePrincipal: null },
+  superadmin: { id: "u-sup", nombre: "Soporte Plataforma", email: "s@x.co", rol: "superadmin", empresaId: null, clienteId: null, sedes: [], sedePrincipal: null } as unknown as UsuarioSesion,
 };
 
 function orden(id: string, extra: Record<string, unknown> = {}) {
@@ -224,7 +225,7 @@ describe("recorrido de pantallas", () => {
     expect(LISTA.length).toBeGreaterThan(20);
   });
 
-  for (const rol of ["tecnico", "coordinador", "administrador", "cliente"] as const) {
+  for (const rol of ["tecnico", "coordinador", "administrador", "cliente", "superadmin"] as const) {
     for (const archivo of LISTA.filter(conSesion)) {
       for (const id of ["ord-1", "ord-2", "no-existe"]) {
         const dinamica = nombre(archivo).includes("[id]");
@@ -269,7 +270,7 @@ describe("tocar todo", () => {
   const tocables = (c: HTMLElement) =>
     Array.from(c.querySelectorAll('[role="button"], [role="tab"], [role="radio"], [role="switch"], [role="checkbox"]')) as HTMLElement[];
 
-  for (const rol of ["tecnico", "coordinador", "administrador", "cliente"] as const) {
+  for (const rol of ["tecnico", "coordinador", "administrador", "cliente", "superadmin"] as const) {
     for (const archivo of LISTA.filter(conSesion)) {
       for (const id of nombre(archivo).includes("[id]") ? ["ord-1", "ord-2", "ord-3", "ord-5"] : ["ord-1"]) {
         it(`${rol} · ${nombre(archivo)}${nombre(archivo).includes("[id]") ? ` · ${id}` : ""}`, async () => {

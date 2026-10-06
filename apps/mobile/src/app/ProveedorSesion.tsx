@@ -96,7 +96,7 @@ export function useUsuario(): UsuarioSesion {
   return usuario;
 }
 
-export type Destino = "/ingresar" | "/ordenes" | "/revision" | "/panel" | "/cliente";
+export type Destino = "/ingresar" | "/ordenes" | "/revision" | "/panel" | "/cliente" | "/plataforma";
 
 /**
  * Pantalla de inicio según el rol.
@@ -111,7 +111,9 @@ export function destinoInicial(usuario: UsuarioSesion | null): Destino {
     tecnico: "/ordenes",
     coordinador: "/panel",
     administrador: "/panel",
-    superadmin: "/panel",
+    // Sin empresa no ve datos operativos: su pantalla lo explica. Antes
+    // entraba a un panel vacío con un error de descarga.
+    superadmin: "/plataforma",
     // Su portal, dentro de la misma app (decisión del usuario). Antes se lo
     // devolvía al ingreso sin ninguna explicación.
     cliente: "/cliente",

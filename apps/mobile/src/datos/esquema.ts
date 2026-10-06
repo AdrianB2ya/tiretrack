@@ -402,6 +402,33 @@ export const MIGRACIONES: readonly Migracion[] = [
       );
     `,
   },
+  {
+    version: 11,
+    nombre: "sesión sin empresa (superadmin)",
+    sql: `
+      -- El superadmin no pertenece a ninguna empresa, y la tabla exigía una:
+      -- guardar su sesión fallaba y no podía entrar a la app. El contrato del
+      -- servidor (zUsuarioSesion) ya la declaraba opcional. Lo encontró el
+      -- recorrido de pantallas de la auditoría.
+      --
+      -- SQLite no cambia la nulidad de una columna: se rehace la tabla,
+      -- conservando la sesión que hubiera.
+      CREATE TABLE sesion_nueva (
+        id                INTEGER PRIMARY KEY CHECK (id = 1),
+        usuario_id        TEXT NOT NULL,
+        empresa_id        TEXT,
+        rol               TEXT NOT NULL,
+        nombre            TEXT NOT NULL,
+        cliente_id        TEXT,
+        sede_principal_id TEXT,
+        sincronizado_en   TEXT
+      );
+      INSERT INTO sesion_nueva
+        SELECT id, usuario_id, empresa_id, rol, nombre, cliente_id, sede_principal_id, sincronizado_en FROM sesion;
+      DROP TABLE sesion;
+      ALTER TABLE sesion_nueva RENAME TO sesion;
+    `,
+  },
 ];
 
 export const VERSION_ESQUEMA = MIGRACIONES[MIGRACIONES.length - 1]?.version ?? 0;

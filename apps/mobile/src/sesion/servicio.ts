@@ -16,7 +16,8 @@ export interface UsuarioSesion {
   readonly nombre: string;
   readonly email: string;
   readonly rol: Rol;
-  readonly empresaId: string;
+  /** null para el superadmin: no pertenece a ninguna empresa. */
+  readonly empresaId: string | null;
   readonly clienteId: string | null;
   readonly sedes: readonly string[];
   readonly sedePrincipal: string | null;

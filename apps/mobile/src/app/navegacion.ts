@@ -20,7 +20,7 @@ import {
  * registro de clientes. Sigue entrando directo a sus órdenes.
  */
 
-export type Pestana = "panel" | "ordenes" | "revision" | "cliente" | "mas";
+export type Pestana = "panel" | "ordenes" | "revision" | "cliente" | "plataforma" | "mas";
 
 export interface DestinoPestana {
   readonly clave: Pestana;
@@ -33,6 +33,7 @@ const MAS: DestinoPestana = { clave: "mas", etiqueta: "Más", ruta: "/mas" };
 export function pestanasPara(rol: Rol | string): DestinoPestana[] {
   if (rol === "tecnico") return [{ clave: "ordenes", etiqueta: "Mis órdenes", ruta: "/ordenes" }, MAS];
   if (rol === "cliente") return [{ clave: "cliente", etiqueta: "Mis servicios", ruta: "/cliente" }, MAS];
+  if (rol === "superadmin") return [{ clave: "plataforma", etiqueta: "Plataforma", ruta: "/plataforma" }, MAS];
   if (!puedeAprobar(rol as Rol)) return [];
   return [
     { clave: "panel", etiqueta: "Panel", ruta: "/panel" },
@@ -58,6 +59,13 @@ export function opcionesMas(rol: Rol | string): OpcionMas[] {
     // que no estaba registrada y necesita trabajar (1.5). Vehículos no.
     o.push({ clave: "nueva-orden", etiqueta: "Nueva orden", detalle: "Un vehículo que llegó sin estar programado", ruta: "/nueva-orden" });
     o.push({ clave: "flota", etiqueta: "Clientes y sedes", detalle: "Registrar un cliente o una sede que no está", ruta: "/flota" });
+    // Decisión del usuario: técnico y cliente ven el informe. El servidor lo
+    // limita: el técnico a sus órdenes; el cliente a las suyas que esperan su
+    // aprobación o están cerradas.
+    o.push({ clave: "informe", etiqueta: "Informe", detalle: "Mediciones de tus órdenes: consultar y exportar", ruta: "/informe" });
+  }
+  if (r === "cliente") {
+    o.push({ clave: "informe", etiqueta: "Informe", detalle: "Mediciones de tu flota: consultar y exportar", ruta: "/informe" });
   }
   if (puedeAprobar(r)) {
     o.push({ clave: "nueva-orden", etiqueta: "Programar una orden", detalle: "Para un técnico de tu sede", ruta: "/nueva-orden" });

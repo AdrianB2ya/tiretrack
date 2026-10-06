@@ -21,6 +21,7 @@ describe("navegación de la oficina", () => {
     expect(pestanasPara("administrador")).toHaveLength(4);
     expect(pestanasPara("tecnico").map((p) => p.etiqueta)).toEqual(["Mis órdenes", "Más"]);
     expect(pestanasPara("cliente").map((p) => p.etiqueta)).toEqual(["Mis servicios", "Más"]);
+    expect(pestanasPara("superadmin").map((p) => p.etiqueta)).toEqual(["Plataforma", "Más"]);
   });
 
   it("'Más' ofrece a cada rol solo lo que puede hacer", () => {
@@ -29,16 +30,18 @@ describe("navegación de la oficina", () => {
     const admin = opcionesMas("administrador").map((o) => o.clave);
     expect(admin).toEqual(expect.arrayContaining(["usuarios", "sedes", "plantillas"]));
     expect(coordinador).not.toContain("usuarios");
-    // El técnico registra clientes y sedes y crea la imprevista; no exporta
-    // ni administra. El cliente solo su cuenta.
-    expect(opcionesMas("tecnico").map((o) => o.clave)).toEqual(["nueva-orden", "flota", "cuenta"]);
-    expect(opcionesMas("cliente").map((o) => o.clave)).toEqual(["cuenta"]);
+    // El técnico registra clientes y sedes, crea la imprevista y ve el
+    // informe de sus órdenes (decisión del usuario); no administra. El
+    // cliente ve el informe de su flota y su cuenta.
+    expect(opcionesMas("tecnico").map((o) => o.clave)).toEqual(["nueva-orden", "flota", "informe", "cuenta"]);
+    expect(opcionesMas("cliente").map((o) => o.clave)).toEqual(["informe", "cuenta"]);
+    expect(opcionesMas("superadmin").map((o) => o.clave)).toEqual(["cuenta"]);
   });
 
   it("cada destino tiene su archivo de ruta", () => {
     // Un destino sin pantalla no falla al compilar: se descubre en el
     // teléfono con un "no encontrado".
-    const rutas = (["administrador", "coordinador", "tecnico", "cliente"] as const)
+    const rutas = (["administrador", "coordinador", "tecnico", "cliente", "superadmin"] as const)
       .flatMap((r) => [...pestanasPara(r), ...opcionesMas(r)])
       .map((d) => d.ruta);
     expect(rutas.filter((r) => !existeRuta(r))).toEqual([]);
