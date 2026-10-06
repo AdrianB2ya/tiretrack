@@ -256,7 +256,7 @@ Estado: `[x]` hecha · `[ ]` pendiente
 
 ### Fase 5 · Cliente y administración
 - [x] 5.1 Portal del cliente (dentro de la app, ruta `cliente`)
-- [ ] 5.2 Usuarios y sedes
+- [x] 5.2 Usuarios y sedes (rutas `usuarios`, `sedes`, `activar`)
 - [x] 5.3 Clientes, sedes y vehículos (ruta `flota`). Plantillas de ejes: pendiente
 - [ ] 5.4 Auditoría
 
@@ -2591,6 +2591,18 @@ para el bloqueo). Si el rol exige doble factor, muestra la clave de a cuatro
 y un botón que abre la app autenticadora con el enlace `otpauth://`. Al
 terminar **entra sola** con la contraseña recién elegida; si no puede (p. ej.
 el código de 6 números ya cambió), va al ingreso.
+
+**Administración en la app** (`src/admin/`, rutas `usuarios` y `sedes`, desde
+el panel; solo administrador). Funciona **en línea**, no por la cola: el
+código viene en la respuesta y la persona la espera. `ClienteHttp.enLinea`
+renueva la sesión una vez ante un 401 y distingue "sin señal" (status 0) de
+un rechazo.
+
+- El código se muestra **grande y una sola vez**, con "Enviar por WhatsApp u
+  otra app" (hoja de compartir del sistema) y el mensaje listo: qué tocar y
+  cuándo vence.
+- La lista marca "Sin activar" en texto. Cada usuario tiene "Enviar un código
+  nuevo" / "Código para recuperar la cuenta".
 
 **El esquema de pruebas ahora genera las claves únicas de Prisma.** Faltaban:
 un correo y un código de sede duplicados se aceptaban en las pruebas, y antes

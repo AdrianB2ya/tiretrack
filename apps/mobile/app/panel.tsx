@@ -7,6 +7,7 @@ import { useUsuario } from "../src/app/ProveedorSesion";
 import { BarraDeSesion } from "../src/app/BarraDeSesion";
 import { colores, espacio } from "../src/diseno/tokens";
 import { Boton } from "../src/diseno/componentes";
+import { puedeGestionarUsuarios } from "@tiretrack/domain";
 import type { OrdenLocal } from "../src/datos/repositorio";
 
 /** Panel del coordinador: lo que requiere su decisión hoy. */
@@ -38,6 +39,20 @@ export default function PantallaPanel() {
         <Boton ancho tipo="secundario" testID="flota" onPress={() => router.push("/flota" as never)}>
           Clientes y vehículos
         </Boton>
+        {puedeGestionarUsuarios(usuario.rol) ? (
+          <View style={{ flexDirection: "row", gap: espacio.sm }}>
+            <View style={{ flex: 1 }}>
+              <Boton ancho tipo="secundario" testID="usuarios" onPress={() => router.push("/usuarios" as never)}>
+                Usuarios
+              </Boton>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Boton ancho tipo="secundario" testID="sedes" onPress={() => router.push("/sedes" as never)}>
+                Sedes
+              </Boton>
+            </View>
+          </View>
+        ) : null}
       </View>
       <PanelCoordinador
         indicadores={calcularIndicadores(locales, hoy, pendientesDeEnviar)}

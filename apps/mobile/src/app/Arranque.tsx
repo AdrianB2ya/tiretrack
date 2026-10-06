@@ -61,9 +61,16 @@ async function iniciar(apiUrl: string): Promise<Servicios> {
 }
 
 /** Servicios que la pantalla de ingreso necesita antes de haber sesión. */
-const ContextoServicios = createContext<{ sesion: ServicioSesion; apiUrl: string } | null>(null);
+/** Lo que hace falta fuera de la cola: ingreso, activación y administración en línea. */
+export interface ServiciosEnLinea {
+  sesion: ServicioSesion;
+  apiUrl: string;
+  enLinea: ClienteHttp["enLinea"];
+}
 
-export function useServicios(): { sesion: ServicioSesion; apiUrl: string } {
+const ContextoServicios = createContext<ServiciosEnLinea | null>(null);
+
+export function useServicios(): ServiciosEnLinea {
   const ctx = useContext(ContextoServicios);
   if (!ctx) throw new Error("useServicios debe usarse dentro de Arranque");
   return ctx;
@@ -97,7 +104,9 @@ export function Arranque({ apiUrl, children }: { apiUrl: string; children: React
   }
 
   return (
-    <ContextoServicios.Provider value={{ sesion: servicios.sesion, apiUrl }}>
+    <ContextoServicios.Provider
+      value={{ sesion: servicios.sesion, apiUrl, enLinea: servicios.cliente.enLinea.bind(servicios.cliente) }}
+    >
     <ProveedorSesion servicio={servicios.sesion}>
       <DatosDeLaSesion
         db={servicios.db}

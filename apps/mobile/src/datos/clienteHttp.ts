@@ -95,6 +95,47 @@ export class ClienteHttp implements ClienteSincronizacion, ClienteDescarga {
     return resultado;
   }
 
+  /**
+   * Petición en línea, para la administración (usuarios, sedes): la persona
+   * espera la respuesta —el código de activación viene en ella—, así que no
+   * pasa por la cola. Con sesión, renovándola UNA vez ante un 401.
+   */
+  async enLinea<T>(
+    metodo: "GET" | "POST",
+    ruta: string,
+    cuerpo?: unknown,
+  ): Promise<{ ok: true; datos: T } | { ok: false; status: number; codigo: string | null; mensaje: string }> {
+    const intentar = async (token: string) => {
+      const control = new AbortController();
+      const limite = setTimeout(() => control.abort(), this.config.tiempoLimiteMs ?? 30_000);
+      try {
+        return await this.fetch(`${this.config.baseUrl}${ruta}`, {
+          method: metodo,
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          ...(metodo === "POST" ? { body: JSON.stringify(cuerpo ?? {}) } : {}),
+          signal: control.signal,
+        });
+      } finally {
+        clearTimeout(limite);
+      }
+    };
+    try {
+      let token = await this.config.obtenerToken();
+      if (!token) return { ok: false, status: 401, codigo: "NO_AUTENTICADO", mensaje: "La sesión expiró. Vuelve a ingresar" };
+      let r = await intentar(token);
+      if (r.status === 401 && this.config.renovarSesion && (await this.config.renovarSesion())) {
+        token = await this.config.obtenerToken();
+        if (token) r = await intentar(token);
+      }
+      const j = (await r.json().catch(() => ({}))) as { error?: { codigo?: string; mensaje?: string } };
+      if (r.ok) return { ok: true, datos: j as T };
+      return { ok: false, status: r.status, codigo: j.error?.codigo ?? null, mensaje: j.error?.mensaje ?? "No se pudo completar" };
+    } catch {
+      // Sin respuesta: es la señal, no los datos.
+      return { ok: false, status: 0, codigo: null, mensaje: "No hay señal. Esta acción necesita conexión" };
+    }
+  }
+
   private async enviarCon(
     metodo: string,
     ruta: string,
