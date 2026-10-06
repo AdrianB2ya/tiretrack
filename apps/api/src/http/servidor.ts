@@ -20,6 +20,7 @@ import {
   zFirma,
   zInstante,
   zReasignar,
+  zTextoCorto,
 } from "@tiretrack/contracts";
 
 /**
@@ -178,6 +179,24 @@ function datosInvalidos(problemas: { path: (string | number)[]; message: string 
     },
   };
 }
+
+/**
+ * Filtro del informe desde la consulta de la URL. Lo usan la exportación y la
+ * vista previa: si cada una leyera los parámetros a su manera, lo que se ve en
+ * pantalla dejaría de ser lo que sale en el archivo.
+ */
+function filtroInforme(req: FastifyRequest):
+  | { ok: true; q: z.infer<typeof zFiltroInforme> }
+  | { ok: false; r: Respuesta } {
+  // Fechas imposibles o parámetros repetidos respondían 500.
+  // Una sola orden llega como texto, varias como lista: se normaliza.
+  const crudo = { ...((req.query ?? {}) as Record<string, unknown>) };
+  if (typeof crudo["ordenIds"] === "string") crudo["ordenIds"] = [crudo["ordenIds"]];
+  const p = zFiltroInforme.safeParse(crudo);
+  return p.success ? { ok: true, q: p.data } : { ok: false, r: datosInvalidos(p.error.issues) };
+}
+
+const zTrazabilidad = z.object({ serial: zTextoCorto });
 
 // ── Autenticación ───────────────────────────────────────────────────────────
 
@@ -704,24 +723,20 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
         return reply.status(403).send({ error: { codigo: posible.motivo, mensaje: "Esta sesión no exporta informes" } });
       }
       const ctx = posible;
-      // Fechas imposibles o parámetros repetidos respondían 500.
-      // Una sola orden llega como texto, varias como lista: se normaliza.
-      const crudo = { ...((req.query ?? {}) as Record<string, unknown>) };
-      if (typeof crudo["ordenIds"] === "string") crudo["ordenIds"] = [crudo["ordenIds"]];
-      const filtro = zFiltroInforme.safeParse(crudo);
-      if (!filtro.success) {
-        const r = datosInvalidos(filtro.error.issues);
-        return reply.status(r.status).send(r.cuerpo);
-      }
-      const q = filtro.data;
+      const filtro = filtroInforme(req);
+      if (!filtro.ok) return reply.status(filtro.r.status).send(filtro.r.cuerpo);
+      const q = filtro.q;
 
-      const r = await enTransaccion(op.pool, ctx, async (db) => ({
-        confirmar: false,
+      const r = await enTransaccion(op.pool, ctx, async (db) => {
         // Todo el filtro, no una lista escrita a mano: esa lista omitía
         // ordenIds y estadoLlanta, y elegir tres órdenes exportaba la cartera
         // entera del cliente —y la auditoría registraba filtros que no eran—.
-        valor: await new ServicioInforme(db, reloj).exportar(ctx, sinIndefinidos(q)),
-      }));
+        const exportado = await new ServicioInforme(db, reloj).exportar(ctx, sinIndefinidos(q));
+        // Se confirma: la exportación ESCRIBE su constancia en la auditoría.
+        // Con la transacción deshecha (como una consulta), ninguna exportación
+        // quedaba registrada y la auditoría decía que nunca salió nada.
+        return { confirmar: exportado.ok, valor: exportado };
+      });
 
       if (!r.ok) return reply.status(estadoDe(r.veredicto)).send({ error: { codigo: r.veredicto.codigo, mensaje: r.veredicto.mensaje } });
       return reply
@@ -733,6 +748,24 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
         .header("x-ordenes-sin-cerrar", String(r.valor.sinCerrar))
         .send(r.valor.contenido);
     });
+
+    /**
+     * Lo mismo que saldría en el archivo, resumido para la pantalla: se
+     * revisa el filtro antes de exportar. Mismos filtros que la exportación,
+     * leídos por la misma función, para que lo que se ve sea lo que sale.
+     */
+    app.get("/informe/resumen", consulta(async (s, ctx, req) => {
+      const filtro = filtroInforme(req);
+      if (!filtro.ok) return filtro.r;
+      return { status: 200, cuerpo: await s.informe.vistaPrevia(ctx, sinIndefinidos(filtro.q)) };
+    }));
+
+    /** Recorrido de una llanta por su serial: dónde estuvo y cuánto se gastó. */
+    app.get("/informe/trazabilidad", consulta(async (s, ctx, req) => {
+      const p = zTrazabilidad.safeParse(req.query ?? {});
+      if (!p.success) return datosInvalidos(p.error.issues);
+      return { status: 200, cuerpo: await s.informe.trazabilidad(ctx, p.data.serial) };
+    }));
 
     // ── Catálogo ──
     //

@@ -36,9 +36,18 @@ export default function PantallaPanel() {
         <Boton ancho testID="nueva-orden" onPress={() => router.push("/nueva-orden" as never)}>
           Programar una orden
         </Boton>
-        <Boton ancho tipo="secundario" testID="flota" onPress={() => router.push("/flota" as never)}>
-          Clientes y vehículos
-        </Boton>
+        <View style={{ flexDirection: "row", gap: espacio.sm }}>
+          <View style={{ flex: 1 }}>
+            <Boton ancho tipo="secundario" testID="flota" onPress={() => router.push("/flota" as never)}>
+              Clientes y vehículos
+            </Boton>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Boton ancho tipo="secundario" testID="informe" onPress={() => router.push("/informe" as never)}>
+              Informe
+            </Boton>
+          </View>
+        </View>
         {puedeGestionarUsuarios(usuario.rol) ? (
           <View style={{ flexDirection: "row", gap: espacio.sm }}>
             <View style={{ flex: 1 }}>

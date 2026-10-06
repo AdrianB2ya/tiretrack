@@ -53,6 +53,28 @@ export interface Exportacion {
   readonly sinCerrar: number;
 }
 
+export interface FilaVista {
+  readonly fecha: string;
+  readonly folio: string;
+  readonly estado: string;
+  readonly vehiculo: string;
+  readonly posicion: number;
+  readonly serial: string | null;
+  readonly marca: string | null;
+  readonly noIdentificada: boolean;
+  readonly profundidad: number | null;
+  readonly desSerial: string | null;
+  readonly servicios: string[];
+}
+
+export interface VistaPrevia {
+  readonly registros: number;
+  readonly ordenes: number;
+  readonly sinCerrar: number;
+  /** Las primeras; el total está en `registros`. */
+  readonly filas: FilaVista[];
+}
+
 export class ServicioInforme {
   constructor(
     private readonly db: pg.Client | pg.Pool,
@@ -196,6 +218,38 @@ export class ServicioInforme {
         ordenes: resumen.ordenes,
         sinCerrar: resumen.sinCerrar,
       },
+    };
+  }
+
+  /**
+   * Lo que se ve en pantalla antes de exportar: cuántos registros y órdenes
+   * salen con esos filtros, cuántas van sin cerrar y las primeras filas. Sin
+   * esto el coordinador descubre que el filtro estaba mal después de abrir
+   * el archivo en otra parte.
+   *
+   * No se audita: no sale ningún archivo, y ver en pantalla lo que el rol ya
+   * puede consultar no es una salida de datos.
+   */
+  async vistaPrevia(ctx: Contexto, f: FiltroInforme = {}, limite = 100): Promise<VistaPrevia> {
+    const filas = await this.consultar(ctx, f);
+    const r = resumirExportacion(filas);
+    return {
+      registros: r.registros,
+      ordenes: r.ordenes,
+      sinCerrar: r.sinCerrar,
+      filas: filas.slice(0, limite).map((x) => ({
+        fecha: x.fecha,
+        folio: x.folio ?? x.codigoReferencia ?? "",
+        estado: x.estado,
+        vehiculo: x.vehiculoCodigo ?? x.vehiculoPlaca ?? "",
+        posicion: x.posicion,
+        serial: x.serial,
+        marca: x.marca,
+        noIdentificada: x.noIdentificada,
+        profundidad: x.profundidad,
+        desSerial: x.desSerial,
+        servicios: [...x.servicios],
+      })),
     };
   }
 

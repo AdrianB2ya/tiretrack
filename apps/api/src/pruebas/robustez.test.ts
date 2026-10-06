@@ -172,6 +172,8 @@ describe.skipIf(!disponible)("robustez: ninguna entrada mala da 500", () => {
     for (const q of QUERIES_MALAS) {
       await probar("GET", `/sincronizacion?${q}`, { entrada: q });
       await probar("GET", `/informe/exportar?${q}`, { token: "tok-coordinador", entrada: q });
+      await probar("GET", `/informe/resumen?${q}`, { token: "tok-coordinador", entrada: q });
+      await probar("GET", `/informe/trazabilidad?${q}`, { token: "tok-coordinador", entrada: q });
       await probar("GET", `/flota/clientes?${q}`, { entrada: q });
     }
   }, 120_000);

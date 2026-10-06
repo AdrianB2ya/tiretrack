@@ -60,12 +60,12 @@ async function iniciar(apiUrl: string): Promise<Servicios> {
   return { db, sesion, motor, cliente, subidor };
 }
 
-/** Servicios que la pantalla de ingreso necesita antes de haber sesión. */
 /** Lo que hace falta fuera de la cola: ingreso, activación y administración en línea. */
 export interface ServiciosEnLinea {
   sesion: ServicioSesion;
   apiUrl: string;
   enLinea: ClienteHttp["enLinea"];
+  descargarTexto: ClienteHttp["descargarTexto"];
 }
 
 const ContextoServicios = createContext<ServiciosEnLinea | null>(null);
@@ -105,7 +105,7 @@ export function Arranque({ apiUrl, children }: { apiUrl: string; children: React
 
   return (
     <ContextoServicios.Provider
-      value={{ sesion: servicios.sesion, apiUrl, enLinea: servicios.cliente.enLinea.bind(servicios.cliente) }}
+      value={{ sesion: servicios.sesion, apiUrl, enLinea: servicios.cliente.enLinea.bind(servicios.cliente), descargarTexto: servicios.cliente.descargarTexto.bind(servicios.cliente) }}
     >
     <ProveedorSesion servicio={servicios.sesion}>
       <DatosDeLaSesion

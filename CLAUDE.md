@@ -261,8 +261,8 @@ Estado: `[x]` hecha · `[ ]` pendiente
 - [ ] 5.4 Auditoría
 
 ### Fase 6 · Informes
-- [ ] 6.1 Informe con filtros (servicio y ruta existen; no hay pantalla)
-- [ ] 6.2 Exportación (`GET /informe/exportar` existe; no hay pantalla)
+- [x] 6.1 Informe con filtros (ruta `informe`: vista previa y recorrido por serial)
+- [x] 6.2 Exportación (CSV a la hoja de compartir del sistema)
 - [ ] 6.3 PDF de la orden
 
 ### Fase 7 · Distribución
@@ -2641,13 +2641,67 @@ cambiar esa regla falla una prueba.
 Probado contra el servidor real: crear, versionar y descargar (la anterior
 llega con `vigente = false`).
 
+## Informe y exportación en la app (6.1, 6.2)
+
+Servidor: `GET /informe/resumen` (vista previa) y `GET /informe/trazabilidad`
+junto a la exportación que ya existía. App: `src/informe/` y ruta `informe`,
+desde el panel.
+
+### La exportación nunca quedaba en la auditoría
+
+La ruta abría la transacción como una consulta (`confirmar: false`), y la
+exportación **escribe** su constancia. El `ROLLBACK` la borraba: en la base
+real había **cero** registros de `exportar_informe` antes de esta tarea. Lo
+destapó la prueba nueva que cuenta filas de auditoría; ahora se confirma
+cuando la exportación sale bien.
+
+**Lección:** un helper "de solo lectura" que deshace siempre es correcto
+hasta que algo dentro escribe. Al pasar un servicio por una ruta de
+consulta, mirar si registra algo.
+
+### Primero se ve, después se exporta
+
+- La vista previa da **cuántas llantas y órdenes** salen, **cuántas sin
+  cerrar** (aviso de datos preliminares) y las primeras 100 filas. Un rango
+  mal puesto se descubre en pantalla, no en la hoja del cliente.
+- **No se audita**: no sale ningún archivo. Hay prueba de que no suma fila.
+- **Los mismos parámetros para las dos**: el servidor los lee con una sola
+  función (`filtroInforme`) y la app los arma con una sola (`aConsulta`).
+- **Si se cambia el filtro después de ver, no se exporta** hasta volver a
+  ver: se exportaría algo distinto de lo que está en pantalla. Al quitar esa
+  comprobación falla una prueba.
+- Con serial, muestra el **recorrido de la llanta** y cuánto se gastó.
+- Rangos de un toque (hoy, 7 días, este mes, mes anterior); las fechas se
+  validan con el contrato antes de gastar señal.
+
+### El BOM se pierde en el camino
+
+El servidor manda el CSV con BOM, pero **`Response.text()` lo quita** al
+decodificar —comprobado contra el servidor real—. Sin reponerlo, el archivo
+compartido desde el celular abre en Excel con "PosiciÃ³n". `conBOM()` lo
+repone; al quitarlo falla una prueba.
+
+El archivo se guarda en la caché y se abre la hoja de compartir del sistema
+(`expo-sharing` ~13.0, incluido en Expo Go 52). El `Share` de React Native no
+adjunta archivos en Android.
+
+### Ajustes en componentes base
+
+- **`Opcion`**: la opción elegible con "✓" y `aria-checked` estaba copiada en
+  cinco pantallas. Las nuevas usan la compartida; las viejas siguen con su
+  copia hasta que se toquen.
+- **`Tarjeta` sin `onPress` perdía el `testID`** en silencio.
+
+**Quién puede exportar** sigue siendo una decisión abierta: la app no la
+duplica; el botón está en el panel (coordinador y administrador).
+
 ## Punto de retoma (2026-10-05)
 
-**Estado:** el usuario prueba la app en el teléfono con Expo Go (SDK 52). Siguen informe con filtros y exportación en la app (6.1/6.2), PDF (6.3), programación recurrente (4.4), vista de auditoría (5.4) y guía de despliegue.
+**Estado:** el usuario prueba la app en el teléfono con Expo Go (SDK 52). Siguen PDF (6.3), programación recurrente (4.4), vista de auditoría (5.4) y guía de despliegue.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
-Firma, fotos, creación de órdenes, flota, usuarios, sedes y plantillas ya tienen pantalla.
+Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas e informe ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 843/843, mobile 800/800.
+**Verificado:** `npm run verify` con base: raíz 847/847, mobile 819/819.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):
@@ -2678,6 +2732,10 @@ cd apps/mobile && EXPO_PUBLIC_API_URL=http://<IP-LAN>:4000/api/v1 REACT_NATIVE_P
 
 **Pendiente de decisión:**
 
+- **Zona horaria del servidor**: "hoy" se calcula en UTC. Después de las
+  7 p. m. en Colombia el nombre del archivo exportado ya dice el día
+  siguiente. Puede afectar también plazos y recurrencias; falta decidir si va
+  una zona por empresa.
 - La descarga incremental compara contra el instante en que se arma el
   paquete: un cambio de una transacción que confirma justo después puede
   quedar fuera. Un margen de solape lo cubriría (el celular ya tolera

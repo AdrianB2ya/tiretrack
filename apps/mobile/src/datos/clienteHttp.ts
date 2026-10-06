@@ -105,6 +105,43 @@ export class ClienteHttp implements ClienteSincronizacion, ClienteDescarga {
     ruta: string,
     cuerpo?: unknown,
   ): Promise<{ ok: true; datos: T } | { ok: false; status: number; codigo: string | null; mensaje: string }> {
+    const r = await this.conSesion(metodo, ruta, cuerpo);
+    if (!("json" in r)) return r;
+    const j = (await r.json().catch(() => ({}))) as { error?: { codigo?: string; mensaje?: string } };
+    if (r.ok) return { ok: true, datos: j as T };
+    return { ok: false, status: r.status, codigo: j.error?.codigo ?? null, mensaje: j.error?.mensaje ?? "No se pudo completar" };
+  }
+
+  /**
+   * Un archivo de texto (el informe en CSV), con sus encabezados: cuántas
+   * órdenes iban sin cerrar viaja en uno, fuera de los datos.
+   */
+  async descargarTexto(
+    ruta: string,
+  ): Promise<
+    | { ok: true; texto: string; encabezado: (nombre: string) => string | null }
+    | { ok: false; status: number; codigo: string | null; mensaje: string }
+  > {
+    const r = await this.conSesion("GET", ruta);
+    if (!("json" in r)) return r;
+    if (!r.ok) {
+      const j = (await r.json().catch(() => ({}))) as { error?: { codigo?: string; mensaje?: string } };
+      return { ok: false, status: r.status, codigo: j.error?.codigo ?? null, mensaje: j.error?.mensaje ?? "No se pudo completar" };
+    }
+    try {
+      const texto = await r.text();
+      return { ok: true, texto, encabezado: (n) => r.headers?.get?.(n) ?? null };
+    } catch {
+      return { ok: false, status: 0, codigo: null, mensaje: "Se cortó la señal a mitad de la descarga" };
+    }
+  }
+
+  /** Petición con la sesión, renovándola UNA vez ante un 401. */
+  private async conSesion(
+    metodo: "GET" | "POST",
+    ruta: string,
+    cuerpo?: unknown,
+  ): Promise<Response | { ok: false; status: number; codigo: string | null; mensaje: string }> {
     const intentar = async (token: string) => {
       const control = new AbortController();
       const limite = setTimeout(() => control.abort(), this.config.tiempoLimiteMs ?? 30_000);
@@ -127,9 +164,7 @@ export class ClienteHttp implements ClienteSincronizacion, ClienteDescarga {
         token = await this.config.obtenerToken();
         if (token) r = await intentar(token);
       }
-      const j = (await r.json().catch(() => ({}))) as { error?: { codigo?: string; mensaje?: string } };
-      if (r.ok) return { ok: true, datos: j as T };
-      return { ok: false, status: r.status, codigo: j.error?.codigo ?? null, mensaje: j.error?.mensaje ?? "No se pudo completar" };
+      return r;
     } catch {
       // Sin respuesta: es la señal, no los datos.
       return { ok: false, status: 0, codigo: null, mensaje: "No hay señal. Esta acción necesita conexión" };

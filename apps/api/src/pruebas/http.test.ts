@@ -706,6 +706,44 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
       const r = await traer("/informe/exportar");
       expect(r.headers["x-ordenes-sin-cerrar"]).toBeDefined();
     });
+
+    it("la vista previa cuenta lo mismo que saldría en el archivo", async () => {
+      await conUnaMedicion();
+      await guardarMedicion(medicion(2, { profundidad: 7, serial: "MX2" }));
+      const r = await traer("/informe/resumen");
+      expect(r.statusCode).toBe(200);
+      const v = r.json();
+      expect(v).toMatchObject({ registros: 2, ordenes: 1, sinCerrar: 1 });
+      expect(v.filas.map((f: { posicion: number }) => f.posicion)).toEqual([1, 2]);
+      expect(v.filas[0]).toMatchObject({ serial: "MX1", profundidad: 9 });
+    });
+
+    it("la vista previa usa los mismos filtros que la exportación", async () => {
+      // Si leyeran los parámetros distinto, lo que se ve no sería lo que sale.
+      await conUnaMedicion();
+      const r = await traer(`/informe/resumen?ordenIds=${nuevoId()}`);
+      expect(r.json()).toMatchObject({ registros: 0, filas: [] });
+      expect((await traer("/informe/resumen?desde=2026-02-31")).statusCode).toBe(422);
+    });
+
+    it("la vista previa no queda en la auditoría: no sale ningún archivo", async () => {
+      await conUnaMedicion();
+      const antes = await pool.query(`SELECT count(*)::int AS n FROM "Auditoria"`);
+      await traer("/informe/resumen");
+      const despues = await pool.query(`SELECT count(*)::int AS n FROM "Auditoria"`);
+      expect(despues.rows[0].n).toBe(antes.rows[0].n);
+      await traer("/informe/exportar");
+      const exportado = await pool.query(`SELECT count(*)::int AS n FROM "Auditoria"`);
+      expect(exportado.rows[0].n).toBe(antes.rows[0].n + 1);
+    });
+
+    it("sigue una llanta por su serial", async () => {
+      await conUnaMedicion();
+      const r = await traer("/informe/trazabilidad?serial=mx1");
+      expect(r.statusCode).toBe(200);
+      expect(r.json().pasos).toEqual([expect.objectContaining({ posicion: 1, profundidad: 9 })]);
+      expect((await traer("/informe/trazabilidad")).statusCode).toBe(422);
+    });
   });
 
   describe("contexto de la transacción", () => {

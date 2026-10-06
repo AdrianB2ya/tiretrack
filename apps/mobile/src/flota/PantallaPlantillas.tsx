@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Aviso, Boton, Campo, Tarjeta, Vacio } from "../diseno/componentes";
-import { colores, conOpacidad, espacio, radio, tactil, texto } from "../diseno/tokens";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Aviso, Boton, Campo, Opcion, Tarjeta, Vacio } from "../diseno/componentes";
+import { colores, espacio, radio, texto } from "../diseno/tokens";
 import { DiagramaLlantas } from "../ordenes/DiagramaLlantas";
 import { construirDiagrama } from "../ordenes/diagrama";
 import type { PosicionEjeLocal } from "../datos/repositorio";
@@ -163,12 +163,12 @@ function Editor({ base, ejesIniciales, fuentes, onListo }: {
           </View>
           <View style={estilos.enLinea}>
             {TIPOS.map((t) => (
-              <Chip key={t.valor} activa={e.tipoEje === t.valor} etiqueta={t.etiqueta} onPress={() => cambiarEje(i, { tipoEje: t.valor })} />
+              <Opcion key={t.valor} activa={e.tipoEje === t.valor} etiqueta={t.etiqueta} onPress={() => cambiarEje(i, { tipoEje: t.valor })} />
             ))}
           </View>
           <View style={estilos.enLinea}>
-            <Chip activa={!e.dual} etiqueta="Sencilla (2 llantas)" onPress={() => cambiarEje(i, { dual: false })} />
-            <Chip activa={e.dual} etiqueta="Dual (4 llantas)" onPress={() => cambiarEje(i, { dual: true })} />
+            <Opcion activa={!e.dual} etiqueta="Sencilla (2 llantas)" onPress={() => cambiarEje(i, { dual: false })} />
+            <Opcion activa={e.dual} etiqueta="Dual (4 llantas)" onPress={() => cambiarEje(i, { dual: true })} />
           </View>
           <View style={estilos.enLinea}>
             <View style={estilos.mitad}>
@@ -204,23 +204,6 @@ function Editor({ base, ejesIniciales, fuentes, onListo }: {
   );
 }
 
-function Chip({ activa, etiqueta, onPress }: { activa: boolean; etiqueta: string; onPress: () => void }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      role="radio"
-      aria-checked={activa}
-      accessibilityLabel={etiqueta}
-      style={[estilos.chip, activa && estilos.chipActivo]}
-    >
-      <Text style={[estilos.textoChip, activa && estilos.textoActivo]}>
-        {activa ? "✓ " : ""}
-        {etiqueta}
-      </Text>
-    </Pressable>
-  );
-}
-
 const estilos = StyleSheet.create({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: espacio.lg, gap: espacio.md },
@@ -233,11 +216,4 @@ const estilos = StyleSheet.create({
   enLinea: { flexDirection: "row", flexWrap: "wrap", gap: espacio.sm },
   mitad: { flex: 1, minWidth: 140 },
   eje: { gap: espacio.sm, padding: espacio.md, borderRadius: radio.md, borderWidth: 1, borderColor: colores.borde, backgroundColor: colores.superficie },
-  chip: {
-    minHeight: tactil.minimo, justifyContent: "center", paddingHorizontal: espacio.md,
-    borderRadius: radio.md, borderWidth: 1, borderColor: colores.borde,
-  },
-  chipActivo: { borderColor: colores.primario, backgroundColor: conOpacidad(colores.primario, 0.12) },
-  textoChip: { ...texto.cuerpo, color: colores.texto },
-  textoActivo: { fontWeight: "700", color: colores.primario },
 });

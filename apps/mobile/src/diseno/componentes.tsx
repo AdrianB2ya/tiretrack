@@ -176,6 +176,7 @@ export interface TarjetaProps {
 export function Tarjeta({ children, onPress, acento, estilo, testID }: TarjetaProps) {
   const contenido = (
     <View
+      testID={onPress ? undefined : testID}
       style={[
         estilos.tarjeta,
         acento ? { borderLeftWidth: 4, borderLeftColor: acento } : null,
@@ -243,9 +244,50 @@ export function Vacio({ mensaje }: { mensaje: string }) {
   );
 }
 
+// ── Opción ──────────────────────────────────────────────────────────────────
+
+/**
+ * Una opción entre varias (tipo de eje, servicio, rango de fechas). La elegida
+ * lleva "✓" en el texto, no solo otro color, y se anuncia con `aria-checked`
+ * —`accessibilityState` se pierde en la presentación (tarea 3.4)—.
+ */
+export function Opcion({ activa, etiqueta, onPress, testID }: {
+  activa: boolean;
+  etiqueta: string;
+  onPress: () => void;
+  testID?: string;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      role="radio"
+      aria-checked={activa}
+      accessibilityLabel={etiqueta}
+      testID={testID}
+      style={({ pressed }) => [estilos.opcion, activa && estilos.opcionActiva, pressed && { opacity: 0.7 }]}
+    >
+      <Text style={[estilos.textoOpcion, activa && estilos.textoOpcionActiva]}>
+        {activa ? "✓ " : ""}
+        {etiqueta}
+      </Text>
+    </Pressable>
+  );
+}
+
 // ── Estilos ─────────────────────────────────────────────────────────────────
 
 const estilos = StyleSheet.create({
+  opcion: {
+    minHeight: tactil.minimo,
+    justifyContent: "center",
+    paddingHorizontal: espacio.md,
+    borderRadius: radio.md,
+    borderWidth: 1,
+    borderColor: colores.borde,
+  },
+  opcionActiva: { borderColor: colores.primario, backgroundColor: conOpacidad(colores.primario, 0.12) },
+  textoOpcion: { ...texto.cuerpo, color: colores.texto },
+  textoOpcionActiva: { fontWeight: "700", color: colores.primario },
   boton: {
     minHeight: tactil.comodo,
     paddingHorizontal: espacio.xl,
