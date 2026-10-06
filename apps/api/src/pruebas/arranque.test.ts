@@ -47,6 +47,32 @@ describe("configuración", () => {
     expect(p.join(" ")).toContain("S3_BUCKET");
   });
 
+  describe("almacenamiento de fotos", () => {
+    const disco = { DATABASE_URL: BASE.DATABASE_URL, DATABASE_URL_AUTH: BASE.DATABASE_URL_AUTH, JWT_SECRET: SECRETO, ALMACENAMIENTO: "disco" };
+
+    it("en disco no pide las llaves de R2, pero sí cómo ve el celular al servidor", () => {
+      expect(problemasDe({ ...disco, URL_PUBLICA: "http://192.168.40.7:4000" })).toEqual([]);
+      expect(problemasDe(disco).join(" ")).toContain("URL_PUBLICA");
+    });
+
+    it("con localhost se rechaza: desde el teléfono, localhost es el teléfono", () => {
+      expect(problemasDe({ ...disco, URL_PUBLICA: "http://localhost:4000" }).join(" ")).toMatch(/localhost/);
+    });
+
+    it("en producción el disco se rechaza", () => {
+      const p = problemasDe({ ...disco, URL_PUBLICA: "http://192.168.40.7:4000", NODE_ENV: "production" });
+      expect(p.join(" ")).toMatch(/solo para desarrollo/);
+    });
+
+    it("sus problemas salen junto con los demás, aunque otra variable falle", () => {
+      // Los refinamientos de zod no corren si el esquema ya falló: estos
+      // aparecerían recién en un segundo despliegue.
+      const p = problemasDe({ ALMACENAMIENTO: "disco", NODE_ENV: "production" });
+      expect(p.join(" ")).toContain("DATABASE_URL");
+      expect(p.join(" ")).toMatch(/solo para desarrollo/);
+    });
+  });
+
   it("rechaza un secreto corto", () => {
     // Con el secreto se falsifican tokens de cualquier empresa: es la llave
     // del aislamiento entre clientes.

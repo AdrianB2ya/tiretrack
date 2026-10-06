@@ -2909,19 +2909,51 @@ llegaba a una lista y no tenía cómo moverse.
   propia lista (`refreshControl`, también cuando está vacía). Una prueba
   revisa que ninguna pantalla meta una lista virtualizada en un ScrollView.
 
+## Fotos en el disco para probar en local (2026-10-06)
+
+Sin cuenta de R2 las fotos quedaban en el teléfono como "no se pudo
+enviar": el almacenamiento tenía valores de relleno. Para no instalar MinIO
+(otro proceso y más memoria en el equipo del usuario) hay un almacenamiento
+**solo de desarrollo** en el disco del servidor:
+`apps/api/src/fotos/almacenamientoDisco.ts`.
+
+- **Imita a R2 en lo que la app ve**: URL firmada (HMAC) que vence en los
+  mismos minutos, `PUT` con su tipo, y **403** si venció o se alteró —que el
+  celular ya interpreta como "pide otra"—. Lo que se prueba en local es el
+  mismo camino que en producción, incluida la confirmación contra el
+  almacenamiento.
+- Solo acepta **el tipo y el tamaño firmados**, y **no escribe fuera de su
+  carpeta** aunque la firma fuera válida para una ruta con `..`.
+- Las rutas `/archivos-locales/*` van en su propio ámbito de Fastify (aceptan
+  bytes crudos sin tocar las rutas JSON) y **solo se montan con
+  `ALMACENAMIENTO=disco`**.
+- **Configuración**: `ALMACENAMIENTO=r2|disco`, `URL_PUBLICA` (como el
+  TELÉFONO ve el equipo; `localhost` se rechaza), `ALMACENAMIENTO_CARPETA`.
+  **En producción "disco" se rechaza.** Las llaves de R2 solo se exigen con
+  "r2". Estas comprobaciones corren aparte del esquema: los refinamientos de
+  zod no se ejecutan si otra variable ya falló, y aparecerían recién en un
+  segundo despliegue (lo detectó la prueba "todos los problemas juntos").
+- Probado contra el servidor real: adjuntar devuelve la URL con la IP de la
+  red, la subida responde 200 y la confirmación verifica que el archivo está.
+
+Las fotos que el teléfono ya tenía pendientes llevan la URL de relleno; al
+vencer (10 minutos) el celular pide otra y sale por el disco.
+
 ## Punto de retoma (2026-10-05)
 
 **Estado:** el usuario prueba la app en el teléfono con Expo Go (SDK 52). Siguen PDF (6.3), vista de auditoría (5.4) y guía de despliegue.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 886/886, mobile 848/848.
+**Verificado:** `npm run verify` con base: raíz 896/896, mobile 848/848.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):
 
 - `apps/api/.env`: roles `tiretrack_app` / `tiretrack_auth` con LOGIN y
-  clave local, `DIRECT_URL` con el dueño `tiretrack`/`test`.
+  clave local, `DIRECT_URL` con el dueño `tiretrack`/`test`,
+  `ALMACENAMIENTO=disco` y `URL_PUBLICA=http://<IP-LAN>:4000` (si cambia la IP
+  del equipo, hay que cambiarla aquí y en Metro).
 - Base de pruebas: `postgresql://tiretrack:test@localhost:5432/tiretrack_test`.
 - Usuarios por rol y datos de prueba: scripts `usuarios-prueba.mjs` y
   `datos-prueba.mjs` en el directorio temporal de la sesión (no en el repo).

@@ -58,11 +58,21 @@ const esquema = z.object({
 
   JWT_SECRET: zSecreto,
 
+  /**
+   * Dónde van las fotos. "r2" (Cloudflare R2, S3-compatible) en producción;
+   * "disco" solo para probar en una red local sin cuenta de R2.
+   */
+  ALMACENAMIENTO: z.enum(["r2", "disco"]).default("r2"),
+  ALMACENAMIENTO_CARPETA: z.string().min(1).default("./archivos-locales"),
+  /** Cómo ve el celular al servidor (http://192.168.x.x:4000). Exigida con "disco". */
+  URL_PUBLICA: z.string().url().optional(),
+
+  // Exigidas solo con "r2": se comprueban abajo, todas juntas.
   S3_ENDPOINT: z.string().url().optional(),
   S3_REGION: z.string().min(1).default("auto"),
-  S3_BUCKET: z.string().min(1),
-  S3_ACCESS_KEY_ID: z.string().min(1),
-  S3_SECRET_ACCESS_KEY: z.string().min(1),
+  S3_BUCKET: z.string().optional(),
+  S3_ACCESS_KEY_ID: z.string().optional(),
+  S3_SECRET_ACCESS_KEY: z.string().optional(),
 
   /**
    * Minutos entre vueltas del cierre tácito y las órdenes recurrentes. 0 los
@@ -87,12 +97,38 @@ export class ErrorDeConfiguracion extends Error {
 /** Acepta cualquier mapa de variables: así las pruebas no fuerzan tipos. */
 export type Entorno = Record<string, string | undefined>;
 
+/**
+ * Lo que depende de qué almacenamiento se eligió. Va aparte del esquema y
+ * corre SIEMPRE: los refinamientos de zod no se ejecutan si otra variable ya
+ * falló, y entonces estos problemas aparecerían en un segundo despliegue.
+ */
+function problemasDeAlmacenamiento(e: Entorno): string[] {
+  const p: string[] = [];
+  const tipo = e["ALMACENAMIENTO"] ?? "r2";
+  if (tipo === "r2") {
+    for (const v of ["S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY"]) {
+      if (!e[v]) p.push(`${v}: requerida con ALMACENAMIENTO=r2`);
+    }
+  } else if (tipo === "disco") {
+    // El disco es para probar en local: en producción el archivo pasaría por
+    // la API (lo que R2 evita) y viviría en un disco sin copia.
+    if (e["NODE_ENV"] === "production") p.push('ALMACENAMIENTO: "disco" es solo para desarrollo; en producción usa "r2"');
+    const url = e["URL_PUBLICA"];
+    if (!url) p.push("URL_PUBLICA: requerida con ALMACENAMIENTO=disco (cómo ve el celular al servidor)");
+    // Desde el teléfono, localhost es el teléfono: la foto nunca llegaría.
+    else if (/localhost|127\.0\.0\.1/.test(url)) p.push("URL_PUBLICA: no puede ser localhost; usa la IP de este equipo en la red local");
+  }
+  return p;
+}
+
 export function leerConfig(entorno: Entorno = process.env): Config {
   const r = esquema.safeParse(entorno);
-  if (!r.success) {
-    throw new ErrorDeConfiguracion(
-      r.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`),
-    );
+  const delAlmacenamiento = problemasDeAlmacenamiento(entorno);
+  if (!r.success || delAlmacenamiento.length > 0) {
+    throw new ErrorDeConfiguracion([
+      ...(r.success ? [] : r.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`)),
+      ...delAlmacenamiento,
+    ]);
   }
 
   const problemas: string[] = [];

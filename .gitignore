@@ -10,3 +10,6 @@ coverage/
 android/
 ios/
 *.log
+
+# Fotos de las pruebas locales (ALMACENAMIENTO=disco)
+archivos-locales/

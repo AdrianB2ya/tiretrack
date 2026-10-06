@@ -3,7 +3,8 @@ import { leerConfig, ErrorDeConfiguracion, type Config } from "./config";
 import { construirServidor } from "./http/servidor";
 import { ServicioAuth } from "./acceso/servicio";
 import { RepositorioPg } from "./acceso/repositorio";
-import { AlmacenamientoS3 } from "./fotos/almacenamiento";
+import { AlmacenamientoS3, type Almacenamiento } from "./fotos/almacenamiento";
+import { AlmacenamientoDisco, montarArchivosLocales } from "./fotos/almacenamientoDisco";
 import { configurarUtc, OPCIONES_SESION_UTC } from "./db/utc";
 import { iniciarTrabajos } from "./trabajos/planificador";
 
@@ -41,19 +42,37 @@ export async function arrancar(config: Config): Promise<Servicios> {
 
   const auth = new ServicioAuth(new RepositorioPg(poolAuth), { jwtSecret: config.JWT_SECRET });
 
+  // En disco solo para desarrollo (la configuración lo impide en producción).
+  const disco =
+    config.ALMACENAMIENTO === "disco"
+      ? new AlmacenamientoDisco({
+          carpeta: config.ALMACENAMIENTO_CARPETA,
+          urlBase: config.URL_PUBLICA as string,
+          // Clave propia, derivada: la del JWT no se usa tal cual para otra cosa.
+          secreto: `${config.JWT_SECRET}:archivos-locales`,
+        })
+      : null;
+  const almacen: Almacenamiento =
+    disco ??
+    new AlmacenamientoS3({
+      ...(config.S3_ENDPOINT ? { endpoint: config.S3_ENDPOINT } : {}),
+      region: config.S3_REGION,
+      bucket: config.S3_BUCKET as string,
+      accessKeyId: config.S3_ACCESS_KEY_ID as string,
+      secretAccessKey: config.S3_SECRET_ACCESS_KEY as string,
+    });
+
   const app = construirServidor({
     pool,
     auth,
     verificarToken: (t) => auth.verificarToken(t),
-    almacen: new AlmacenamientoS3({
-      ...(config.S3_ENDPOINT ? { endpoint: config.S3_ENDPOINT } : {}),
-      region: config.S3_REGION,
-      bucket: config.S3_BUCKET,
-      accessKeyId: config.S3_ACCESS_KEY_ID,
-      secretAccessKey: config.S3_SECRET_ACCESS_KEY,
-    }),
+    almacen,
     registro: config.NODE_ENV !== "test",
   });
+  if (disco) {
+    await montarArchivosLocales(app, disco);
+    app.log.warn(`Fotos en el disco (${config.ALMACENAMIENTO_CARPETA}): solo para pruebas locales`);
+  }
 
   // Vive el proceso. No consulta la base a propósito.
   app.get("/salud", async () => ({ estado: "vivo" }));
