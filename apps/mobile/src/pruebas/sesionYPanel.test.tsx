@@ -55,8 +55,10 @@ describe("destino inicial según el rol", () => {
     expect(destinoInicial(null)).toBe("/ingresar");
   });
 
-  it("el cliente no usa la app de campo", () => {
-    expect(destinoInicial(usuario("cliente"))).toBe("/ingresar");
+  it("el cliente entra a su portal, no de vuelta al ingreso", () => {
+    // Decisión del usuario: el portal va en la misma app. Antes se lo
+    // devolvía al ingreso sin ninguna explicación.
+    expect(destinoInicial(usuario("cliente"))).toBe("/cliente");
   });
 });
 

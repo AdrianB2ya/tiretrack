@@ -112,6 +112,8 @@ export interface ProveedorDatosProps {
    * salía del celular.
    */
   subidor?: { subirPendientes(): Promise<unknown> };
+  /** El cliente guarda sus órdenes cerradas: son su historial. */
+  conservarCerradas?: boolean;
   /**
    * Quién tiene la sesión. Al cambiar, la lista se recarga: al cerrar sesión
    * la base ya se vació, pero las órdenes seguían en memoria y el siguiente
@@ -130,9 +132,10 @@ export function ProveedorDatos({
   intervaloSincronizacionMs = 60_000,
   usuarioId,
   subidor,
+  conservarCerradas = false,
 }: ProveedorDatosProps) {
   const repo = useMemo(() => new RepositorioLocal(db), [db]);
-  const descargador = useMemo(() => new Descargador(repo), [repo]);
+  const descargador = useMemo(() => new Descargador(repo, { conservarCerradas }), [repo, conservarCerradas]);
 
   const [cargando, setCargando] = useState(true);
   const [ordenes, setOrdenes] = useState<OrdenParaLista[]>([]);

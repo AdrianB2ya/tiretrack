@@ -8,6 +8,7 @@ import { useUsuario } from "../../../src/app/ProveedorSesion";
 import { accionesDisponibles, requisitosParaEnviar, resumirFirma } from "../../../src/ordenes/detalle";
 import { siguienteSinCapturar } from "../../../src/ordenes/diagrama";
 import { FotosDe } from "../../../src/fotos/FotosDe";
+import { DecisionCliente } from "../../../src/cliente/DecisionCliente";
 import { camaraDelDispositivo, manipuladorDelDispositivo } from "../../../src/fotos/captura";
 import { estaAbierta, MAXIMO_POR_ORDEN, puedeAprobar, type EstadoOrden } from "@tiretrack/domain";
 import { colores, espacio, estadosOrden, texto } from "../../../src/diseno/tokens";
@@ -21,10 +22,23 @@ import { colores, espacio, estadosOrden, texto } from "../../../src/diseno/token
 export default function PantallaDetalle() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { cargarOrden, ordenes, fotosSinSubir, fotosDe, adjuntarFoto } = useDatos();
+  const { cargarOrden, ordenes, fotosSinSubir, fotosDe, adjuntarFoto, cambiarEstado } = useDatos();
+
+  // Aprobar cierra la orden; objetar la devuelve al técnico con el motivo.
+  const decidirCliente = async (estado: "cerrada" | "en_proceso", motivo?: string) => {
+    if (!id) return;
+    setDecidiendo(true);
+    try {
+      await cambiarEstado(id, estado, motivo);
+      router.replace("/cliente" as never);
+    } finally {
+      setDecidiendo(false);
+    }
+  };
   const usuario = useUsuario();
   const [datos, setDatos] = useState<DatosOrden | null>(null);
   const [sinSubir, setSinSubir] = useState(0);
+  const [decidiendo, setDecidiendo] = useState(false);
 
   const recargar = useCallback(async () => {
     if (!id) return;
@@ -73,6 +87,7 @@ export default function PantallaDetalle() {
   // El coordinador no captura: decide. Sin estos accesos no podía aprobar,
   // devolver ni reasignar desde la app.
   const gestor = puedeAprobar(usuario.rol);
+  const esCliente = usuario.rol === "cliente";
   const abierta = estaAbierta(orden.estado as EstadoOrden);
 
   return (
@@ -100,7 +115,8 @@ export default function PantallaDetalle() {
       <ResumenDiagrama diagrama={diagrama} />
       <DiagramaLlantas
         diagrama={diagrama}
-        onTocarPosicion={(n) => router.push(`/orden/${orden.id}/posicion/${n}` as never)}
+        // El cliente consulta; no abre el editor de una posición.
+        onTocarPosicion={(n) => !esCliente && router.push(`/orden/${orden.id}/posicion/${n}` as never)}
       />
 
       {/* Fotos de la orden en general (placa, odómetro, estado del vehículo);
@@ -113,6 +129,26 @@ export default function PantallaDetalle() {
         deshabilitada={!capturar?.habilitada}
       />
 
+      {esCliente ? (
+        <View style={estilos.requisitos}>
+          {orden.kilometraje !== null ? <Text style={estilos.cliente}>Kilometraje: {orden.kilometraje.toLocaleString("es-CO")}</Text> : null}
+          {orden.hallazgos ? <Text style={estilos.cliente}>Hallazgos: {orden.hallazgos}</Text> : null}
+          {orden.accion ? <Text style={estilos.cliente}>Acción: {orden.accion}</Text> : null}
+          {orden.firmaNombre ? <Text style={estilos.cliente}>Recibió: {orden.firmaNombre}</Text> : null}
+        </View>
+      ) : null}
+      {esCliente && orden.estado === "pendiente_cliente" ? (
+        <DecisionCliente
+          limiteCliente={orden.limiteCliente}
+          hoy={new Date().toISOString().slice(0, 10)}
+          procesando={decidiendo}
+          onAprobar={() => void decidirCliente("cerrada")}
+          onObjetar={(motivo) => void decidirCliente("en_proceso", motivo)}
+        />
+      ) : null}
+
+      {!esCliente ? (
+      <>
       <View style={estilos.requisitos}>
         {requisitosParaEnviar(detalle).map((r) => (
           <Text key={r.clave} style={[estilos.requisito, r.cumplido && estilos.cumplido]}>
@@ -167,6 +203,8 @@ export default function PantallaDetalle() {
       >
         Revisar y enviar
       </Boton>
+      </>
+      ) : null}
 
       {gestor && orden.estado === "en_revision" ? (
         <Boton ancho testID="decidir" onPress={() => router.push(`/orden/${orden.id}/decidir` as never)}>

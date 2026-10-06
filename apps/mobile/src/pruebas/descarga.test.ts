@@ -377,3 +377,12 @@ describe("flota creada en campo", () => {
     expect(cfgs[0]?.posiciones).toBeGreaterThan(0);
   });
 });
+
+describe("historial del cliente", () => {
+  it("con conservarCerradas, las cerradas se guardan; sin él, se quitan", async () => {
+    const { Descargador } = await import("../datos/descarga");
+    const cerrada = unPaquete({ ordenes: [unaOrden({ estado: "cerrada" })] });
+    await new Descargador(repo, { conservarCerradas: true }).descargar(servidorCon(cerrada));
+    expect((await repo.buscarOrden("ord-1"))?.estado).toBe("cerrada");
+  });
+});

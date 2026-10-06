@@ -180,6 +180,8 @@ export interface OrdenDescargada {
   codigoReferencia: string | null; accion: string | null;
   firmaNombre: string | null; firmaCedula: string | null; firmaCargo: string | null;
   firmaVersion: number | null; firmaFechaHora: string | null;
+  /** Opcionales: un servidor anterior no los manda. */
+  limiteCliente?: string | null; enviadaRevisionEn?: string | null; tecnicoNombre?: string | null;
 }
 
 /** Quita lo vacío: el contrato espera ausencia, no null ni "" (tarea 5.1). */
@@ -1175,8 +1177,9 @@ export class RepositorioLocal {
           tecnico_id, configuracion_eje_id, tipo, prioridad, estado, fecha,
           kilometraje, hallazgos, accion, motivo_devolucion, nota_coordinador,
           firma_nombre, firma_cedula, firma_cargo, firma_version, firma_fecha_hora,
+          limite_cliente, enviada_revision_en, tecnico_nombre,
           version, version_contenido, sincronizada, actualizada_en)
-       VALUES (?,?,?,?,?,?,?,?,?,?,'normal',?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?)
+       VALUES (?,?,?,?,?,?,?,?,?,?,'normal',?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?)
        ON CONFLICT (id) DO UPDATE SET
          folio = excluded.folio,
          codigo_referencia = coalesce(excluded.codigo_referencia, orden.codigo_referencia),
@@ -1192,6 +1195,9 @@ export class RepositorioLocal {
          firma_nombre = excluded.firma_nombre, firma_cedula = excluded.firma_cedula,
          firma_cargo = excluded.firma_cargo, firma_version = excluded.firma_version,
          firma_fecha_hora = excluded.firma_fecha_hora,
+         limite_cliente = excluded.limite_cliente,
+         enviada_revision_en = coalesce(excluded.enviada_revision_en, orden.enviada_revision_en),
+         tecnico_nombre = coalesce(excluded.tecnico_nombre, orden.tecnico_nombre),
          version = excluded.version, version_contenido = excluded.version_contenido,
          sincronizada = 1, actualizada_en = excluded.actualizada_en`,
       [
@@ -1199,6 +1205,7 @@ export class RepositorioLocal {
         o.tecnicoId, o.configuracionEjeId, o.tipo, o.estado, o.fecha,
         o.kilometraje, o.hallazgos, o.accion, o.motivoDevolucion, o.notaCoordinador,
         o.firmaNombre, o.firmaCedula, o.firmaCargo, o.firmaVersion, o.firmaFechaHora,
+        o.limiteCliente ?? null, o.enviadaRevisionEn ?? null, o.tecnicoNombre ?? null,
         o.version, o.versionContenido, this.ahora(),
       ],
     );

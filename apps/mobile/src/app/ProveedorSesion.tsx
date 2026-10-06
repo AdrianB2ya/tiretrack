@@ -96,7 +96,7 @@ export function useUsuario(): UsuarioSesion {
   return usuario;
 }
 
-export type Destino = "/ingresar" | "/ordenes" | "/revision" | "/panel";
+export type Destino = "/ingresar" | "/ordenes" | "/revision" | "/panel" | "/cliente";
 
 /**
  * Pantalla de inicio según el rol.
@@ -112,9 +112,9 @@ export function destinoInicial(usuario: UsuarioSesion | null): Destino {
     coordinador: "/panel",
     administrador: "/panel",
     superadmin: "/panel",
-    // El cliente no usa la app de campo; si llega aquí, se lo manda a
-    // ingresar para que la pantalla le explique dónde está su portal.
-    cliente: "/ingresar",
+    // Su portal, dentro de la misma app (decisión del usuario). Antes se lo
+    // devolvía al ingreso sin ninguna explicación.
+    cliente: "/cliente",
   };
   return porRol[usuario.rol] ?? "/ingresar";
 }

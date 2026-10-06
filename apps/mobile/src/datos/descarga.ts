@@ -68,7 +68,14 @@ const ESTADOS_CERRADOS = new Set(["cerrada", "anulada"]);
 export class Descargador {
   private corriendo = false;
 
-  constructor(private readonly repo: RepositorioLocal) {}
+  constructor(
+    private readonly repo: RepositorioLocal,
+    /**
+     * El cliente consulta su historial: sus órdenes cerradas se guardan en vez
+     * de quitarse. Para el técnico se quitan, para no llenarle la lista.
+     */
+    private readonly opciones: { conservarCerradas?: boolean } = {},
+  ) {}
 
   get ocupado(): boolean {
     return this.corriendo;
@@ -124,7 +131,7 @@ export class Descargador {
           continue;
         }
 
-        if (ESTADOS_CERRADOS.has(orden.estado)) {
+        if (ESTADOS_CERRADOS.has(orden.estado) && !this.opciones.conservarCerradas) {
           // Ya no se puede trabajar: se quita para no llenar la lista. Como
           // está sincronizada, no se pierde nada.
           if (local) {
@@ -140,7 +147,9 @@ export class Descargador {
       }
 
       const ordenesGuardadas = new Set(
-        paquete.ordenes.filter((o) => !ESTADOS_CERRADOS.has(o.estado)).map((o) => o.id),
+        paquete.ordenes
+          .filter((o) => this.opciones.conservarCerradas || !ESTADOS_CERRADOS.has(o.estado))
+          .map((o) => o.id),
       );
       await this.repo.guardarMedicionesDescargadas(
         paquete.mediciones.filter((m) => ordenesGuardadas.has(m.ordenId)),

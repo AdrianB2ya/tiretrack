@@ -24,6 +24,8 @@ export interface Contexto {
   readonly empresaId: string;
   readonly rol: Rol;
   readonly usuarioId: string;
+  /** Solo para el rol cliente: de qué cliente es. */
+  readonly clienteId?: string | null;
 }
 
 export interface Paquete {
@@ -89,6 +91,14 @@ export interface OrdenDescargada {
   readonly firmaCargo: string | null;
   readonly firmaVersion: number | null;
   readonly firmaFechaHora: string | null;
+  /**
+   * Para la bandeja y el portal. No viajaban: el plazo del cliente nunca
+   * llegaba al celular (ni el aviso de "vencen pronto" del panel), y en el
+   * celular de un coordinador los días de espera y el técnico salían vacíos.
+   */
+  readonly limiteCliente: string | null;
+  readonly enviadaRevisionEn: string | null;
+  readonly tecnicoNombre: string | null;
 }
 
 export interface MedicionDescargada {
@@ -145,7 +155,15 @@ export class ServicioDescarga {
     const condiciones: string[] = [];
     const params: unknown[] = [];
 
-    if (ctx.rol === "tecnico") {
+    const esCliente = ctx.rol === "cliente";
+    if (esCliente) {
+      // El cliente ve sus órdenes —RLS ya lo limita a su clienteId— y solo lo
+      // que le toca: lo que espera su aprobación y lo cerrado. Antes se le
+      // buscaban sedes de empresa, que no tiene, y recibía cero órdenes.
+      params.push(ctx.clienteId);
+      condiciones.push(`o."clienteId" = $${params.length}`);
+      condiciones.push(`o.estado::text = ANY($${params.push(["pendiente_cliente", "cerrada"])}::text[])`);
+    } else if (ctx.rol === "tecnico") {
       params.push(ctx.usuarioId);
       condiciones.push(`o.tecnico_id = $${params.length}`);
     } else {
@@ -158,8 +176,9 @@ export class ServicioDescarga {
     if (desde) {
       params.push(desde);
       condiciones.push(`o."actualizadoEn" > $${params.length}`);
-    } else {
-      // Primera descarga: solo lo que todavía se puede trabajar.
+    } else if (!esCliente) {
+      // Primera descarga: solo lo que todavía se puede trabajar. El cliente
+      // sí recibe sus cerradas: son su historial.
       // `estado` es un tipo enumerado: comparar contra texto sin convertir
       // falla en PostgreSQL con "operator does not exist".
       condiciones.push(`o.estado::text <> ALL($${params.push(ESTADOS_CERRADOS)}::text[])`);
@@ -171,7 +190,12 @@ export class ServicioDescarga {
               o.fecha, o.kilometraje, o.hallazgos, o."motivoDevolucion",
               o."notaCoordinador", o.version, o."versionContenido",
               o."codigoReferencia", o.accion, o."firmaNombre", o."firmaCedula", o."firmaCargo",
-              o."firmaVersion", o."firmaFechaHora"
+              o."firmaVersion", o."firmaFechaHora",
+              to_char(o."limiteCliente", 'YYYY-MM-DD') AS "limiteCliente",
+              -- El servidor no guarda cuándo entró a revisión: sale del historial.
+              (SELECT max(h."creadoEn") FROM "OrdenEstadoHistorial" h
+                WHERE h."ordenId" = o.id AND h."estadoNuevo"::text = 'en_revision') AS "enviadaRevisionEn",
+              coalesce(o."tecnicoNombre", (SELECT u.nombre FROM "Usuario" u WHERE u.id = o.tecnico_id)) AS "tecnicoNombre"
          FROM "OrdenServicio" o
         WHERE ${condiciones.join(" AND ")}
         ORDER BY o.fecha DESC
@@ -193,8 +217,10 @@ export class ServicioDescarga {
       fecha: fechaISO(f["fecha"]),
       kilometraje: f["kilometraje"] === null ? null : Number(f["kilometraje"]),
       hallazgos: (f["hallazgos"] as string) ?? null,
-      motivoDevolucion: (f["motivoDevolucion"] as string) ?? null,
-      notaCoordinador: (f["notaCoordinador"] as string) ?? null,
+      // Internos entre coordinador y técnico: el cliente no los ve (CLAUDE.md,
+      // aislamiento). Viajaban en la descarga sin filtrar.
+      motivoDevolucion: esCliente ? null : ((f["motivoDevolucion"] as string) ?? null),
+      notaCoordinador: esCliente ? null : ((f["notaCoordinador"] as string) ?? null),
       version: Number(f["version"]),
       versionContenido: Number(f["versionContenido"]),
       codigoReferencia: (f["codigoReferencia"] as string) ?? null,
@@ -204,6 +230,9 @@ export class ServicioDescarga {
       firmaCargo: (f["firmaCargo"] as string) ?? null,
       firmaVersion: f["firmaVersion"] === null ? null : Number(f["firmaVersion"]),
       firmaFechaHora: f["firmaFechaHora"] instanceof Date ? f["firmaFechaHora"].toISOString() : null,
+      limiteCliente: (f["limiteCliente"] as string) ?? null,
+      enviadaRevisionEn: f["enviadaRevisionEn"] instanceof Date ? f["enviadaRevisionEn"].toISOString() : null,
+      tecnicoNombre: (f["tecnicoNombre"] as string) ?? null,
     }));
   }
 

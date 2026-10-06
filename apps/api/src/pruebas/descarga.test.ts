@@ -110,6 +110,33 @@ describe.skipIf(!disponible)("descarga", () => {
     }
   });
 
+  it("el cliente recibe solo lo suyo que le toca, sin las notas internas", async () => {
+    // Antes se le buscaban sedes de empresa —no tiene— y recibía cero
+    // órdenes; y el motivo de devolución viajaba sin filtrar.
+    const orden = (id: string, estado: string) =>
+      pool.query(
+        `INSERT INTO "OrdenServicio"
+           (id,"empresaId","sedeId","clienteId","sedeClienteId","vehiculoId",tecnico_id,
+            "configuracionEjeId",tipo,estado,fecha,"creadoPorId","motivoDevolucion","notaCoordinador")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'preventivo',$9::"EstadoOrden",'2026-09-21',$7,'Mide de nuevo la 3','Llevar compresor')`,
+        [id, SEMILLA.empresa, SEMILLA.sede, SEMILLA.cliente, SEMILLA.sedeCliente,
+         SEMILLA.vehiculo, SEMILLA.tecnico, SEMILLA.configuracion, estado],
+      );
+    await orden("11111111-1111-4111-8111-0000000000d1", "pendiente_cliente");
+    await orden("11111111-1111-4111-8111-0000000000d2", "cerrada");
+    await orden("11111111-1111-4111-8111-0000000000d3", "en_proceso");
+    const cliente = await pool.connect();
+    try {
+      const p = await new ServicioDescarga(cliente, () => new Date()).paquete({
+        empresaId: SEMILLA.empresa, rol: "cliente", usuarioId: "u-cli", clienteId: SEMILLA.cliente,
+      });
+      expect(p.ordenes.map((o) => o.estado).sort()).toEqual(["cerrada", "pendiente_cliente"]);
+      expect(p.ordenes.every((o) => o.motivoDevolucion === null && o.notaCoordinador === null)).toBe(true);
+    } finally {
+      cliente.release();
+    }
+  });
+
   it("arma el paquete sin consultas simultáneas sobre la misma conexión", async () => {
     const cliente = await pool.connect();
     try {

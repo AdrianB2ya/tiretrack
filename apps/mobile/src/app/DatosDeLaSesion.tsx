@@ -7,7 +7,13 @@ import { ProveedorDatos, type ProveedorDatosProps } from "./ProveedorDatos";
  * Mientras la sesión se restaura no se informa usuario: así no se dispara una
  * recarga por el paso de "cargando" a "sin sesión".
  */
-export function DatosDeLaSesion(props: Omit<ProveedorDatosProps, "usuarioId">) {
+export function DatosDeLaSesion(props: Omit<ProveedorDatosProps, "usuarioId" | "conservarCerradas">) {
   const { cargando, usuario } = useSesion();
-  return <ProveedorDatos {...props} usuarioId={cargando ? undefined : (usuario?.id ?? null)} />;
+  return (
+    <ProveedorDatos
+      {...props}
+      usuarioId={cargando ? undefined : (usuario?.id ?? null)}
+      conservarCerradas={usuario?.rol === "cliente"}
+    />
+  );
 }

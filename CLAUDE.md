@@ -255,7 +255,7 @@ Estado: `[x]` hecha · `[ ]` pendiente
 > y la descarga, que no estaban en el plan original.
 
 ### Fase 5 · Cliente y administración
-- [ ] 5.1 Portal del cliente
+- [x] 5.1 Portal del cliente (dentro de la app, ruta `cliente`)
 - [ ] 5.2 Usuarios y sedes
 - [x] 5.3 Clientes, sedes y vehículos (ruta `flota`). Plantillas de ejes: pendiente
 - [ ] 5.4 Auditoría
@@ -2524,6 +2524,33 @@ el servidor).
   El servidor tiene la regla (`nuevaVersion`) pero no la ruta, y falta el
   editor de ejes.
 
+## Portal del cliente (5.1)
+
+Dentro de la misma app (decisión del usuario). `src/cliente/`; ruta
+`app/cliente.tsx`. El cliente entra a su portal; antes la app lo devolvía al
+ingreso sin explicación.
+
+- Primero **lo que espera su aprobación, con el plazo a la vista** (lo que
+  vence antes, arriba): si no responde, se cierra sola como cierre tácito.
+- En el detalle: resumen del servicio y **aprobar** u **objetar con motivo**
+  (mínimo 10 caracteres; la orden vuelve al técnico). Sin los botones del
+  técnico ni del coordinador, y el diagrama no abre el editor.
+
+Lo que destapó:
+
+- **El cliente recibía cero órdenes**: la descarga le buscaba sedes de
+  empresa, que no tiene. Ahora recibe las suyas en `pendiente_cliente` y
+  `cerrada`.
+- **El motivo de devolución y la nota del coordinador viajaban al
+  cliente** sin filtrar; CLAUDE.md dice que no ve el historial interno. Ahora
+  van vacíos para él (verificado con mutación).
+- **El plazo del cliente nunca llegaba al celular**, ni los días en revisión
+  ni el técnico: el panel no podía mostrar "vencen pronto" y la bandeja de
+  un coordinador salía sin datos. Ahora viajan (el envío a revisión sale del
+  historial de estados).
+- **La descarga quita las cerradas**: el historial del cliente quedaba vacío.
+  Opción `conservarCerradas`, activa solo para el rol cliente.
+
 ## Punto de retoma (2026-10-05)
 
 **Estado:** el usuario prueba la app en el teléfono con Expo Go (SDK 52).
@@ -2565,8 +2592,6 @@ cd apps/mobile && EXPO_PUBLIC_API_URL=http://<IP-LAN>:4000/api/v1 REACT_NATIVE_P
   paquete: un cambio de una transacción que confirma justo después puede
   quedar fuera. Un margen de solape lo cubriría (el celular ya tolera
   repetidos).
-- El cliente no tiene pantalla: la app lo devuelve al ingreso sin
-  explicación, y el portal (5.1) no existe.
 
 **Inestabilidad sin cerrar:** en una de 14 corridas completas bajo carga
 fuerte, `aislamiento` y `rol-acceso` fallaron juntas al preparar. No se
