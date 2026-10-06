@@ -105,6 +105,27 @@ describe("pantallas construidas y conectadas", () => {
   });
 });
 
+describe("listas", () => {
+  it("una pantalla con lista virtualizada no la mete dentro de un ScrollView", () => {
+    // En el teléfono salía "VirtualizedLists should never be nested inside
+    // plain ScrollViews": la lista de órdenes estaba envuelta en un
+    // ScrollView para "tirar para actualizar". El refresco va en la lista.
+    const conLista = fuentes(join(raiz, "src"))
+      .filter((f) => !f.includes(`${sep}pruebas${sep}`))
+      .filter((f) => /<(SectionList|FlatList)\b/.test(readFileSync(f, "utf8")))
+      .map((f) => f.split(sep).pop()?.replace(/\.tsx$/, "") ?? "");
+    expect(conLista.length).toBeGreaterThan(0);
+    const anidadas = [...fuentes(join(raiz, "app")), ...fuentes(join(raiz, "src"))]
+      .filter((f) => !f.includes(`${sep}pruebas${sep}`))
+      .filter((f) => {
+        const codigo = readFileSync(f, "utf8");
+        return /<ScrollView\b/.test(codigo) && conLista.some((c) => new RegExp(`<${c}\\b`).test(codigo));
+      })
+      .map((f) => f.split(sep).slice(-2).join("/"));
+    expect(anidadas).toEqual([]);
+  });
+});
+
 describe("cabecera nativa", () => {
   it("no lleva botones: en Android con la arquitectura nueva no reciben los toques", () => {
     // react-native-screens 4.4 (SDK 52): "Cuenta" en headerRight se veía y no

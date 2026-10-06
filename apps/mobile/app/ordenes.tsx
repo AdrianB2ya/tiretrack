@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { puedeAprobar } from "@tiretrack/domain";
 import { ListaOrdenes } from "../src/ordenes/ListaOrdenes";
@@ -70,17 +70,7 @@ export default function PantallaOrdenes() {
         </View>
       ) : null}
 
-      <ScrollView
-        contentContainerStyle={{ flexGrow: 1 }}
-        refreshControl={
-          // Tirar para sincronizar: el técnico decide cuándo gastar datos.
-          <RefreshControl
-            refreshing={sincronizando}
-            onRefresh={() => void sincronizar()}
-            tintColor={colores.primario}
-          />
-        }
-      >
+      <View style={{ flex: 1 }}>
         <ListaOrdenes
           ordenes={visibles}
           onAbrir={abrir}
@@ -91,8 +81,16 @@ export default function PantallaOrdenes() {
                 ? "No hay órdenes en tus sedes. Tira hacia abajo para actualizar."
                 : undefined
           }
+          refreshControl={
+            // Tirar para sincronizar: el técnico decide cuándo gastar datos.
+            <RefreshControl
+              refreshing={sincronizando}
+              onRefresh={() => void sincronizar()}
+              tintColor={colores.primario}
+            />
+          }
         />
-      </ScrollView>
+      </View>
       <NavegacionInferior activa="ordenes" />
     </View>
   );

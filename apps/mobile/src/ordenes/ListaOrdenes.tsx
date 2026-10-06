@@ -1,4 +1,5 @@
-import { SectionList, StyleSheet, Text, View } from "react-native";
+import type { ReactElement } from "react";
+import { SectionList, StyleSheet, Text, View, type RefreshControlProps } from "react-native";
 import { Insignia, Tarjeta, Vacio } from "../diseno/componentes";
 import { colores, conOpacidad, espacio, estadosOrden, radio, texto } from "../diseno/tokens";
 import {
@@ -21,20 +22,27 @@ export interface ListaOrdenesProps {
   ordenes: readonly OrdenParaLista[];
   onAbrir: (ordenId: string) => void;
   mensajeVacio?: string;
+  /**
+   * "Tirar para actualizar" va en la lista misma. Envolverla en un ScrollView
+   * anida dos desplazamientos: React Native lo advierte en pantalla
+   * ("VirtualizedLists should never be nested") y la lista pierde la carga
+   * por partes.
+   */
+  refreshControl?: ReactElement<RefreshControlProps>;
 }
 
-export function ListaOrdenes({ ordenes, onAbrir, mensajeVacio }: ListaOrdenesProps) {
+export function ListaOrdenes({ ordenes, onAbrir, mensajeVacio, refreshControl }: ListaOrdenesProps) {
   const secciones = construirSecciones(ordenes);
-
-  if (secciones.length === 0) {
-    return <Vacio mensaje={mensajeVacio ?? "No tienes órdenes asignadas"} />;
-  }
 
   return (
     <SectionList
       sections={secciones.map((s) => ({ ...s, data: [...s.ordenes] }))}
       keyExtractor={(item) => item.orden.id}
-      contentContainerStyle={estilos.contenido}
+      // Vacía también se puede tirar para actualizar: es justo cuando más
+      // falta hace.
+      ListEmptyComponent={<Vacio mensaje={mensajeVacio ?? "No tienes órdenes asignadas"} />}
+      {...(refreshControl ? { refreshControl } : {})}
+      contentContainerStyle={[estilos.contenido, secciones.length === 0 && { flexGrow: 1 }]}
       stickySectionHeadersEnabled={false}
       renderSectionHeader={({ section }) => (
         <EncabezadoSeccion seccion={section as unknown as SeccionLista} />

@@ -2898,6 +2898,11 @@ llegaba a una lista y no tenía cómo moverse.
   su mensaje vacío explica qué hacer.
 - Una prueba exige que cada destino de la barra y de "Más" tenga su archivo
   de ruta.
+- **Lista dentro de ScrollView:** en el teléfono salía "VirtualizedLists
+  should never be nested". La lista de órdenes estaba envuelta en un
+  ScrollView solo para "tirar para actualizar"; ahora el refresco va en la
+  propia lista (`refreshControl`, también cuando está vacía). Una prueba
+  revisa que ninguna pantalla meta una lista virtualizada en un ScrollView.
 
 ## Punto de retoma (2026-10-05)
 
@@ -2905,7 +2910,7 @@ llegaba a una lista y no tenía cómo moverse.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 886/886, mobile 847/847.
+**Verificado:** `npm run verify` con base: raíz 886/886, mobile 848/848.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):
