@@ -6,7 +6,9 @@ import {
   borradorDesde,
   borradorNuevo,
   copiarDeHermana,
+  desmontadaDesde,
   type BorradorMedicion,
+  type DesmontadaBorrador,
 } from "../../../../../src/ordenes/reglasEditorPosicion";
 import { hermanaCapturada } from "../../../../../src/ordenes/diagrama";
 import { useDatos, type DatosOrden } from "../../../../../src/app/ProveedorDatos";
@@ -28,7 +30,9 @@ import { OrdenNoDisponible } from "../../../../../src/ordenes/OrdenNoDisponible"
 export default function PantallaPosicion() {
   const { id, numero } = useLocalSearchParams<{ id: string; numero: string }>();
   const router = useRouter();
-  const { cargarOrden, guardarMedicion, catalogoPara, fotosDe, adjuntarFoto } = useDatos();
+  const { cargarOrden, guardarMedicion, catalogoPara, fotosDe, adjuntarFoto, medicionAnterior } = useDatos();
+  // La llanta que estaba según la última orden: es la que sale si se cambia.
+  const [desmontadaSugerida, setDesmontadaSugerida] = useState<DesmontadaBorrador | null>(null);
   const usuario = useUsuario();
 
   const posicion = Number(numero);
@@ -58,11 +62,13 @@ export default function PantallaPosicion() {
       // Si ya se capturó, se reanuda con lo que había en vez de empezar de
       // cero: el técnico entra a corregir un dato, no a rehacer la posición.
       setBorrador(previa ? borradorDesde(previa) : borradorNuevo(casilla));
+      const anterior = await medicionAnterior(d.orden.vehiculoId, posicion, d.orden.id);
+      if (vigente) setDesmontadaSugerida(anterior ? desmontadaDesde(anterior, posicion) : null);
     })();
     return () => {
       vigente = false;
     };
-  }, [id, posicion, cargarOrden]);
+  }, [id, posicion, cargarOrden, medicionAnterior]);
 
   // El catálogo se recarga al cambiar marca o diseño: solo entonces hacen
   // falta los niveles siguientes.
@@ -107,6 +113,10 @@ export default function PantallaPosicion() {
         // la trazabilidad de quién midió qué.
         capturadoPorId: usuario.id,
         servicios: borrador.servicios,
+        // Sin la marca de pantalla "traída de": lo que viaja es la llanta.
+        desmontada: borrador.desmontada
+          ? (({ traidaDe: _t, ...resto }) => resto)(borrador.desmontada)
+          : null,
       });
 
       // El diagrama recién guardado todavía no incluye esta posición, así que
@@ -177,6 +187,7 @@ export default function PantallaPosicion() {
       hermanaCapturada={numeroHermana}
       onCopiarHermana={numeroHermana ? copiar : undefined}
       fotos={fotos}
+      desmontadaSugerida={desmontadaSugerida}
     />
   );
 }

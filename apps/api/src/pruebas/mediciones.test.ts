@@ -2,6 +2,9 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import pg from "pg";
 import { nuevoId } from "@tiretrack/domain";
 import { hayBaseDeDatos, conectarAislado } from "./base";
+import { ddlDePrueba } from "./generar-esquema";
+
+const TABLAS = ["OrdenServicio", "PosicionEje", "Servicio", "LlantaRegistro", "LlantaServicio"];
 import {
   RepositorioMedicionesPg,
   ServicioMediciones,
@@ -42,46 +45,23 @@ async function versionContenido(): Promise<number> {
 describe.skipIf(!disponible)("mediciones", () => {
   beforeAll(async () => {
     db = await conectarAislado(import.meta.url);
-    await db.query(`
-      DROP TABLE IF EXISTS "LlantaServicio", "LlantaRegistro", "PosicionEje",
-                           "Servicio", "OrdenServicio" CASCADE;
-      CREATE TABLE "OrdenServicio" (
-        id text PRIMARY KEY, estado text NOT NULL, tecnico_id text NOT NULL,
-        "configuracionEjeId" text NOT NULL,
-        version integer NOT NULL DEFAULT 0,
-        "versionContenido" integer NOT NULL DEFAULT 0,
-        "actualizadoEn" timestamptz
-      );
-      CREATE TABLE "PosicionEje" (
-        id text PRIMARY KEY, "configuracionEjeId" text NOT NULL, numero integer NOT NULL,
-        UNIQUE ("configuracionEjeId", numero)
-      );
-      CREATE TABLE "Servicio" (
-        id text PRIMARY KEY, codigo text NOT NULL, activo boolean NOT NULL DEFAULT true
-      );
-      CREATE TABLE "LlantaRegistro" (
-        id text PRIMARY KEY,
-        "ordenId" text NOT NULL REFERENCES "OrdenServicio"(id),
-        "configuracionEjeId" text NOT NULL,
-        posicion integer NOT NULL,
-        "marcaId" text, "disenoId" text, medida text, "numCalor" text, serial text,
-        dot text, "estadoLlanta" text,
-        "psiEncontrada" numeric(6,2), "psiCalibrado" numeric(6,2), profundidad numeric(5,2),
-        observaciones text, "noIdentificada" boolean NOT NULL DEFAULT false,
-        "motivoNoIdentificada" text,
-        "capturadoPorId" text NOT NULL, "capturadoEn" timestamptz NOT NULL,
-        "actualizadoEn" timestamptz, version integer NOT NULL DEFAULT 0,
-        -- Las dos restricciones reales del esquema de Prisma:
-        UNIQUE ("ordenId", posicion),
-        FOREIGN KEY ("configuracionEjeId", posicion)
-          REFERENCES "PosicionEje" ("configuracionEjeId", numero)
-      );
-      CREATE TABLE "LlantaServicio" (
-        "llantaRegistroId" text NOT NULL REFERENCES "LlantaRegistro"(id) ON DELETE CASCADE,
-        "servicioId" text NOT NULL REFERENCES "Servicio"(id),
-        PRIMARY KEY ("llantaRegistroId", "servicioId")
-      );
-    `);
+    // Esquema GENERADO desde Prisma, no escrito a mano: la tabla escrita a
+    // mano no tenía las columnas de la llanta desmontada, y el servidor no las
+    // guardaba sin que ninguna prueba lo notara.
+    await db.query(ddlDePrueba(TABLAS, {
+      extras: {
+        PosicionEje: [`UNIQUE ("configuracionEjeId", numero)`],
+        LlantaRegistro: [
+          `FOREIGN KEY ("ordenId") REFERENCES "OrdenServicio"(id)`,
+          // Las dos restricciones reales que estas pruebas ejercitan:
+          `FOREIGN KEY ("configuracionEjeId", posicion) REFERENCES "PosicionEje" ("configuracionEjeId", numero)`,
+        ],
+        LlantaServicio: [
+          `FOREIGN KEY ("llantaRegistroId") REFERENCES "LlantaRegistro"(id) ON DELETE CASCADE`,
+          `FOREIGN KEY ("servicioId") REFERENCES "Servicio"(id)`,
+        ],
+      },
+    }));
   });
 
   afterAll(async () => {
@@ -89,15 +69,24 @@ describe.skipIf(!disponible)("mediciones", () => {
   });
 
   beforeEach(async () => {
-    await db.query(`TRUNCATE "LlantaServicio", "LlantaRegistro", "PosicionEje", "Servicio", "OrdenServicio" CASCADE`);
+    await db.query(`TRUNCATE ${TABLAS.map((t) => `"${t}"`).join(", ")} CASCADE`);
     await db.query(
-      `INSERT INTO "OrdenServicio" (id, estado, tecnico_id, "configuracionEjeId") VALUES ($1,'en_proceso','u-tec1',$2)`,
+      `INSERT INTO "OrdenServicio"
+         (id, "empresaId", "sedeId", "clienteId", "sedeClienteId", "vehiculoId", tecnico_id,
+          "configuracionEjeId", tipo, estado, fecha, "creadoPorId")
+       VALUES ($1,'emp-1','sede-fun','cli-1','sc-1','veh-1','u-tec1',$2,'preventivo','en_proceso','2026-09-21','u-tec1')`,
       [ORDEN, CFG],
     );
     for (const n of [1, 2, 3, 4]) {
-      await db.query(`INSERT INTO "PosicionEje" (id,"configuracionEjeId",numero) VALUES ($1,$2,$3)`, [`pe-${n}`, CFG, n]);
+      await db.query(
+        `INSERT INTO "PosicionEje" (id,"configuracionEjeId",numero,eje,lado,"tipoEje") VALUES ($1,$2,$3,$4,'izquierdo','traccion')`,
+        [`pe-${n}`, CFG, n, n <= 2 ? 1 : 2],
+      );
     }
-    await db.query(`INSERT INTO "Servicio" (id, codigo) VALUES ('srv-cali','CALI'), ('srv-rota','ROTA'), ('srv-engr','ENGR')`);
+    await db.query(
+      `INSERT INTO "Servicio" (id, "empresaId", codigo, nombre) VALUES
+         ('srv-cali','emp-1','CALI','Calibración'), ('srv-rota','emp-1','ROTA','Rotación'), ('srv-engr','emp-1','ENGR','Engrase')`,
+    );
     servicio = new ServicioMediciones(new RepositorioMedicionesPg(db), () => new Date("2026-09-21T10:00:00Z"));
   });
 

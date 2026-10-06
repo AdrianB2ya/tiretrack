@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
-import { Aviso, Boton, Campo, CampoNumerico, Insignia } from "../diseno/componentes";
+import { Aviso, Boton, Campo, CampoNumerico, Insignia, Opcion as OpcionElegible } from "../diseno/componentes";
+import { DESTINOS_LLANTA } from "@tiretrack/domain";
 import { colores, conOpacidad, espacio, radio, tactil, texto } from "../diseno/tokens";
 import type { Casilla } from "./diagrama";
 import {
@@ -12,8 +13,11 @@ import {
   puedeGuardar,
   revisar,
   tieneContenido,
+  SERVICIO_MONTAJE,
+  desmontadaDesde,
   type AvisoCampo,
   type BorradorMedicion,
+  type DesmontadaBorrador,
 } from "./reglasEditorPosicion";
 import type { DisenoLocal, MarcaLocal, MedidaLocal, ServicioLocal } from "../datos/repositorio";
 
@@ -49,6 +53,11 @@ export interface EditorPosicionProps {
   guardando?: boolean;
   /** Fotos de la posición: van después de registrar lo hecho, antes de guardar. */
   fotos?: ReactNode;
+  /**
+   * La llanta que estaba en esta posición según la última orden: es la que
+   * sale si se cambia. null si no hay orden anterior que la haya medido.
+   */
+  desmontadaSugerida?: DesmontadaBorrador | null;
 }
 
 export function EditorPosicion({
@@ -62,6 +71,7 @@ export function EditorPosicion({
   onCopiarHermana,
   guardando = false,
   fotos,
+  desmontadaSugerida = null,
 }: EditorPosicionProps) {
   const [confirmando, setConfirmando] = useState(false);
 
@@ -242,7 +252,17 @@ export function EditorPosicion({
         <ServiciosPorLlanta
           servicios={catalogo.servicios.filter((s) => s.porLlanta)}
           seleccionados={borrador.servicios}
-          onCambiar={(ids) => cambiar("servicios", ids)}
+          onCambiar={(ids) => {
+            // Montar una llanta es que salió otra: se abre el bloque de la
+            // desmontada, ya con la llanta que estaba.
+            const monta = ids.includes(SERVICIO_MONTAJE) && !borrador.servicios.includes(SERVICIO_MONTAJE);
+            if (monta && !borrador.desmontada) {
+              onCambiar({ ...borrador, servicios: ids, desmontada: desmontadaSugerida ?? desmontadaDesde(null, borrador.posicion) });
+              if (confirmando) setConfirmando(false);
+              return;
+            }
+            cambiar("servicios", ids);
+          }}
         />
 
         <Campo
@@ -261,6 +281,33 @@ export function EditorPosicion({
           numberOfLines={3}
           placeholder="Lo que no cabe en los campos anteriores"
         />
+      </Bloque>
+
+      {/* ── Llanta desmontada ── */}
+      <Bloque titulo="Llanta que sale">
+        <View style={estilos.filaSwitch}>
+          <View style={{ flex: 1 }}>
+            <Text style={estilos.etiquetaSwitch}>Se cambió la llanta</Text>
+            <Text style={estilos.ayudaSwitch}>Registra la que salió: dice cuánto duró y a dónde va</Text>
+          </View>
+          <Switch
+            testID="switch-desmontada"
+            value={borrador.desmontada !== null}
+            onValueChange={(v) =>
+              cambiar("desmontada", v ? (desmontadaSugerida ?? desmontadaDesde(null, borrador.posicion)) : null)
+            }
+            trackColor={{ true: conOpacidad(colores.primario, 0.5), false: colores.borde }}
+            thumbColor={borrador.desmontada ? colores.primario : colores.textoTenue}
+          />
+        </View>
+        {borrador.desmontada ? (
+          <BloqueDesmontada
+            d={borrador.desmontada}
+            avisos={avisos}
+            traida={desmontadaSugerida !== null && desmontadaSugerida.serial !== null}
+            onCambiar={(d) => cambiar("desmontada", d)}
+          />
+        ) : null}
       </Bloque>
 
       {fotos}
@@ -319,6 +366,61 @@ function Cabecera({ casilla }: { casilla: Casilla }) {
           ) : null}
         </View>
       </View>
+    </View>
+  );
+}
+
+/**
+ * La llanta que sale. Su identidad viene de la última orden de esta posición
+ * (regla: "se autocompleta, no se escribe a mano"); se puede corregir si en
+ * la llanta dice otra cosa. Profundidad y destino se anotan al retirarla.
+ */
+function BloqueDesmontada({ d, avisos, traida, onCambiar }: {
+  d: DesmontadaBorrador;
+  avisos: readonly AvisoCampo[];
+  traida: boolean;
+  onCambiar: (d: DesmontadaBorrador) => void;
+}) {
+  const poner = <K extends keyof DesmontadaBorrador>(c: K, v: DesmontadaBorrador[K]) => onCambiar({ ...d, [c]: v });
+  return (
+    <View style={{ gap: espacio.sm }}>
+      <Text style={estilos.ayudaSwitch} testID="origen-desmontada">
+        {traida
+          ? "Datos traídos de la última orden de esta posición. Corrígelos si la llanta dice otra cosa."
+          : "No hay una orden anterior de esta posición: escribe lo que se pueda leer en la llanta."}
+      </Text>
+      <View style={estilos.filaDoble}>
+        <View style={{ flex: 1 }}>
+          <Campo etiqueta="Serial de la que sale" value={d.serial ?? ""} onChangeText={(v) => poner("serial", v || null)} autoCapitalize="characters" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Campo
+            etiqueta="DOT de la que sale"
+            value={d.dot ?? ""}
+            onChangeText={(v) => poner("dot", v || null)}
+            keyboardType="number-pad"
+            {...avisoProps(avisos, "desDot")}
+          />
+        </View>
+      </View>
+      <CampoNumerico
+        etiqueta="Profundidad al retirarla (mm)"
+        value={aTexto(d.profundidad)}
+        onChangeText={(v) => poner("profundidad", aNumero(v))}
+        {...avisoProps(avisos, "desProfundidad")}
+      />
+      <Text style={estilos.etiquetaGrupo}>A dónde va</Text>
+      <View style={estilos.chips}>
+        {DESTINOS_LLANTA.map((destino) => (
+          <OpcionElegible key={destino} etiqueta={destino} activa={d.destino === destino} onPress={() => poner("destino", destino)} />
+        ))}
+      </View>
+      <Campo
+        etiqueta="Detalle de la que sale"
+        value={d.detalle ?? ""}
+        onChangeText={(v) => poner("detalle", v || null)}
+        placeholder="Opcional: corte, desgaste irregular…"
+      />
     </View>
   );
 }
@@ -545,6 +647,7 @@ const estilos = StyleSheet.create({
   etiquetaSwitch: { ...texto.cuerpoFuerte, color: colores.texto },
   ayudaSwitch: { ...texto.ayuda, color: colores.textoTenue, marginTop: 2 },
   grupoOpciones: { marginBottom: espacio.lg },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: espacio.sm },
   etiquetaGrupo: {
     ...texto.etiqueta,
     color: colores.textoTenue,

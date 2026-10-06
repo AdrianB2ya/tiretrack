@@ -3030,13 +3030,40 @@ suplantación se construye antes de una segunda empresa o de dar soporte).
   rehace la tabla `sesion` con `empresa_id` opcional y conserva la sesión
   que hubiera. Lo encontró el recorrido de pantallas al sumar el rol.
 
+## Llanta desmontada (2026-10-06)
+
+Regla del negocio: "la llanta desmontada se autocompleta desde la última
+orden que registró esa posición; no se escribe a mano". No estaba en ninguna
+parte del flujo:
+
+- **El editor no tenía el bloque.** Ahora "Llanta que sale": se abre solo al
+  marcar **Montaje** (montar una llanta es que salió otra) o con el
+  interruptor "Se cambió la llanta".
+- **La identidad se trae de la última orden** de esa posición
+  (`medicionAnterior` → `desmontadaDesde`): marca, diseño, medida, serial,
+  DOT, número de calor. Se puede corregir si la llanta dice otra cosa. **La
+  profundidad no se copia**: la de entonces no es la del retiro, y copiarla
+  sería fabricar el dato. La pantalla dice de dónde vienen los datos, o que
+  no hay orden anterior.
+- Profundidad y **destino** (Desecho, Repuesto, Reencauche, Reparación,
+  Inventario, del dominio) se anotan al retirarla; si faltan, **avisan**
+  (a veces el destino se decide después). Un DOT imposible bloquea.
+- **El servidor no la guardaba**: el contrato aceptaba `desmontada` desde la
+  0.3, pero el `INSERT` omitía esas columnas. Se habría perdido sin aviso y
+  las columnas de la desmontada del informe quedaban vacías. Ahora se guarda,
+  se reemplaza al corregir (no se mezcla con la anterior) y **viaja en la
+  descarga** —sin eso, corregir una orden devuelta la borraría, el mismo
+  defecto de la medición incompleta—.
+- **La prueba de mediciones escribía su tabla a mano**, sin esas columnas:
+  ahora usa el esquema generado desde Prisma, como la de trabajos.
+
 ## Punto de retoma (2026-10-05)
 
 **Estado:** el usuario prueba la app en el teléfono con Expo Go (SDK 52). Siguen PDF (6.3), vista de auditoría (5.4) y guía de despliegue.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 897/897, mobile 1247/1247.
+**Verificado:** `npm run verify` con base: raíz 899/899, mobile 1257/1257.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

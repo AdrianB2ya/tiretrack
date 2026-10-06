@@ -30,6 +30,22 @@ export interface MedicionParaEnviar {
   readonly motivoNoId?: string | null;
   /** Códigos de servicio del catálogo fijo (`CALI`, `RETO`…). */
   readonly servicios?: readonly string[];
+  /** La llanta que salió de la posición, si se cambió. */
+  readonly desmontada?: Desmontada | null;
+}
+
+/** La llanta que sale de la posición, en el celular. */
+export interface Desmontada {
+  readonly posicionOrigen: number | null;
+  readonly marcaId: string | null;
+  readonly disenoId: string | null;
+  readonly medida: string | null;
+  readonly numCalor: string | null;
+  readonly serial: string | null;
+  readonly dot: string | null;
+  readonly profundidad: number | null;
+  readonly destino: string | null;
+  readonly detalle: string | null;
 }
 
 /**
@@ -72,6 +88,15 @@ export function medicionAContrato(m: MedicionParaEnviar): MedicionLlanta {
 
   for (const [clave, valor] of opcionales) {
     if (valor !== null && valor !== undefined && valor !== "") salida[clave] = valor;
+  }
+
+  // La desmontada viaja anidada y, como el resto, sin campos vacíos.
+  if (m.desmontada) {
+    const d: Record<string, unknown> = {};
+    for (const [clave, valor] of Object.entries(m.desmontada)) {
+      if (valor !== null && valor !== undefined && valor !== "") d[clave] = valor;
+    }
+    salida["desmontada"] = d;
   }
 
   return salida as MedicionLlanta;

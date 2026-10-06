@@ -71,7 +71,7 @@ describe("copiar de una hermana del mismo eje", () => {
     marcaId: "mar-1",
     disenoId: "dis-1",
     medida: "295/80R22.5",
-    numCalor: null, estadoLlanta: null, observaciones: null, motivoNoId: null,
+    numCalor: null, estadoLlanta: null, observaciones: null, motivoNoId: null, desmontada: null,
     serial: "MX10023458",
     dot: "3624",
     psiEncontrada: 98,
@@ -336,7 +336,7 @@ describe("reanudar una posición ya capturada", () => {
       marcaId: "mar-1",
       disenoId: "dis-1",
       medida: "295/80R22.5",
-      numCalor: null, estadoLlanta: null, observaciones: null, motivoNoId: null,
+      numCalor: null, estadoLlanta: null, observaciones: null, motivoNoId: null, desmontada: null,
       serial: "MX1",
       dot: "3624",
       psiEncontrada: 98,
@@ -357,7 +357,7 @@ describe("reanudar una posición ya capturada", () => {
     const previa = {
       id: "m-1", ordenId: "ord-1", posicion: 1, marcaId: null, disenoId: null,
       medida: null, numCalor: null, serial: null, dot: null, estadoLlanta: null, observaciones: null,
-      motivoNoId: null, psiEncontrada: null, psiCalibrado: null,
+      motivoNoId: null, desmontada: null, psiEncontrada: null, psiCalibrado: null,
       profundidad: null, noIdentificada: false, servicios: ["CALI"],
     };
     const b = borradorDesde(previa);

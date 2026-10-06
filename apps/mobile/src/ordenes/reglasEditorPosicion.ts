@@ -35,7 +35,53 @@ export interface BorradorMedicion {
   noIdentificada: boolean;
   motivoNoId: string | null;
   servicios: string[];
+  /** La llanta que SALE de la posición, si se cambió. null: no se cambió. */
+  desmontada: DesmontadaBorrador | null;
 }
+
+/**
+ * La llanta que sale. Su identidad se trae de la última orden que midió esta
+ * posición —regla del negocio: "se autocompleta, no se escribe a mano"—; lo
+ * que solo se sabe al retirarla (profundidad, destino) lo anota el técnico.
+ */
+export interface DesmontadaBorrador {
+  posicionOrigen: number | null;
+  marcaId: string | null;
+  disenoId: string | null;
+  medida: string | null;
+  numCalor: string | null;
+  serial: string | null;
+  dot: string | null;
+  profundidad: number | null;
+  destino: string | null;
+  detalle: string | null;
+  /** Fecha de la orden de donde se trajo la identidad, para decirlo en pantalla. */
+  traidaDe: string | null;
+}
+
+/**
+ * La desmontada a partir de la llanta que estaba (última orden de esa
+ * posición). La profundidad NO se copia: la de entonces no es la de hoy, y
+ * copiarla sería fabricar el dato del retiro.
+ */
+export function desmontadaDesde(anterior: MedicionLocal | null, posicion: number, fechaAnterior: string | null = null): DesmontadaBorrador {
+  return {
+    posicionOrigen: posicion,
+    marcaId: anterior?.marcaId ?? null,
+    disenoId: anterior?.disenoId ?? null,
+    medida: anterior?.medida ?? null,
+    numCalor: anterior?.numCalor ?? null,
+    serial: anterior?.serial ?? null,
+    dot: anterior?.dot ?? null,
+    profundidad: null,
+    destino: null,
+    detalle: null,
+    traidaDe: anterior ? fechaAnterior : null,
+  };
+}
+
+/** Marcar "Montaje" significa que entró una llanta: la anterior salió. */
+export const SERVICIO_MONTAJE = "MONT";
 
 /**
  * Los vocabularios se IMPORTAN del contrato y del dominio, no se redeclaran.
@@ -81,6 +127,7 @@ export function borradorNuevo(casilla: Casilla): BorradorMedicion {
     noIdentificada: false,
     motivoNoId: null,
     servicios: [],
+    desmontada: null,
   };
 }
 
@@ -103,6 +150,7 @@ export function borradorDesde(m: MedicionLocal): BorradorMedicion {
     noIdentificada: m.noIdentificada,
     motivoNoId: m.motivoNoId as BorradorMedicion["motivoNoId"],
     servicios: [...m.servicios],
+    desmontada: m.desmontada ? { ...m.desmontada, traidaDe: null } : null,
   };
 }
 
@@ -231,6 +279,24 @@ export function revisar(
   // ── Parche ──
   if (b.numParche?.trim() && !b.tipoParcheId) {
     avisos.push({ campo: "tipoParcheId", severidad: "advertencia", mensaje: "Falta el tipo de parche" });
+  }
+
+  // ── Llanta desmontada ──
+  const d = b.desmontada;
+  if (d) {
+    if (d.dot?.trim() && !leerDOT(d.dot, hoy)) {
+      avisos.push({ campo: "desDot", severidad: "error", mensaje: "DOT de la desmontada inválido: son 4 dígitos, semana y año" });
+    }
+    if (d.profundidad !== null && d.profundidad < 0) {
+      avisos.push({ campo: "desProfundidad", severidad: "error", mensaje: "La profundidad de la desmontada no puede ser negativa" });
+    }
+    // Se avisa, no se bloquea: a veces el destino se decide después.
+    if (!d.destino) {
+      avisos.push({ campo: "desDestino", severidad: "advertencia", mensaje: "Indica a dónde va la llanta desmontada" });
+    }
+    if (d.profundidad === null) {
+      avisos.push({ campo: "desProfundidad", severidad: "advertencia", mensaje: "Sin profundidad de la desmontada: es la que dice cuánto duró" });
+    }
   }
 
   return avisos;

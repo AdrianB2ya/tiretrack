@@ -1,6 +1,6 @@
 import { CATALOGO_SERVICIOS, nuevoId } from "@tiretrack/domain";
 import type { Conexion } from "./base";
-import { firmaAContrato, fotoAContrato, medicionAContrato, ordenAContrato } from "./contrato";
+import { type Desmontada, firmaAContrato, fotoAContrato, medicionAContrato, ordenAContrato } from "./contrato";
 
 /**
  * Repositorio local.
@@ -66,6 +66,8 @@ export interface MedicionLocal {
   /** Código del motivo: sin él, una llanta no identificada no pasa el contrato. */
   readonly motivoNoId: string | null;
   readonly servicios: readonly string[];
+  /** La llanta que salió, si se cambió en esta orden. */
+  readonly desmontada: Desmontada | null;
 }
 
 export interface PosicionEjeLocal {
@@ -133,6 +135,35 @@ export interface MedicionDescargada {
   readonly motivoNoIdentificada?: string | null;
   readonly capturadoPorId?: string;
   readonly servicios?: readonly string[];
+  readonly desmontada?: Desmontada | null;
+}
+
+/** Columnas de la llanta desmontada, en el orden de `valoresDesmontada`. */
+const COLUMNAS_DESMONTADA =
+  "des_posicion, des_marca_id, des_diseno_id, des_medida, des_num_calor, des_serial, des_dot, des_profundidad, des_destino, des_detalle";
+
+function valoresDesmontada(d: Desmontada | null): (string | number | null)[] {
+  return d
+    ? [d.posicionOrigen, d.marcaId, d.disenoId, d.medida, d.numCalor, d.serial, d.dot, d.profundidad, d.destino, d.detalle]
+    : [null, null, null, null, null, null, null, null, null, null];
+}
+
+/** Una fila sin ningún dato de desmontada es "no se cambió la llanta". */
+function aDesmontada(f: Record<string, unknown>): Desmontada | null {
+  const v = (c: string) => (f[c] === null || f[c] === undefined ? null : f[c]);
+  const d: Desmontada = {
+    posicionOrigen: v("des_posicion") === null ? null : Number(v("des_posicion")),
+    marcaId: v("des_marca_id") as string | null,
+    disenoId: v("des_diseno_id") as string | null,
+    medida: v("des_medida") as string | null,
+    numCalor: v("des_num_calor") as string | null,
+    serial: v("des_serial") as string | null,
+    dot: v("des_dot") as string | null,
+    profundidad: v("des_profundidad") === null ? null : Number(v("des_profundidad")),
+    destino: v("des_destino") as string | null,
+    detalle: v("des_detalle") as string | null,
+  };
+  return Object.values(d).some((x) => x !== null) ? d : null;
 }
 
 export interface ClienteLocal {
@@ -399,6 +430,7 @@ export class RepositorioLocal {
     motivoNoId?: string | null;
     capturadoPorId: string;
     servicios?: readonly string[];
+    desmontada?: Desmontada | null;
   }): Promise<string> {
     // Corregir una posición es actualizar LA MISMA medición, no crear otra.
     // Antes se generaba un id nuevo en cada guardado: el servidor habría
@@ -417,14 +449,14 @@ export class RepositorioLocal {
         `INSERT OR REPLACE INTO medicion
            (id, orden_id, posicion, marca_id, diseno_id, medida, num_calor, serial, dot,
             estado_llanta, psi_encontrada, psi_calibrado, profundidad, observaciones,
-            no_identificada, motivo_no_id, capturado_por_id, actualizada_en)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+            no_identificada, motivo_no_id, capturado_por_id, actualizada_en, ${COLUMNAS_DESMONTADA})
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         [
           id, m.ordenId, m.posicion, m.marcaId ?? null, m.disenoId ?? null, m.medida ?? null,
           m.numCalor ?? null, m.serial ?? null, m.dot ?? null, m.estadoLlanta ?? null,
           m.psiEncontrada ?? null, m.psiCalibrado ?? null, m.profundidad ?? null,
           m.observaciones ?? null, aInt(m.noIdentificada ?? false), m.motivoNoId ?? null,
-          m.capturadoPorId, this.ahora(),
+          m.capturadoPorId, this.ahora(), ...valoresDesmontada(m.desmontada ?? null),
         ],
       );
 
@@ -459,7 +491,7 @@ export class RepositorioLocal {
       // reabrir una posición y guardarla otra vez, se enviaban vacíos.
       `SELECT id, orden_id, posicion, marca_id, diseno_id, medida, num_calor, serial, dot,
               estado_llanta, psi_encontrada, psi_calibrado, profundidad, observaciones,
-              no_identificada, motivo_no_id
+              no_identificada, motivo_no_id, ${COLUMNAS_DESMONTADA}
          FROM medicion WHERE orden_id = ? ORDER BY posicion`,
       [ordenId],
     );
@@ -497,6 +529,7 @@ export class RepositorioLocal {
       noIdentificada: aBool(f["no_identificada"]),
       motivoNoId: (f["motivo_no_id"] as string) ?? null,
       servicios: porMedicion.get(String(f["id"])) ?? [],
+      desmontada: aDesmontada(f),
     }));
   }
 
@@ -1043,6 +1076,7 @@ export class RepositorioLocal {
       noIdentificada: aBool(f["no_identificada"]),
       motivoNoId: null,
       servicios: [],
+      desmontada: null,
     };
   }
 
@@ -1310,9 +1344,10 @@ export class RepositorioLocal {
           `INSERT INTO medicion
              (id, orden_id, posicion, marca_id, diseno_id, medida, num_calor, serial, dot,
               estado_llanta, psi_encontrada, psi_calibrado, profundidad, observaciones,
-              no_identificada, motivo_no_id, capturado_por_id, actualizada_en)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+              no_identificada, motivo_no_id, capturado_por_id, actualizada_en, ${COLUMNAS_DESMONTADA})
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
            ON CONFLICT (id) DO UPDATE SET
+             ${COLUMNAS_DESMONTADA.split(", ").map((c) => `${c} = excluded.${c}`).join(", ")},
              posicion = excluded.posicion, marca_id = excluded.marca_id, diseno_id = excluded.diseno_id,
              medida = excluded.medida, num_calor = excluded.num_calor, serial = excluded.serial,
              dot = excluded.dot, estado_llanta = excluded.estado_llanta,
@@ -1326,6 +1361,7 @@ export class RepositorioLocal {
             m.psiCalibrado ?? null, m.profundidad, m.observaciones ?? null,
             aInt(m.noIdentificada ?? false), m.motivoNoIdentificada ?? null,
             m.capturadoPorId ?? "", this.ahora(),
+            ...valoresDesmontada(m.desmontada ?? null),
           ],
         );
         if (m.servicios) {

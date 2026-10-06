@@ -452,6 +452,12 @@ describe("mediciones descargadas", () => {
     expect(ms[0]?.profundidad).toBe(2);
   });
 
+  it("la llanta desmontada llega con la medición: corregir la orden no la borra", async () => {
+    const desmontada = { posicionOrigen: 3, marcaId: null, disenoId: null, medida: null, numCalor: null, serial: "VIEJA-3", dot: "1520", profundidad: 2.5, destino: "Reencauche", detalle: null };
+    await descargador.descargar(servidorCon(unPaquete({ mediciones: [{ ...completa, desmontada }] })));
+    expect((await repo.medicionesDe("ord-1"))[0]?.desmontada).toEqual(desmontada);
+  });
+
   it("de un servidor anterior, sin los campos nuevos, se guarda lo que venga", async () => {
     const vieja = { id: "med-v", ordenId: "ord-1", posicion: 1, marcaId: null, disenoId: null, medida: null, serial: "S", profundidad: 9 };
     await descargador.descargar(servidorCon(unPaquete({ mediciones: [vieja] })));

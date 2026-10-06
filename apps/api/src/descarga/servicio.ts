@@ -129,6 +129,26 @@ export interface MedicionDescargada {
   readonly capturadoPorId: string;
   /** Códigos del catálogo fijo (`CALI`), no nombres. */
   readonly servicios: string[];
+  /** La llanta que salió; sin ella, corregir la orden la borraría. */
+  readonly desmontada: {
+    posicionOrigen: number | null; marcaId: string | null; disenoId: string | null; medida: string | null;
+    numCalor: string | null; serial: string | null; dot: string | null; profundidad: number | null;
+    destino: string | null; detalle: string | null;
+  } | null;
+}
+
+/** Columnas des* → objeto; null si no se cambió la llanta. */
+function desmontadaDe(
+  f: Record<string, unknown>,
+  num: (v: unknown) => number | null,
+  txt: (v: unknown) => string | null,
+): MedicionDescargada["desmontada"] {
+  const d = {
+    posicionOrigen: num(f["desPosicionOrigen"]), marcaId: txt(f["desMarcaId"]), disenoId: txt(f["desDisenoId"]),
+    medida: txt(f["desMedida"]), numCalor: txt(f["desNumCalor"]), serial: txt(f["desSerial"]), dot: txt(f["desDot"]),
+    profundidad: num(f["desProfundidad"]), destino: txt(f["desDestino"]), detalle: txt(f["desDetalle"]),
+  };
+  return Object.values(d).some((v) => v !== null) ? d : null;
 }
 
 export interface Consultable {
@@ -261,6 +281,8 @@ export class ServicioDescarga {
       `SELECT lr.id, lr."ordenId", lr.posicion, lr."marcaId", lr."disenoId", lr.medida, lr."numCalor",
               lr.serial, lr.dot, lr."estadoLlanta", lr."psiEncontrada", lr."psiCalibrado", lr.profundidad,
               lr.observaciones, lr."noIdentificada", lr."motivoNoIdentificada", lr."capturadoPorId",
+              lr."desPosicionOrigen", lr."desMarcaId", lr."desDisenoId", lr."desMedida", lr."desNumCalor",
+              lr."desSerial", lr."desDot", lr."desProfundidad", lr."desDestino", lr."desDetalle",
               coalesce((SELECT array_agg(s.codigo ORDER BY s.codigo)
                           FROM "LlantaServicio" ls JOIN "Servicio" s ON s.id = ls."servicioId"
                          WHERE ls."llantaRegistroId" = lr.id), ARRAY[]::text[]) AS servicios
@@ -289,6 +311,7 @@ export class ServicioDescarga {
       motivoNoIdentificada: txt(f["motivoNoIdentificada"]),
       capturadoPorId: String(f["capturadoPorId"]),
       servicios: (f["servicios"] as string[]) ?? [],
+      desmontada: desmontadaDe(f, num, txt),
     }));
   }
 

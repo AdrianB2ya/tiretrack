@@ -160,8 +160,11 @@ export class RepositorioMedicionesPg implements RepositorioMediciones {
          "marcaId", "disenoId", medida, "numCalor", serial, dot, "estadoLlanta",
          "psiEncontrada", "psiCalibrado", profundidad, observaciones,
          "noIdentificada", "motivoNoIdentificada",
-         "capturadoPorId", "capturadoEn", "actualizadoEn")
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$19)
+         "capturadoPorId", "capturadoEn", "actualizadoEn",
+         "desPosicionOrigen", "desMarcaId", "desDisenoId", "desMedida", "desNumCalor",
+         "desSerial", "desDot", "desProfundidad", "desDestino", "desDetalle")
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$19,
+               $20,$21,$22,$23,$24,$25,$26,$27,$28,$29)
        ON CONFLICT (id) DO UPDATE SET
          "marcaId" = EXCLUDED."marcaId", "disenoId" = EXCLUDED."disenoId",
          medida = EXCLUDED.medida, "numCalor" = EXCLUDED."numCalor",
@@ -171,6 +174,11 @@ export class RepositorioMedicionesPg implements RepositorioMediciones {
          profundidad = EXCLUDED.profundidad, observaciones = EXCLUDED.observaciones,
          "noIdentificada" = EXCLUDED."noIdentificada",
          "motivoNoIdentificada" = EXCLUDED."motivoNoIdentificada",
+         "desPosicionOrigen" = EXCLUDED."desPosicionOrigen", "desMarcaId" = EXCLUDED."desMarcaId",
+         "desDisenoId" = EXCLUDED."desDisenoId", "desMedida" = EXCLUDED."desMedida",
+         "desNumCalor" = EXCLUDED."desNumCalor", "desSerial" = EXCLUDED."desSerial",
+         "desDot" = EXCLUDED."desDot", "desProfundidad" = EXCLUDED."desProfundidad",
+         "desDestino" = EXCLUDED."desDestino", "desDetalle" = EXCLUDED."desDetalle",
          "actualizadoEn" = EXCLUDED."actualizadoEn",
          version = "LlantaRegistro".version + 1`,
       [
@@ -180,6 +188,14 @@ export class RepositorioMedicionesPg implements RepositorioMediciones {
         d.psiEncontrada ?? null, d.psiCalibrado ?? null, d.profundidad ?? null,
         d.observaciones ?? null, d.noIdentificada ?? false, d.motivoNoIdentificada ?? null,
         m.capturadoPorId, m.ahora,
+        // La llanta que SALE. El contrato la aceptaba desde la 0.3, pero aquí
+        // no se guardaba: si el celular la hubiera enviado, se perdía sin
+        // aviso y el informe quedaba con esas columnas vacías.
+        d.desmontada?.posicionOrigen ?? null, d.desmontada?.marcaId ?? null,
+        d.desmontada?.disenoId ?? null, d.desmontada?.medida ?? null,
+        d.desmontada?.numCalor ?? null, d.desmontada?.serial ?? null,
+        d.desmontada?.dot ?? null, d.desmontada?.profundidad ?? null,
+        d.desmontada?.destino ?? null, d.desmontada?.detalle ?? null,
       ],
     );
   }

@@ -476,6 +476,38 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
     });
   });
 
+  describe("llanta desmontada", () => {
+    it("se guarda, se descarga y llega al informe", async () => {
+      // El contrato la aceptaba y el servidor no la guardaba: se perdía sin
+      // aviso y las columnas de la desmontada del informe quedaban vacías.
+      const desmontada = { posicionOrigen: 1, serial: "VIEJA-1", dot: "1520", profundidad: 2.5, destino: "Reencauche", detalle: "Corte leve" };
+      const r = await guardarMedicion(medicion(1, { serial: "NUEVA-1", profundidad: 16, servicios: ["ROTA"], desmontada }));
+      expect(r.statusCode).toBe(200);
+      const fila = await pool.query(
+        `SELECT "desPosicionOrigen", "desSerial", "desDot", "desProfundidad"::float AS prof, "desDestino", "desDetalle"
+           FROM "LlantaRegistro" WHERE "ordenId" = $1`,
+        [ORDEN],
+      );
+      expect(fila.rows[0]).toEqual({ desPosicionOrigen: 1, desSerial: "VIEJA-1", desDot: "1520", prof: 2.5, desDestino: "Reencauche", desDetalle: "Corte leve" });
+
+      const paquete = await app.inject({ method: "GET", url: `${PREFIJO_API}/sincronizacion`, headers: { authorization: "Bearer tok-tecnico" } });
+      const m = paquete.json().mediciones.find((x: { posicion: number }) => x.posicion === 1);
+      expect(m.desmontada).toMatchObject({ serial: "VIEJA-1", destino: "Reencauche", profundidad: 2.5 });
+
+      const csv = await app.inject({ method: "GET", url: `${PREFIJO_API}/informe/exportar`, headers: { authorization: "Bearer tok-coordinador" } });
+      expect(csv.body).toContain("VIEJA-1");
+      expect(csv.body).toContain("Reencauche");
+    });
+
+    it("corregir la posición sin desmontada la quita: se reemplaza, no se mezcla", async () => {
+      const m = medicion(1, { desmontada: { serial: "VIEJA-1", destino: "Desecho" } });
+      await guardarMedicion(m);
+      await guardarMedicion({ ...m, desmontada: undefined });
+      const fila = await pool.query(`SELECT "desSerial" FROM "LlantaRegistro" WHERE "ordenId" = $1`, [ORDEN]);
+      expect(fila.rows[0].desSerial).toBeNull();
+    });
+  });
+
   describe("idempotencia", () => {
     it("aplica una medición", async () => {
       const r = await guardarMedicion(medicion(1, { profundidad: 9 }));
