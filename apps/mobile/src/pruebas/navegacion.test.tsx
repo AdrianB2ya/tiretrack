@@ -13,12 +13,11 @@ import { unaOrden } from "./fabrica";
 const archivoDe = (ruta: string) => join(__dirname, "..", "..", "app", `${ruta.split("?")[0]}.tsx`);
 
 describe("navegación de la oficina", () => {
-  it("coordinador y administrador tienen Panel, Órdenes, Revisar y Más; el técnico y el cliente, nada", () => {
+  it("cada rol tiene su barra, con lo que puede hacer", () => {
     expect(pestanasPara("coordinador").map((p) => p.etiqueta)).toEqual(["Panel", "Órdenes", "Revisar", "Más"]);
     expect(pestanasPara("administrador")).toHaveLength(4);
-    // El técnico entra directo a sus órdenes: una barra sería un toque más.
-    expect(pestanasPara("tecnico")).toEqual([]);
-    expect(pestanasPara("cliente")).toEqual([]);
+    expect(pestanasPara("tecnico").map((p) => p.etiqueta)).toEqual(["Mis órdenes", "Más"]);
+    expect(pestanasPara("cliente").map((p) => p.etiqueta)).toEqual(["Mis servicios", "Más"]);
   });
 
   it("'Más' ofrece a cada rol solo lo que puede hacer", () => {
@@ -27,12 +26,18 @@ describe("navegación de la oficina", () => {
     const admin = opcionesMas("administrador").map((o) => o.clave);
     expect(admin).toEqual(expect.arrayContaining(["usuarios", "sedes", "plantillas"]));
     expect(coordinador).not.toContain("usuarios");
+    // El técnico registra clientes y sedes y crea la imprevista; no exporta
+    // ni administra. El cliente solo su cuenta.
+    expect(opcionesMas("tecnico").map((o) => o.clave)).toEqual(["nueva-orden", "flota", "cuenta"]);
+    expect(opcionesMas("cliente").map((o) => o.clave)).toEqual(["cuenta"]);
   });
 
   it("cada destino tiene su archivo de ruta", () => {
     // Un destino sin pantalla no falla al compilar: se descubre en el
     // teléfono con un "no encontrado".
-    const rutas = [...pestanasPara("administrador"), ...opcionesMas("administrador")].map((d) => d.ruta);
+    const rutas = (["administrador", "coordinador", "tecnico", "cliente"] as const)
+      .flatMap((r) => [...pestanasPara(r), ...opcionesMas(r)])
+      .map((d) => d.ruta);
     expect(rutas.filter((r) => !existsSync(archivoDe(r)))).toEqual([]);
   });
 

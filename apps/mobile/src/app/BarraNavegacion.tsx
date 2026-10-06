@@ -3,7 +3,7 @@ import { colores, conOpacidad, espacio, tactil, texto } from "../diseno/tokens";
 import type { DestinoPestana, Pestana } from "./navegacion";
 
 /**
- * Barra de navegación de abajo (coordinador y administrador).
+ * Barra de navegación de abajo (todos los roles, con lo que pueden hacer).
  *
  * Presentación pura: qué pestañas hay lo decide `pestanasPara`, y la unión
  * con el enrutador vive en `NavegacionInferior`. La activa se marca con texto

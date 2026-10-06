@@ -3,6 +3,7 @@ import { RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 import { PortalCliente } from "../src/cliente/PortalCliente";
 import { BarraDeSesion } from "../src/app/BarraDeSesion";
+import { NavegacionInferior } from "../src/app/NavegacionInferior";
 import { useDatos } from "../src/app/ProveedorDatos";
 import { colores } from "../src/diseno/tokens";
 import { fechaEnColombia } from "@tiretrack/domain";
@@ -23,6 +24,7 @@ export default function RutaCliente() {
       >
         <PortalCliente ordenes={ordenes} hoy={hoy} onAbrir={(id) => router.push(`/orden/${id}` as never)} />
       </ScrollView>
+      <NavegacionInferior activa="cliente" />
     </View>
   );
 }

@@ -2881,8 +2881,13 @@ llegaba a una lista y no tenía cómo moverse.
 - **Coordinador y administrador: Panel · Órdenes · Revisar · Más.** "Revisar"
   muestra cuántas esperan ("Revisar (3)"). La activa va en texto y con
   `aria-selected`.
-- **El técnico no tiene barra**: entra directo a sus órdenes (4.4: un panel
-  intermedio sería un toque más con guantes). El cliente tampoco.
+- **Todos los roles tienen barra**, con lo que pueden hacer (pedido del
+  usuario): técnico "Mis órdenes · Más" (nueva orden, clientes y sedes,
+  cuenta); cliente "Mis servicios · Más" (cuenta). Al principio el técnico no
+  la tenía para no sumarle un toque, pero sin ella no encontraba su cuenta ni
+  el registro de clientes. Sigue entrando directo a sus órdenes. **El informe
+  no se ofrece al técnico ni al cliente**: quién exporta sigue siendo una
+  decisión abierta.
 - Entre pestañas se navega con `replace`: "atrás" no recorre el historial de
   toques.
 - **"Más"** reúne lo que no es diario (programar orden, visitas recurrentes,
