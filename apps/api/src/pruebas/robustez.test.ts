@@ -144,6 +144,9 @@ describe.skipIf(!disponible)("robustez: ninguna entrada mala da 500", () => {
     ["POST", "/sedes", "tok-admin"],
     ["POST", "/configuraciones", "tok-admin"],
     ["POST", `/configuraciones/${nuevoId()}/version`, "tok-admin"],
+    ["POST", "/programaciones", "tok-coordinador"],
+    ["POST", `/programaciones/${nuevoId()}/tecnico`, "tok-coordinador"],
+    ["POST", `/programaciones/${nuevoId()}/desactivar`, "tok-coordinador"],
   ];
 
   it("cuerpos mal formados en cada ruta que recibe datos", async () => {
@@ -165,6 +168,8 @@ describe.skipIf(!disponible)("robustez: ninguna entrada mala da 500", () => {
       await probar("GET", `/flota/clientes/${e}/sedes`, { entrada: id });
       await probar("GET", `/flota/sedes/${e}/vehiculos`, { entrada: id });
       await probar("POST", `/fotos/${e}/confirmar`, { cuerpo: {}, entrada: id });
+      await probar("POST", `/programaciones/${e}/desactivar`, { cuerpo: {}, token: "tok-coordinador", entrada: id });
+      await probar("POST", `/programaciones/${e}/tecnico`, { cuerpo: { tecnicoId: SEMILLA.tecnico }, token: "tok-coordinador", entrada: id });
     }
   }, 120_000);
 

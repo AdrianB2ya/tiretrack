@@ -25,7 +25,7 @@ export const TABLAS = [
   "ConfiguracionEje", "PosicionEje", "Vehiculo",
   "Marca", "Diseno", "DisenoMedida", "Servicio", "Consecutivo",
   "OrdenServicio", "OrdenEstadoHistorial", "LlantaRegistro", "LlantaServicio",
-  "Foto", "OperacionAplicada", "Auditoria",
+  "Foto", "OperacionAplicada", "Auditoria", "ProgramacionRecurrente",
 ] as const;
 
 /**

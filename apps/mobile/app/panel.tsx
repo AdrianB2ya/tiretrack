@@ -33,9 +33,18 @@ export default function PantallaPanel() {
     <View style={{ flex: 1, backgroundColor: colores.fondo }}>
       <BarraDeSesion />
       <View style={{ paddingHorizontal: espacio.md, paddingTop: espacio.sm, gap: espacio.sm }}>
-        <Boton ancho testID="nueva-orden" onPress={() => router.push("/nueva-orden" as never)}>
-          Programar una orden
-        </Boton>
+        <View style={{ flexDirection: "row", gap: espacio.sm }}>
+          <View style={{ flex: 1 }}>
+            <Boton ancho testID="nueva-orden" onPress={() => router.push("/nueva-orden" as never)}>
+              Programar una orden
+            </Boton>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Boton ancho tipo="secundario" testID="programaciones" onPress={() => router.push("/programaciones" as never)}>
+              Visitas recurrentes
+            </Boton>
+          </View>
+        </View>
         <View style={{ flexDirection: "row", gap: espacio.sm }}>
           <View style={{ flex: 1 }}>
             <Boton ancho tipo="secundario" testID="flota" onPress={() => router.push("/flota" as never)}>

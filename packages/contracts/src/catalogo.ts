@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CADA_MAXIMO, FRECUENCIAS } from "@tiretrack/domain";
 import {
   zFechaISO,
   zId,
@@ -8,6 +9,7 @@ import {
   zTextoCorto,
   zTextoLargo,
   zTipoEje,
+  zTipoServicio,
   zUnidadPresion,
   zUnidadProfundidad,
 } from "./comunes";
@@ -162,19 +164,6 @@ export const zCrearConfiguracionEje = z.object({
 });
 export type CrearConfiguracionEje = z.infer<typeof zCrearConfiguracionEje>;
 
-// ── Programación recurrente ────────────────────────────────────────────────
-
-export const zCrearProgramacion = z.object({
-  id: zId,
-  clienteId: zId,
-  sedeClienteId: zId,
-  vehiculoId: zId,
-  tipo: z.enum(["preventivo", "correctivo"]),
-  frecuencia: z.enum(["dias_habiles", "dias_calendario", "semanal", "quincenal", "mensual"]),
-  cada: z.number().int().min(1).max(365).default(1),
-  inicio: zFechaISO,
-});
-
 // ── Sincronización ─────────────────────────────────────────────────────────
 
 export const TIPOS_OPERACION = [
@@ -256,6 +245,32 @@ export const zUrlPrefirmada = z.object({
 });
 
 // ── Informe ────────────────────────────────────────────────────────────────
+
+// ── Programación recurrente ────────────────────────────────────────────────
+//
+// Había una versión anterior, sin uso, con las frecuencias y los tipos
+// escritos a mano y sin sede ni técnico. Los vocabularios salen del dominio.
+
+/**
+ * Alta de una programación. El técnico es fijo (decisión del usuario,
+ * 2026-10-06); quien la crea sale de la sesión, nunca del cuerpo.
+ */
+export const zCrearProgramacion = z.object({
+  id: zId,
+  sedeId: zId,
+  clienteId: zId,
+  sedeClienteId: zId,
+  vehiculoId: zId,
+  tecnicoId: zId,
+  tipo: zTipoServicio,
+  frecuencia: z.enum(FRECUENCIAS),
+  cada: z.number().int().min(1).max(CADA_MAXIMO).default(1),
+  /** Primera visita; si cae en fin de semana, pasa al lunes. */
+  inicio: zFechaISO,
+});
+export type CrearProgramacion = z.infer<typeof zCrearProgramacion>;
+
+export const zCambiarTecnicoProgramacion = z.object({ tecnicoId: zId });
 
 export const zFiltroInforme = z.object({
   clienteId: zId.optional(),

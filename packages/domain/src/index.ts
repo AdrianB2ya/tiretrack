@@ -30,3 +30,4 @@ export * from "./flota/reglas";
 export * from "./fotos/reglas";
 export * from "./informe/formato";
 export * from "./trabajos/reglas";
+export * from "./trabajos/programacion";

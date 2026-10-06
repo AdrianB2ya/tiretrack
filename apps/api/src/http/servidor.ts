@@ -12,11 +12,14 @@ import {
   zCrearMarca,
   zCrearOrden,
   zActivarCuenta,
+  zCambiarTecnicoProgramacion,
+  zCrearProgramacion,
   zCrearSede,
   zCrearSedeCliente,
   zCrearUsuario,
   zCrearVehiculo,
   zFiltroInforme,
+  zId,
   zFirma,
   zInstante,
   zReasignar,
@@ -35,9 +38,10 @@ const zVersionConfiguracion = z.object({ ejes: z.array(zEjeDefinicion).min(1), c
 
 /** Consulta de la descarga: `desde` es la marca `hasta` que entregó el servidor. */
 const zConsultaDescarga = z.object({ desde: zInstante.optional() });
-import { ROLES, type Rol, type Veredicto } from "@tiretrack/domain";
+import { fechaEnColombia, ROLES, type Rol, type Veredicto } from "@tiretrack/domain";
 import type { Claims, ResultadoActivacion, ResultadoLogin } from "../acceso/servicio";
 import { ServicioUsuarios } from "../usuarios/servicio";
+import { ServicioProgramaciones } from "../programaciones/servicio";
 import { RepositorioOrdenesPg } from "../ordenes/repositorio";
 import { COMANDO, ServicioOrdenes } from "../ordenes/servicio";
 import { RepositorioMedicionesPg, ServicioMediciones } from "../mediciones/servicio";
@@ -137,6 +141,7 @@ const ESTADO_POR_CODIGO: Record<string, number> = {
   TECNICO_AJENO_A_SEDE: 403,
   ROL_NO_PERMITIDO: 403,
   ROL_NO_ASIGNABLE: 403,
+  SEDE_AJENA: 403,
 
   CORREO_DUPLICADO: 409,
   NOMBRE_EN_USO: 409,
@@ -144,6 +149,11 @@ const ESTADO_POR_CODIGO: Record<string, number> = {
   // Cambia vehículos en uso: se pide confirmar, no es un error de datos.
   REQUIERE_CONFIRMACION: 409,
   CODIGO_DUPLICADO: 409,
+  PROGRAMACION_DUPLICADA: 409,
+  YA_EXISTE: 409,
+  // El técnico o el vehículo cambiaron de estado: no es un dato mal escrito.
+  TECNICO_NO_DISPONIBLE: 409,
+  VEHICULO_INACTIVO: 409,
 
   CONFLICTO_VERSION: 409,
   FIRMA_DESACTUALIZADA: 409,
@@ -283,6 +293,7 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
       flota: new ServicioFlota(new RepositorioFlotaPg(cliente)),
       informe: new ServicioInforme(db, reloj),
       usuarios: new ServicioUsuarios(db),
+      programaciones: new ServicioProgramaciones(db),
       fotos: new ServicioFotos(
         new RepositorioFotosPg(cliente),
         op.almacen,
@@ -884,6 +895,41 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
       if (!p.success) return datosInvalidos(p.error.issues);
       const r = await s.usuarios.crearSede(ctx, sinIndefinidos(p.data));
       return r.ok ? { status: 201, cuerpo: r.valor } : rechazo(r.veredicto);
+    }));
+
+    // ── Programación recurrente (4.4) ──
+    //
+    // En línea, como la administración: es trabajo de oficina, y el
+    // coordinador necesita saber en el momento si quedó o por qué no.
+
+    app.get("/programaciones", administracion(async (s, ctx) => {
+      const r = await s.programaciones.listar(ctx);
+      return r.ok ? { status: 200, cuerpo: r.valor } : rechazo(r.veredicto);
+    }));
+
+    app.post("/programaciones", administracion(async (s, ctx, req) => {
+      const p = zCrearProgramacion.safeParse(req.body);
+      if (!p.success) return datosInvalidos(p.error.issues);
+      // "Hoy" en Colombia: una programación para hoy hecha a las 8 p. m. no
+      // es "en el pasado".
+      const r = await s.programaciones.crear(ctx, p.data, fechaEnColombia(reloj()));
+      return r.ok ? { status: 201, cuerpo: r.valor } : rechazo(r.veredicto);
+    }));
+
+    app.post("/programaciones/:id/desactivar", administracion(async (s, ctx, req) => {
+      const id = zId.safeParse(params(req).id);
+      if (!id.success) return datosInvalidos(id.error.issues);
+      const r = await s.programaciones.desactivar(ctx, id.data);
+      return r.ok ? { status: 200, cuerpo: r.valor } : rechazo(r.veredicto);
+    }));
+
+    app.post("/programaciones/:id/tecnico", administracion(async (s, ctx, req) => {
+      const id = zId.safeParse(params(req).id);
+      const p = zCambiarTecnicoProgramacion.safeParse(req.body);
+      if (!id.success) return datosInvalidos(id.error.issues);
+      if (!p.success) return datosInvalidos(p.error.issues);
+      const r = await s.programaciones.cambiarTecnico(ctx, id.data, p.data.tecnicoId);
+      return r.ok ? { status: 200, cuerpo: r.valor } : rechazo(r.veredicto);
     }));
   }, { prefix: PREFIJO_API });
 

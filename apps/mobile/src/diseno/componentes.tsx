@@ -251,9 +251,11 @@ export function Vacio({ mensaje }: { mensaje: string }) {
  * lleva "✓" en el texto, no solo otro color, y se anuncia con `aria-checked`
  * —`accessibilityState` se pierde en la presentación (tarea 3.4)—.
  */
-export function Opcion({ activa, etiqueta, onPress, testID }: {
+export function Opcion({ activa, etiqueta, detalle, onPress, testID }: {
   activa: boolean;
   etiqueta: string;
+  /** Segunda línea, más tenue: el nombre del vehículo bajo su código. */
+  detalle?: string;
   onPress: () => void;
   testID?: string;
 }) {
@@ -262,7 +264,7 @@ export function Opcion({ activa, etiqueta, onPress, testID }: {
       onPress={onPress}
       role="radio"
       aria-checked={activa}
-      accessibilityLabel={etiqueta}
+      accessibilityLabel={detalle ? `${etiqueta}, ${detalle}` : etiqueta}
       testID={testID}
       style={({ pressed }) => [estilos.opcion, activa && estilos.opcionActiva, pressed && { opacity: 0.7 }]}
     >
@@ -270,6 +272,7 @@ export function Opcion({ activa, etiqueta, onPress, testID }: {
         {activa ? "✓ " : ""}
         {etiqueta}
       </Text>
+      {detalle ? <Text style={estilos.detalleOpcion}>{detalle}</Text> : null}
     </Pressable>
   );
 }
@@ -288,6 +291,7 @@ const estilos = StyleSheet.create({
   opcionActiva: { borderColor: colores.primario, backgroundColor: conOpacidad(colores.primario, 0.12) },
   textoOpcion: { ...texto.cuerpo, color: colores.texto },
   textoOpcionActiva: { fontWeight: "700", color: colores.primario },
+  detalleOpcion: { ...texto.ayuda, color: colores.textoTenue },
   boton: {
     minHeight: tactil.comodo,
     paddingHorizontal: espacio.xl,

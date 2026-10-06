@@ -123,6 +123,97 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
     });
   });
 
+  describe("programación recurrente (4.4)", () => {
+    const enviar = (metodo: "GET" | "POST", ruta: string, token: string, cuerpo?: unknown) =>
+      app.inject({
+        method: metodo,
+        url: PREFIJO_API + ruta,
+        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+        ...(cuerpo === undefined ? {} : { payload: JSON.stringify(cuerpo) }),
+      });
+    // El reloj del servidor de pruebas marca el lunes 21 de septiembre.
+    const nueva = (extra: Record<string, unknown> = {}) => ({
+      id: nuevoId(), sedeId: SEMILLA.sede, clienteId: SEMILLA.cliente, sedeClienteId: SEMILLA.sedeCliente,
+      vehiculoId: SEMILLA.vehiculo, tecnicoId: SEMILLA.tecnico, tipo: "preventivo",
+      frecuencia: "mensual", cada: 1, inicio: "2026-09-26", ...extra,
+    });
+
+    beforeEach(async () => {
+      // El coordinador trabaja en la sede: solo programa en las suyas.
+      await pool.query(`INSERT INTO "UsuarioSede" ("usuarioId","sedeId") VALUES ($1,$2)`, [SEMILLA.coordinador, SEMILLA.sede]);
+    });
+
+    it("el coordinador programa; la primera visita pasa del sábado al lunes; queda a su nombre", async () => {
+      const p = nueva();
+      const r = await enviar("POST", "/programaciones", "tok-coordinador", p);
+      expect(r.statusCode).toBe(201);
+      expect(r.json().proxima).toBe("2026-09-28");
+      const fila = await pool.query(`SELECT "creadoPorId", "tecnicoId" FROM "ProgramacionRecurrente" WHERE id = $1`, [p.id]);
+      // El autor sale de la sesión, nunca del cuerpo.
+      expect(fila.rows[0]).toEqual({ creadoPorId: SEMILLA.coordinador, tecnicoId: SEMILLA.tecnico });
+      const lista = await enviar("GET", "/programaciones", "tok-coordinador");
+      expect(lista.json()).toEqual([
+        expect.objectContaining({ id: p.id, descripcion: "Cada mes", vehiculoCodigo: "CA-12", tecnicoNombre: "Carlos Méndez" }),
+      ]);
+    });
+
+    it("el técnico no programa", async () => {
+      expect((await enviar("POST", "/programaciones", "tok-tecnico", nueva())).statusCode).toBe(403);
+      expect((await enviar("GET", "/programaciones", "tok-tecnico")).statusCode).toBe(403);
+    });
+
+    it("no se programa en una sede ajena, ni se ve lo de otras sedes", async () => {
+      await pool.query(`DELETE FROM "UsuarioSede" WHERE "usuarioId" = $1`, [SEMILLA.coordinador]);
+      const r = await enviar("POST", "/programaciones", "tok-coordinador", nueva());
+      expect(r.statusCode).toBe(403);
+      expect(r.json().error.codigo).toBe("SEDE_AJENA");
+    });
+
+    it("no programa a un técnico de otra sede ni a un coordinador", async () => {
+      const r = await enviar("POST", "/programaciones", "tok-coordinador", nueva({ tecnicoId: SEMILLA.coordinador }));
+      expect(r.statusCode).toBe(409);
+      expect(r.json().error.codigo).toBe("TECNICO_NO_DISPONIBLE");
+    });
+
+    it("no programa hacia atrás", async () => {
+      const r = await enviar("POST", "/programaciones", "tok-coordinador", nueva({ inicio: "2026-09-20" }));
+      expect(r.json().error.codigo).toBe("INICIO_PASADO");
+    });
+
+    it("una segunda programación igual para el mismo vehículo se rechaza", async () => {
+      await enviar("POST", "/programaciones", "tok-coordinador", nueva());
+      const r = await enviar("POST", "/programaciones", "tok-coordinador", nueva());
+      expect(r.statusCode).toBe(409);
+      expect(r.json().error.codigo).toBe("PROGRAMACION_DUPLICADA");
+    });
+
+    it("un vehículo que no es de esa sede del cliente se rechaza", async () => {
+      const r = await enviar("POST", "/programaciones", "tok-coordinador", nueva({ vehiculoId: nuevoId() }));
+      expect(r.json().error.codigo).toBe("VEHICULO_NO_CORRESPONDE");
+    });
+
+    it("pausar la deja en la lista, sin generar; y cambiar el técnico limpia el aviso", async () => {
+      const p = nueva();
+      await enviar("POST", "/programaciones", "tok-coordinador", p);
+      await pool.query(`UPDATE "ProgramacionRecurrente" SET "ultimoAviso" = 'técnico inactivo'`);
+      const cambio = await enviar("POST", `/programaciones/${p.id}/tecnico`, "tok-coordinador", { tecnicoId: SEMILLA.otroTecnico });
+      expect(cambio.statusCode).toBe(200);
+      expect((await enviar("GET", "/programaciones", "tok-coordinador")).json()[0]).toMatchObject({
+        tecnicoId: SEMILLA.otroTecnico, ultimoAviso: null,
+      });
+      expect((await enviar("POST", `/programaciones/${p.id}/desactivar`, "tok-coordinador", {})).statusCode).toBe(200);
+      expect((await enviar("GET", "/programaciones", "tok-coordinador")).json()[0].activa).toBe(false);
+      // Pausar dos veces: ya no hay nada activo que pausar.
+      expect((await enviar("POST", `/programaciones/${p.id}/desactivar`, "tok-coordinador", {})).statusCode).toBe(404);
+    });
+
+    it("deja constancia en la auditoría", async () => {
+      await enviar("POST", "/programaciones", "tok-coordinador", nueva());
+      const a = await pool.query(`SELECT accion::text AS accion, detalle FROM "Auditoria"`);
+      expect(a.rows[0]).toMatchObject({ accion: "crear", detalle: expect.objectContaining({ entidad: "programacion" }) });
+    });
+  });
+
   describe("usuarios y activación (5.2)", () => {
     const enviar = (metodo: "GET" | "POST", ruta: string, token: string | null, cuerpo?: unknown) =>
       app.inject({

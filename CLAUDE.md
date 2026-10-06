@@ -248,7 +248,7 @@ Estado: `[x]` hecha · `[ ]` pendiente
 - [x] 4.1 Nueva orden en cascada (ruta `nueva-orden`)
 - [x] 4.2 Bandeja de aprobación
 - [x] 4.3 Devolución y reasignación (ruta `orden/[id]/decidir`)
-- [ ] 4.4 Programación recurrente (trabajos en marcha y técnico fijo; falta la pantalla)
+- [x] 4.4 Programación recurrente (ruta `programaciones`; trabajos en marcha con técnico fijo)
 
 > Las secciones de abajo numeradas 4.x–6.x **no corresponden** a estas
 > casillas: a partir de la 5.0 se usaron para la capa HTTP, la sincronización
@@ -2786,13 +2786,44 @@ técnico de la sede), igual que la orden.
 - Todo salto deja su motivo en **`ultimoAviso`**: una programación que no
   produce nada parece que funciona si nadie dice por qué.
 
+## Visitas recurrentes en la app (4.4, cierre)
+
+Servidor: `ServicioProgramaciones` y rutas `GET/POST /programaciones`,
+`POST /programaciones/:id/desactivar` y `/:id/tecnico` (administrador y
+coordinador, en línea). App: `src/coordinador/programacion.ts` (reglas),
+`PantallaProgramaciones.tsx`, ruta `programaciones`, botón "Visitas
+recurrentes" en el panel. Reglas del dominio en `trabajos/programacion.ts`.
+
+- **Lo que se ve antes de guardar es lo que va a pasar**: las próximas tres
+  visitas salen de `proximasVisitas`, la misma cuenta que usa el trabajo.
+  Hay una prueba que encadena `avanzarProxima` y exige las mismas fechas.
+- **Solo en sus sedes**, igual que el resto: se lista y se programa por
+  `UsuarioSede` (también el administrador).
+- **El técnico se valida igual que el trabajo** (activo, técnico, en la sede),
+  y la llave compuesta lo garantiza en la base.
+- **Una sola programación activa por vehículo y tipo**: dos generarían dos
+  órdenes por visita, o una y un aviso de "orden abierta" cada vez.
+- **No se programa hacia atrás**: el trabajo la generaría con fecha de hoy y
+  la primera visita no sería la escrita. "Hoy" es el de Colombia.
+- **La tarjeta dice por qué no se generó** (`ultimoAviso`), primero y en
+  texto; "Cambiar técnico" es la salida y limpia el aviso. "Pausar" pide
+  confirmar una vez; no se borra nada.
+- Un id por intento de alta: un doble toque con mala señal no duplica.
+- El contrato anterior `zCrearProgramacion` (sin uso, con frecuencias y
+  tipos escritos a mano, sin sede ni técnico) se reemplazó.
+- `Opcion` (componente base) admite una segunda línea de detalle.
+
+Probado contra la base real con el rol de aplicación y RLS: crear, repetida
+rechazada, lista con nombres, pausar, auditoría. El paquete de la app no se
+pudo armar (Metro detenido por falta de memoria); tipos y pruebas pasan.
+
 ## Punto de retoma (2026-10-05)
 
-**Estado:** el usuario prueba la app en el teléfono con Expo Go (SDK 52). Siguen PDF (6.3), programación recurrente (4.4), vista de auditoría (5.4) y guía de despliegue.
+**Estado:** el usuario prueba la app en el teléfono con Expo Go (SDK 52). Siguen PDF (6.3), vista de auditoría (5.4) y guía de despliegue.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
-Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas e informe ya tienen pantalla.
+Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 870/870, mobile 819/819.
+**Verificado:** `npm run verify` con base: raíz 885/885, mobile 833/833.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):
