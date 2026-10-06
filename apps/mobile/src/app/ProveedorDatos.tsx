@@ -16,6 +16,7 @@ import {
   type MedicionLocal,
   type OrdenLocal,
   type PosicionEjeLocal,
+  type RecomendacionLocal,
   type TecnicoLocal,
 } from "../datos/repositorio";
 import { MotorSincronizacion, type ResumenSincronizacion } from "../datos/sincronizacion";
@@ -82,6 +83,10 @@ export interface AccionesDatos {
   fotosSinSubir(ordenId: string): Promise<number>;
   /** Registra la foto ya capturada y comprimida. Cambia el contenido: la firma lo nota. */
   adjuntarFoto(f: Parameters<RepositorioLocal["adjuntarFoto"]>[0]): Promise<string>;
+  /** Las abiertas del vehículo y las creadas o resueltas en esta orden. */
+  recomendacionesDe(ordenId: string, vehiculoId: string): Promise<RecomendacionLocal[]>;
+  crearRecomendacion(r: Parameters<RepositorioLocal["crearRecomendacion"]>[0]): Promise<void>;
+  resolverRecomendacion(id: string, estado: "ejecutada" | "descartada", ordenId: string): Promise<void>;
   /** Lo que el formulario de orden nueva lee de la base del celular. */
   fuentesOrden: FuentesNuevaOrden;
   /** Guarda la orden nueva y la encola; si hay señal, sale enseguida. */
@@ -299,6 +304,25 @@ export function ProveedorDatos({
     [repo, refrescar],
   );
 
+  const recomendacionesDe = useCallback<AccionesDatos["recomendacionesDe"]>(
+    (ordenId, vehiculoId) => repo.recomendacionesParaOrden(ordenId, vehiculoId),
+    [repo],
+  );
+  const crearRecomendacion = useCallback<AccionesDatos["crearRecomendacion"]>(
+    async (r) => {
+      await repo.crearRecomendacion(r);
+      await refrescar();
+    },
+    [repo, refrescar],
+  );
+  const resolverRecomendacion = useCallback<AccionesDatos["resolverRecomendacion"]>(
+    async (id, estado, ordenId) => {
+      await repo.resolverRecomendacion(id, estado, ordenId);
+      await refrescar();
+    },
+    [repo, refrescar],
+  );
+
   const actualizarDatosOrden = useCallback<AccionesDatos["actualizarDatosOrden"]>(
     async (ordenId, datos) => {
       await repo.actualizarDatosOrden(ordenId, datos);
@@ -498,6 +522,9 @@ export function ProveedorDatos({
       fuentesOrden,
       crearOrden,
       fuentesFlota,
+      recomendacionesDe,
+      crearRecomendacion,
+      resolverRecomendacion,
       posicionesPlantilla,
       accionesFlota,
     }),
@@ -506,7 +533,7 @@ export function ProveedorDatos({
       refrescar, sincronizar, cargarOrden, guardarMedicion, actualizarDatosOrden,
       firmar, cambiarEstado, catalogoPara, bandejaRevision, tecnicosDeSede,
       reasignar, medicionAnterior, fotosDe, fotosSinSubir, adjuntarFoto, fuentesOrden, crearOrden,
-      fuentesFlota, posicionesPlantilla, accionesFlota,
+      fuentesFlota, recomendacionesDe, crearRecomendacion, resolverRecomendacion, posicionesPlantilla, accionesFlota,
     ],
   );
 

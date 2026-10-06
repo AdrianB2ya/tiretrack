@@ -166,6 +166,19 @@ function aDesmontada(f: Record<string, unknown>): Desmontada | null {
   return Object.values(d).some((x) => x !== null) ? d : null;
 }
 
+/** Lo que se encontró y no se ejecutó en una visita. */
+export interface RecomendacionLocal {
+  readonly id: string;
+  readonly vehiculoId: string;
+  readonly posicion: number | null;
+  readonly texto: string;
+  readonly prioridad: string;
+  readonly estado: string;
+  readonly origenOrdenId: string;
+  readonly resueltaOrdenId: string | null;
+  readonly creadaEn: string;
+}
+
 export interface ClienteLocal {
   readonly id: string;
   readonly nombre: string;
@@ -257,6 +270,7 @@ export const TIPOS_OPERACION = [
   "crear_orden", "actualizar_orden", "guardar_medicion", "cambiar_estado",
   "crear_marca", "crear_diseno", "reasignar", "adjuntar_foto", "firmar", "subir_foto",
   "crear_cliente", "crear_sede_cliente", "crear_vehiculo",
+  "crear_recomendacion", "resolver_recomendacion",
 ] as const;
 export type TipoOperacion = (typeof TIPOS_OPERACION)[number];
 
@@ -1373,6 +1387,99 @@ export class RepositorioLocal {
             );
           }
         }
+      }
+    });
+  }
+
+  // ── Recomendaciones persistentes ─────────────────────────────────────────
+
+  /**
+   * Registra una recomendación y la encola. No es contenido firmado: no sube
+   * `version_contenido` ni invalida la firma (el cliente firma lo hecho, no
+   * lo que falta por hacer).
+   */
+  async crearRecomendacion(r: {
+    id?: string;
+    ordenId: string;
+    vehiculoId: string;
+    posicion: number | null;
+    texto: string;
+    prioridad: string;
+  }): Promise<string> {
+    const id = r.id ?? nuevoId();
+    await this.enTransaccion(async () => {
+      await this.db.ejecutar(
+        `INSERT INTO recomendacion (id, vehiculo_id, posicion, texto, prioridad, estado, origen_orden_id, creada_en)
+         VALUES (?,?,?,?,?,'abierta',?,?)`,
+        [id, r.vehiculoId, r.posicion, r.texto, r.prioridad, r.ordenId, this.ahora()],
+      );
+      await this.encolar("crear_recomendacion", id, r.ordenId, {
+        id, vehiculoId: r.vehiculoId, texto: r.texto, prioridad: r.prioridad,
+        ...(r.posicion !== null ? { posicion: r.posicion } : {}),
+      });
+    });
+    return id;
+  }
+
+  /** Hecha o descartada en esta visita. */
+  async resolverRecomendacion(id: string, estado: "ejecutada" | "descartada", ordenId: string): Promise<void> {
+    await this.enTransaccion(async () => {
+      await this.db.ejecutar(`UPDATE recomendacion SET estado = ?, resuelta_orden_id = ? WHERE id = ?`, [estado, ordenId, id]);
+      await this.encolar("resolver_recomendacion", id, ordenId, { estado, ordenId });
+    });
+  }
+
+  /**
+   * Las que importan en esta orden: las abiertas del vehículo (de cualquier
+   * visita) y las que se crearon o resolvieron en ella.
+   */
+  async recomendacionesParaOrden(ordenId: string, vehiculoId: string): Promise<RecomendacionLocal[]> {
+    const filas = await this.db.consultar<Record<string, unknown>>(
+      `SELECT id, vehiculo_id, posicion, texto, prioridad, estado, origen_orden_id, resuelta_orden_id, creada_en
+         FROM recomendacion
+        WHERE (vehiculo_id = ? AND estado = 'abierta') OR origen_orden_id = ? OR resuelta_orden_id = ?
+        ORDER BY creada_en`,
+      [vehiculoId, ordenId, ordenId],
+    );
+    return filas.map((f) => ({
+      id: String(f["id"]),
+      vehiculoId: String(f["vehiculo_id"]),
+      posicion: f["posicion"] === null ? null : Number(f["posicion"]),
+      texto: String(f["texto"]),
+      prioridad: String(f["prioridad"]),
+      estado: String(f["estado"]),
+      origenOrdenId: String(f["origen_orden_id"]),
+      resueltaOrdenId: (f["resuelta_orden_id"] as string | null) ?? null,
+      creadaEn: String(f["creada_en"]),
+    }));
+  }
+
+  /**
+   * Las del servidor reemplazan a las locales, salvo lo que este celular
+   * registró o resolvió y todavía no envió: esa copia es la nueva.
+   */
+  async guardarRecomendacionesDescargadas(lista: readonly RecomendacionLocal[]): Promise<void> {
+    await this.enTransaccion(async () => {
+      const pendientes = new Set(
+        (await this.db.consultar<{ recurso_id: string }>(
+          `SELECT recurso_id FROM operacion
+            WHERE tipo IN ('crear_recomendacion','resolver_recomendacion') AND rechazada_en IS NULL`,
+        )).map((p) => p.recurso_id),
+      );
+      const locales = await this.db.consultar<{ id: string }>(`SELECT id FROM recomendacion`);
+      const delServidor = new Set(lista.map((r) => r.id));
+      for (const { id } of locales) {
+        if (!delServidor.has(id) && !pendientes.has(id)) await this.db.ejecutar(`DELETE FROM recomendacion WHERE id = ?`, [id]);
+      }
+      for (const r of lista) {
+        if (pendientes.has(r.id)) continue;
+        await this.db.ejecutar(
+          `INSERT INTO recomendacion (id, vehiculo_id, posicion, texto, prioridad, estado, origen_orden_id, resuelta_orden_id, creada_en)
+           VALUES (?,?,?,?,?,?,?,?,?)
+           ON CONFLICT (id) DO UPDATE SET estado = excluded.estado, resuelta_orden_id = excluded.resuelta_orden_id,
+             texto = excluded.texto, prioridad = excluded.prioridad, posicion = excluded.posicion`,
+          [r.id, r.vehiculoId, r.posicion, r.texto, r.prioridad, r.estado, r.origenOrdenId, r.resueltaOrdenId, r.creadaEn],
+        );
       }
     });
   }

@@ -10,9 +10,11 @@ import { siguienteSinCapturar } from "../../../../src/ordenes/diagrama";
 import { FotosDe } from "../../../../src/fotos/FotosDe";
 import { DecisionCliente } from "../../../../src/cliente/DecisionCliente";
 import { camaraDelDispositivo, manipuladorDelDispositivo } from "../../../../src/fotos/captura";
-import { estaAbierta, fechaEnColombia, MAXIMO_POR_ORDEN, puedeAprobar, type EstadoOrden } from "@tiretrack/domain";
+import { estaAbierta, fechaEnColombia, MAXIMO_POR_ORDEN, puedeAprobar, puedeGestionarRecomendaciones, type EstadoOrden } from "@tiretrack/domain";
 import { colores, espacio, estadosOrden, texto } from "../../../../src/diseno/tokens";
 import { OrdenNoDisponible } from "../../../../src/ordenes/OrdenNoDisponible";
+import { Recomendaciones } from "../../../../src/ordenes/Recomendaciones";
+import type { RecomendacionLocal } from "../../../../src/datos/repositorio";
 
 /**
  * Detalle de la orden con su diagrama.
@@ -23,7 +25,8 @@ import { OrdenNoDisponible } from "../../../../src/ordenes/OrdenNoDisponible";
 export default function PantallaDetalle() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { cargarOrden, ordenes, fotosSinSubir, fotosDe, adjuntarFoto, cambiarEstado } = useDatos();
+  const { cargarOrden, ordenes, fotosSinSubir, fotosDe, adjuntarFoto, cambiarEstado, recomendacionesDe, crearRecomendacion, resolverRecomendacion } = useDatos();
+  const [recomendaciones, setRecomendaciones] = useState<RecomendacionLocal[]>([]);
 
   // Aprobar cierra la orden; objetar la devuelve al técnico con el motivo.
   const decidirCliente = async (estado: "cerrada" | "en_proceso", motivo?: string) => {
@@ -43,10 +46,12 @@ export default function PantallaDetalle() {
 
   const recargar = useCallback(async () => {
     if (!id) return;
-    setDatos(await cargarOrden(id));
+    const d = await cargarOrden(id);
+    setDatos(d);
     // Antes era un 0 fijo: el aviso de fotos sin enviar nunca aparecía.
     setSinSubir(await fotosSinSubir(id));
-  }, [id, cargarOrden, fotosSinSubir]);
+    if (d) setRecomendaciones(await recomendacionesDe(d.orden.id, d.orden.vehiculoId));
+  }, [id, cargarOrden, fotosSinSubir, recomendacionesDe]);
 
   // `ordenes` cambia tras cada guardado: recargar entonces mantiene el
   // diagrama al día sin tener que avisar manualmente desde el editor.
@@ -136,6 +141,24 @@ export default function PantallaDetalle() {
       <Boton tipo="secundario" ancho testID="ver-evidencia" onPress={() => router.push(`/orden/${orden.id}/fotos` as never)}>
         Ver la evidencia en el servidor
       </Boton>
+
+      <Recomendaciones
+        ordenId={orden.id}
+        recomendaciones={recomendaciones}
+        bloqueo={(() => {
+          // Quién: el usuario de la SESIÓN, nunca el de la orden (4.4).
+          const v = puedeGestionarRecomendaciones({ rol: usuario.rol, esTecnicoAsignado: orden.tecnicoId === usuario.id, estadoOrden: orden.estado });
+          return v.permitido ? null : (v.mensaje ?? "No se pueden registrar recomendaciones aquí");
+        })()}
+        onCrear={async (r) => {
+          await crearRecomendacion({ ordenId: orden.id, vehiculoId: orden.vehiculoId, ...r });
+          await recargar();
+        }}
+        onResolver={async (rid, estado) => {
+          await resolverRecomendacion(rid, estado, orden.id);
+          await recargar();
+        }}
+      />
 
       {esCliente ? (
         <View style={estilos.requisitos}>

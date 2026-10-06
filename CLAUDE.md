@@ -3081,13 +3081,51 @@ más de 15 minutos. Ahora `npm test` de la app corre todo lo demás y después
 `test:recorrido` solo (≈2,5 min), y el recorrido espera a que la sesión
 termine de restaurarse en vez de un tiempo fijo.
 
+## Recomendaciones persistentes (2026-10-06)
+
+Regla del negocio: lo que el técnico encuentra y no ejecuta sobrevive al
+cierre y reaparece en la siguiente orden del vehículo. La tabla existía desde
+la 1.1 y nada la usaba.
+
+- **Dominio** (`orden/recomendaciones.ts`): las registran y resuelven el
+  técnico asignado o la oficina, en una **orden abierta**; el cliente las
+  consulta. Prioridades urgente / próxima visita / seguimiento; urgentes
+  primero, y entre iguales la más vieja. Los vocabularios estaban
+  redeclarados en el contrato: ahora salen del dominio.
+- **No son contenido firmado**: el cliente firma lo que se hizo, no lo que
+  falta por hacer. Agregar o resolver una no invalida la firma.
+- **Servidor**: `POST /ordenes/:id/recomendaciones` y
+  `POST /recomendaciones/:id/resolver`, operaciones de la cola e idempotentes
+  (reenviar la misma resolución no es error; resolver una ya resuelta en otra
+  visita es `YA_RESUELTA`). Siempre del vehículo de la orden.
+- **Descarga**: viajan **completas, no incrementales** —resolver una no toca
+  su orden y una descarga incremental nunca la mandaría—: las abiertas de los
+  vehículos con órdenes en curso, más las creadas o resueltas en ellas. El
+  celular las reemplaza respetando lo que aún no envió.
+- **App**: en el detalle de la orden, primero "Pendientes de visitas
+  anteriores" (con "Hecha en esta visita" / "Descartar"), luego lo resuelto
+  aquí y lo de esta visita, y "Agregar recomendación". Sin permiso se ven y
+  se dice por qué no se pueden tocar. Migración 12.
+
+### Dos tablas que no se vaciaban al cambiar de usuario
+
+Una prueba nueva exige que **toda tabla** del celular esté en
+`TABLAS_DE_DATOS`. Encontró:
+
+- `tecnico`, `sede`, `configuracion_eje` (de migraciones posteriores): quien
+  entraba de otra empresa veía los de la anterior hasta la descarga.
+- **`ajuste`, con la marca de la última descarga**: el usuario nuevo pedía
+  "lo que cambió desde" la marca del anterior y **recibía casi ninguna de sus
+  órdenes**. No se había manifestado solo porque, hasta la corrección de la
+  descarga, la marca nunca llegaba a guardarse.
+
 ## Punto de retoma (2026-10-05)
 
 **Estado:** el usuario prueba la app en el teléfono con Expo Go (SDK 52). Siguen PDF (6.3), vista de auditoría (5.4) y guía de despliegue.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 903/903, mobile 866 + recorrido 429.
+**Verificado:** `npm run verify` con base: raíz 909/909, mobile 875 + recorrido 429.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

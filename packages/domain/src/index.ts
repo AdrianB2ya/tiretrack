@@ -13,6 +13,7 @@ export * from "./tipos";
 
 export * from "./orden/estados";
 export * from "./orden/firma";
+export * from "./orden/recomendaciones";
 export * from "./orden/captura-firma";
 export * from "./orden/congelado";
 

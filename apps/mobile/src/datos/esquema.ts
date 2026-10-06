@@ -429,6 +429,26 @@ export const MIGRACIONES: readonly Migracion[] = [
       ALTER TABLE sesion_nueva RENAME TO sesion;
     `,
   },
+  {
+    version: 12,
+    nombre: "recomendaciones persistentes",
+    sql: `
+      -- Lo que el técnico encuentra y no ejecuta: sobrevive al cierre y
+      -- reaparece en la siguiente orden del vehículo. Se registra sin señal.
+      CREATE TABLE recomendacion (
+        id                TEXT PRIMARY KEY,
+        vehiculo_id       TEXT NOT NULL,
+        posicion          INTEGER,
+        texto             TEXT NOT NULL,
+        prioridad         TEXT NOT NULL,
+        estado            TEXT NOT NULL DEFAULT 'abierta',
+        origen_orden_id   TEXT NOT NULL,
+        resuelta_orden_id TEXT,
+        creada_en         TEXT NOT NULL
+      );
+      CREATE INDEX idx_recomendacion_vehiculo ON recomendacion (vehiculo_id);
+    `,
+  },
 ];
 
 export const VERSION_ESQUEMA = MIGRACIONES[MIGRACIONES.length - 1]?.version ?? 0;
@@ -462,4 +482,15 @@ export const TABLAS_DE_DATOS = [
   "tipo_parche",
   "reserva_folio",
   "sesion",
+  // Faltaban las de migraciones posteriores: al entrar alguien de otra
+  // empresa, veía las sedes, técnicos y plantillas de la anterior hasta que
+  // la descarga las reemplazaba.
+  "tecnico",
+  "sede",
+  "configuracion_eje",
+  "recomendacion",
+  // La marca de la última descarga. Si sobreviviera al cambio de usuario, el
+  // siguiente pediría solo "lo que cambió desde" la marca del anterior y
+  // recibiría casi ninguna de sus órdenes.
+  "ajuste",
 ] as const;

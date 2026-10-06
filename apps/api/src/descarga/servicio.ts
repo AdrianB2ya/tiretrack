@@ -1,4 +1,5 @@
 import type { Rol } from "@tiretrack/domain";
+import { ServicioRecomendaciones, type RecomendacionVista } from "../recomendaciones/servicio";
 
 /**
  * Descarga: lo que el celular necesita para trabajar sin señal.
@@ -34,6 +35,12 @@ export interface Paquete {
   readonly incremental: boolean;
   readonly ordenes: OrdenDescargada[];
   readonly mediciones: MedicionDescargada[];
+  /**
+   * Abiertas de los vehículos con órdenes en curso, más las creadas o
+   * resueltas en esas órdenes. Viajan COMPLETAS, no incrementales: resolver
+   * una no toca su orden, y una descarga incremental nunca la mandaría.
+   */
+  readonly recomendaciones: RecomendacionVista[];
   readonly catalogo: {
     marcas: { id: string; nombre: string; esGlobal: boolean }[];
     disenos: { id: string; marcaId: string; nombre: string; tipoEje: string }[];
@@ -178,8 +185,16 @@ export class ServicioDescarga {
     const configuraciones = await this.configuraciones();
     const tecnicos = await this.tecnicos(ctx);
     const sedes = await this.sedes();
+    // Las órdenes en curso que la persona ve (RLS), aunque no hayan cambiado:
+    // con descarga incremental, las de este paquete no bastan.
+    const abiertas = await this.db.query<{ id: string }>(
+      `SELECT id FROM "OrdenServicio" WHERE estado NOT IN ('cerrada','anulada')`,
+    );
+    const recomendaciones = await new ServicioRecomendaciones(this.db).paraOrdenes([
+      ...new Set([...ordenes.map((o) => o.id), ...abiertas.rows.map((r) => r.id)]),
+    ]);
 
-    return { hasta, incremental: Boolean(desde), ordenes, mediciones, catalogo, flota, configuraciones, tecnicos, sedes };
+    return { hasta, incremental: Boolean(desde), ordenes, mediciones, recomendaciones, catalogo, flota, configuraciones, tecnicos, sedes };
   }
 
   /**

@@ -14,6 +14,8 @@ import {
   zActivarCuenta,
   zCambiarTecnicoProgramacion,
   zCrearProgramacion,
+  zCrearRecomendacion,
+  zResolverRecomendacion,
   zCrearSede,
   zCrearSedeCliente,
   zCrearUsuario,
@@ -42,6 +44,7 @@ import { fechaEnColombia, ROLES, type Rol, type Veredicto } from "@tiretrack/dom
 import type { Claims, ResultadoActivacion, ResultadoLogin } from "../acceso/servicio";
 import { ServicioUsuarios } from "../usuarios/servicio";
 import { ServicioProgramaciones } from "../programaciones/servicio";
+import { ServicioRecomendaciones } from "../recomendaciones/servicio";
 import { RepositorioOrdenesPg } from "../ordenes/repositorio";
 import { COMANDO, ServicioOrdenes } from "../ordenes/servicio";
 import { RepositorioMedicionesPg, ServicioMediciones } from "../mediciones/servicio";
@@ -150,6 +153,8 @@ const ESTADO_POR_CODIGO: Record<string, number> = {
   REQUIERE_CONFIRMACION: 409,
   CODIGO_DUPLICADO: 409,
   PROGRAMACION_DUPLICADA: 409,
+  // Otra visita ya la marcó hecha o descartada mientras este celular no veía.
+  YA_RESUELTA: 409,
   YA_EXISTE: 409,
   // El técnico o el vehículo cambiaron de estado: no es un dato mal escrito.
   TECNICO_NO_DISPONIBLE: 409,
@@ -294,6 +299,7 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
       informe: new ServicioInforme(db, reloj),
       usuarios: new ServicioUsuarios(db),
       programaciones: new ServicioProgramaciones(db),
+      recomendaciones: new ServicioRecomendaciones(db),
       fotos: new ServicioFotos(
         new RepositorioFotosPg(cliente),
         op.almacen,
@@ -655,6 +661,23 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
       const r = await s.ordenes.reasignar(ctx, params(req).id as string, COMANDO, p.data.tecnicoId, p.data.motivo);
       if (!r.ok) return rechazo(r.veredicto);
       return { status: 200, cuerpo: { tecnicoId: r.valor.tecnicoId } };
+    }));
+
+    // ── Recomendaciones persistentes ──
+    // Operaciones de la cola: se registran sin señal y llegan después.
+
+    app.post("/ordenes/:id/recomendaciones", operacion(async (s, ctx, req) => {
+      const p = zCrearRecomendacion.safeParse(req.body);
+      if (!p.success) return datosInvalidos(p.error.issues);
+      const r = await s.recomendaciones.crear(ctx, params(req).id as string, p.data);
+      return r.ok ? { status: 201, cuerpo: r.valor } : rechazo(r.veredicto);
+    }));
+
+    app.post("/recomendaciones/:id/resolver", operacion(async (s, ctx, req) => {
+      const p = zResolverRecomendacion.safeParse(req.body);
+      if (!p.success) return datosInvalidos(p.error.issues);
+      const r = await s.recomendaciones.resolver(ctx, params(req).id as string, p.data);
+      return r.ok ? { status: 200, cuerpo: r.valor } : rechazo(r.veredicto);
     }));
 
     /** La evidencia de la orden, con URL de lectura que vence. */

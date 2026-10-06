@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PRIORIDADES_RECOMENDACION } from "@tiretrack/domain";
 import {
   zClientRequestId,
   zDestinoLlanta,
@@ -256,9 +257,10 @@ export const zFiltroOrdenes = z.object({
 });
 export type FiltroOrdenes = z.infer<typeof zFiltroOrdenes>;
 
-/** Recomendaciones: lo que se encontró y no se ejecutó en la visita. */
-export const PRIORIDADES_RECOMENDACION = ["urgente", "proxima", "seguimiento"] as const;
-export const ESTADOS_RECOMENDACION = ["abierta", "ejecutada", "descartada"] as const;
+/**
+ * Recomendaciones: lo que se encontró y no se ejecutó en la visita. Los
+ * vocabularios salen del dominio (antes estaban redeclarados aquí).
+ */
 
 export const zCrearRecomendacion = z.object({
   id: zId,

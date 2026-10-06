@@ -145,6 +145,8 @@ describe.skipIf(!disponible)("robustez: ninguna entrada mala da 500", () => {
     ["POST", "/configuraciones", "tok-admin"],
     ["POST", `/configuraciones/${nuevoId()}/version`, "tok-admin"],
     ["POST", "/programaciones", "tok-coordinador"],
+    ["POST", `/ordenes/${ORDEN}/recomendaciones`],
+    ["POST", `/recomendaciones/${nuevoId()}/resolver`],
     ["POST", `/programaciones/${nuevoId()}/tecnico`, "tok-coordinador"],
     ["POST", `/programaciones/${nuevoId()}/desactivar`, "tok-coordinador"],
   ];

@@ -476,6 +476,50 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
     });
   });
 
+  describe("recomendaciones persistentes", () => {
+    const recomendar = (extra: Record<string, unknown> = {}, token = "tok-tecnico", orden = ORDEN) =>
+      pedir({ ruta: `/ordenes/${orden}/recomendaciones`, token, cuerpo: { id: nuevoId(), vehiculoId: SEMILLA.vehiculo, texto: "Cambiar la posición 3 en la próxima visita", prioridad: "urgente", posicion: 3, ...extra } });
+    const descargar = async (token = "tok-tecnico") =>
+      (await app.inject({ method: "GET", url: `${PREFIJO_API}/sincronizacion`, headers: { authorization: `Bearer ${token}` } })).json();
+
+    it("el técnico la registra y viaja en la descarga", async () => {
+      expect((await recomendar()).statusCode).toBe(201);
+      const p = await descargar();
+      expect(p.recomendaciones).toEqual([expect.objectContaining({ texto: "Cambiar la posición 3 en la próxima visita", prioridad: "urgente", posicion: 3, estado: "abierta", origenOrdenId: ORDEN })]);
+    });
+
+    it("sobrevive al cierre y aparece en la siguiente orden del vehículo, hasta que se resuelve", async () => {
+      const id = nuevoId();
+      await recomendar({ id });
+      await pool.query(`UPDATE "OrdenServicio" SET estado = 'cerrada' WHERE id = $1`, [ORDEN]);
+      const siguiente = nuevoId();
+      await pool.query(
+        `INSERT INTO "OrdenServicio" (id,"empresaId","sedeId","clienteId","sedeClienteId","vehiculoId",tecnico_id,"configuracionEjeId",tipo,estado,fecha,"creadoPorId")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'preventivo','en_proceso','2026-10-06',$7)`,
+        [siguiente, SEMILLA.empresa, SEMILLA.sede, SEMILLA.cliente, SEMILLA.sedeCliente, SEMILLA.vehiculo, SEMILLA.tecnico, SEMILLA.configuracion],
+      );
+      expect((await descargar()).recomendaciones.map((r: { id: string }) => r.id)).toContain(id);
+      const r = await pedir({ ruta: `/recomendaciones/${id}/resolver`, cuerpo: { estado: "ejecutada", ordenId: siguiente } });
+      expect(r.statusCode).toBe(200);
+      const fila = await pool.query(`SELECT estado::text AS estado, "resueltaOrdenId" FROM "Recomendacion" WHERE id = $1`, [id]);
+      expect(fila.rows[0]).toEqual({ estado: "ejecutada", resueltaOrdenId: siguiente });
+      // Reenviar la misma resolución no es un error (el celular reintenta).
+      expect((await pedir({ ruta: `/recomendaciones/${id}/resolver`, cuerpo: { estado: "ejecutada", ordenId: siguiente } })).statusCode).toBe(200);
+    });
+
+    it("una orden cerrada ya no recibe recomendaciones, y el cliente no las registra", async () => {
+      await pool.query(`UPDATE "OrdenServicio" SET estado = 'cerrada' WHERE id = $1`, [ORDEN]);
+      expect((await recomendar()).statusCode).toBe(409);
+      await pool.query(`UPDATE "OrdenServicio" SET estado = 'en_proceso' WHERE id = $1`, [ORDEN]);
+      expect((await recomendar({}, "tok-cliente")).statusCode).toBe(403);
+    });
+
+    it("no se registra para otro vehículo que el de la orden", async () => {
+      const r = await recomendar({ vehiculoId: nuevoId() });
+      expect(r.json().error.codigo).toBe("VEHICULO_NO_CORRESPONDE");
+    });
+  });
+
   describe("ver las fotos desde otro teléfono", () => {
     // Cada teléfono veía solo las fotos que tomó: el coordinador aprobaba sin
     // ver la evidencia.

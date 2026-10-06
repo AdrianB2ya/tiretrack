@@ -46,6 +46,8 @@ const RUTAS: Record<TipoOperacion, (op: OperacionPendiente) => { metodo: string;
   crear_cliente: () => ({ metodo: "POST", ruta: "/flota/clientes" }),
   crear_sede_cliente: () => ({ metodo: "POST", ruta: "/flota/sedes" }),
   crear_vehiculo: () => ({ metodo: "POST", ruta: "/flota/vehiculos" }),
+  crear_recomendacion: (op) => ({ metodo: "POST", ruta: `/ordenes/${op.ordenId}/recomendaciones` }),
+  resolver_recomendacion: (op) => ({ metodo: "POST", ruta: `/recomendaciones/${op.recursoId}/resolver` }),
 };
 
 /** Marca interna: la respuesta fue 401, hay que intentar renovar. */

@@ -1,4 +1,4 @@
-import type { MedicionDescargada, OrdenDescargada, RepositorioLocal, SedeLocal } from "./repositorio";
+import type { MedicionDescargada, OrdenDescargada, RecomendacionLocal, RepositorioLocal, SedeLocal } from "./repositorio";
 
 /**
  * Descarga de datos al dispositivo.
@@ -17,6 +17,8 @@ export interface PaqueteDescargado {
   readonly incremental: boolean;
   readonly ordenes: OrdenDescargada[];
   readonly mediciones: MedicionDescargada[];
+  /** Opcional: un servidor anterior no las manda. */
+  readonly recomendaciones?: RecomendacionLocal[];
   readonly catalogo: {
     marcas: { id: string; nombre: string; esGlobal: boolean }[];
     disenos: { id: string; marcaId: string; nombre: string; tipoEje: string }[];
@@ -150,6 +152,9 @@ export class Descargador {
       await this.repo.guardarMedicionesDescargadas(
         paquete.mediciones.filter((m) => ordenesGuardadas.has(m.ordenId)),
       );
+
+      // Completas, no incrementales: se reemplazan (respetando lo pendiente).
+      if (paquete.recomendaciones) await this.repo.guardarRecomendacionesDescargadas(paquete.recomendaciones);
 
       // La marca se guarda al final y solo si todo salió bien: si se guardara
       // antes, un fallo a la mitad haría que la próxima descarga se saltara
