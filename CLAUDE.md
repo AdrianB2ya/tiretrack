@@ -257,7 +257,7 @@ Estado: `[x]` hecha · `[ ]` pendiente
 ### Fase 5 · Cliente y administración
 - [x] 5.1 Portal del cliente (dentro de la app, ruta `cliente`)
 - [x] 5.2 Usuarios y sedes (rutas `usuarios`, `sedes`, `activar`)
-- [x] 5.3 Clientes, sedes y vehículos (ruta `flota`). Plantillas de ejes: pendiente
+- [x] 5.3 Clientes, sedes y vehículos (ruta `flota`) y plantillas de ejes (ruta `plantillas`)
 - [ ] 5.4 Auditoría
 
 ### Fase 6 · Informes
@@ -2609,13 +2609,45 @@ un correo y un código de sede duplicados se aceptaban en las pruebas, y antes
 el folio había fallado por lo mismo. Es la cuarta diferencia entre pruebas y
 producción que aparece; la regla de la "Revisión contra la base real" sigue.
 
+## Plantillas de ejes (5.3, cierre)
+
+Rutas `POST /configuraciones` y `POST /configuraciones/:id/version`
+(administrador, en línea) sobre el servicio de flota que ya existía. En la
+app: `src/flota/editorPlantilla.ts` (lógica), `PantallaPlantillas.tsx`, ruta
+`plantillas`, botón en el panel solo con `puedeGestionarConfiguraciones`.
+
+**El administrador piensa en ejes, no en posiciones.** El editor pide por eje
+el tipo, sencilla o dual, PSI y profundidad mínima, y numera solo: eje por eje
+de adelante hacia atrás, izquierda a derecha. En una dual la interna es la
+segunda de la izquierda y la primera de la derecha, igual que la semilla. Al
+cambiar esa regla falla una prueba.
+
+- **La vista previa es el diagrama de las órdenes**, no un dibujo propio:
+  el administrador ve exactamente lo que verá el técnico.
+- **Validación previa con el dominio y el contrato** (`validarConfiguracion`,
+  `zCrearConfiguracionEje`): lo que el servidor rechazaría no se envía.
+- Un PSI vacío queda **sin dato**; uno mal escrito ("1o5") es error.
+- **"Nueva versión" parte de la vigente** (`desdePosiciones`); la anterior no
+  se toca. La descarga trae también las reemplazadas —las órdenes viejas las
+  necesitan para dibujarse— pero la lista solo ofrece las vigentes.
+- **Si la versión cambia vehículos en uso** (`REQUIERE_CONFIRMACION`), se
+  muestra el aviso del servidor y el botón pasa a "Confirmar y mover los
+  vehículos". **Tocar cualquier eje después anula la confirmación**: se
+  confirmó otra plantilla. Al quitar ese reinicio falla una prueba.
+- Es en línea: una plantilla define cómo se dibuja toda la flota y no puede
+  quedar a medias en un celular. Al terminar se sincroniza para que la nueva
+  aparezca.
+
+Probado contra el servidor real: crear, versionar y descargar (la anterior
+llega con `vigente = false`).
+
 ## Punto de retoma (2026-10-05)
 
-**Estado:** el usuario prueba la app en el teléfono con Expo Go (SDK 52).
+**Estado:** el usuario prueba la app en el teléfono con Expo Go (SDK 52). Siguen informe con filtros y exportación en la app (6.1/6.2), PDF (6.3), programación recurrente (4.4), vista de auditoría (5.4) y guía de despliegue.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
-Firma y fotos siguen sin pantalla (después, por decisión del usuario).
+Firma, fotos, creación de órdenes, flota, usuarios, sedes y plantillas ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 814/814, mobile 691/691.
+**Verificado:** `npm run verify` con base: raíz 843/843, mobile 800/800.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

@@ -142,6 +142,8 @@ describe.skipIf(!disponible)("robustez: ninguna entrada mala da 500", () => {
     ["POST", "/usuarios", "tok-admin"],
     ["POST", `/usuarios/${nuevoId()}/codigo`, "tok-admin"],
     ["POST", "/sedes", "tok-admin"],
+    ["POST", "/configuraciones", "tok-admin"],
+    ["POST", `/configuraciones/${nuevoId()}/version`, "tok-admin"],
   ];
 
   it("cuerpos mal formados en cada ruta que recibe datos", async () => {

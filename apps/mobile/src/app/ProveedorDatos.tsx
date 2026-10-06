@@ -82,6 +82,8 @@ export interface AccionesDatos {
   crearOrden(o: Parameters<RepositorioLocal["guardarOrden"]>[0]): Promise<void>;
   /** Clientes, sedes, vehículos y plantillas, para la pantalla de flota. */
   fuentesFlota: FuentesFlota;
+  /** Posiciones de una plantilla, para partir de ella al crear su versión nueva. */
+  posicionesPlantilla(configuracionEjeId: string): Promise<PosicionEjeLocal[]>;
   /** Crear en el celular y encolar; sale al sincronizar. */
   accionesFlota: AccionesFlota;
 }
@@ -412,6 +414,8 @@ export function ProveedorDatos({
     [repo],
   );
 
+  const posicionesPlantilla = useCallback((id: string) => repo.posicionesDe(id), [repo]);
+
   const accionesFlota = useMemo<AccionesFlota>(
     () => ({
       // Como todo lo demás: inmediato en el celular; se envía por la cola.
@@ -470,6 +474,7 @@ export function ProveedorDatos({
       fuentesOrden,
       crearOrden,
       fuentesFlota,
+      posicionesPlantilla,
       accionesFlota,
     }),
     [
@@ -477,7 +482,7 @@ export function ProveedorDatos({
       refrescar, sincronizar, cargarOrden, guardarMedicion, actualizarDatosOrden,
       firmar, cambiarEstado, catalogoPara, bandejaRevision, tecnicosDeSede,
       reasignar, medicionAnterior, fotosDe, fotosSinSubir, adjuntarFoto, fuentesOrden, crearOrden,
-      fuentesFlota, accionesFlota,
+      fuentesFlota, posicionesPlantilla, accionesFlota,
     ],
   );
 

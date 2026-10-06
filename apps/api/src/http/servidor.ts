@@ -6,6 +6,8 @@ import {
   zCambiarEstado,
   zComandoActualizarOrden,
   zCrearCliente,
+  zCrearConfiguracionEje,
+  zEjeDefinicion,
   zCrearDiseno,
   zCrearMarca,
   zCrearOrden,
@@ -27,6 +29,8 @@ import {
 function sinIndefinidos<T extends Record<string, unknown>>(o: T): { [K in keyof T]: Exclude<T[K], undefined> } {
   return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as never;
 }
+
+const zVersionConfiguracion = z.object({ ejes: z.array(zEjeDefinicion).min(1), confirmado: z.boolean().optional() });
 
 /** Consulta de la descarga: `desde` es la marca `hasta` que entregó el servidor. */
 const zConsultaDescarga = z.object({ desde: zInstante.optional() });
@@ -134,6 +138,10 @@ const ESTADO_POR_CODIGO: Record<string, number> = {
   ROL_NO_ASIGNABLE: 403,
 
   CORREO_DUPLICADO: 409,
+  NOMBRE_EN_USO: 409,
+  YA_REEMPLAZADA: 409,
+  // Cambia vehículos en uso: se pide confirmar, no es un error de datos.
+  REQUIERE_CONFIRMACION: 409,
   CODIGO_DUPLICADO: 409,
 
   CONFLICTO_VERSION: 409,
@@ -807,6 +815,31 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
       if (!codigo) return reply.status(404).send({ error: { codigo: "NO_EXISTE", mensaje: "El usuario no existe" } });
       return reply.status(200).send({ codigo: codigo.codigo, expiraEn: codigo.expiraEn });
     });
+
+    // ── Plantillas de ejes: solo administrador; son estructura ──
+
+    app.post("/configuraciones", administracion(async (s, ctx, req) => {
+      const p = zCrearConfiguracionEje.safeParse(req.body);
+      if (!p.success) return datosInvalidos(p.error.issues);
+      const r = await s.flota.crearConfiguracion(ctx, { id: p.data.id, nombre: p.data.nombre, ejes: p.data.ejes.map(sinIndefinidos) });
+      return r.ok ? { status: 201, cuerpo: { id: r.valor.id } } : rechazo(r.veredicto);
+    }));
+
+    /**
+     * Nunca se edita en sitio: versión nueva. Si cambia vehículos en uso,
+     * responde REQUIERE_CONFIRMACION y se reenvía con confirmado: true.
+     */
+    app.post("/configuraciones/:id/version", administracion(async (s, ctx, req) => {
+      const p = zVersionConfiguracion.safeParse(req.body);
+      if (!p.success) return datosInvalidos(p.error.issues);
+      const r = await s.flota.nuevaVersion(ctx, {
+        configuracionAnteriorId: params(req).id as string,
+        ejes: p.data.ejes.map(sinIndefinidos),
+        ...(p.data.confirmado ? { confirmado: true } : {}),
+      });
+      if (!r.ok) return rechazo(r.veredicto);
+      return { status: 201, cuerpo: { id: r.valor.configuracion.id, vehiculosMovidos: r.valor.vehiculosMovidos } };
+    }));
 
     app.get("/sedes", administracion(async (s, ctx) => {
       const r = await s.usuarios.sedes(ctx);

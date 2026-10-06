@@ -189,6 +189,50 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
       expect((await enviar("POST", "/auth/activar", null, { ...base, password: "corta" })).statusCode).toBe(422);
     });
 
+    const plantilla = (extra: Record<string, unknown> = {}) => ({
+      id: nuevoId(),
+      nombre: "Camión sencillo",
+      ejes: [
+        { numero: 1, tipoEje: "direccional", psiObjetivo: 110, profundidadMinima: 3, posicionesIzquierda: [1], posicionesDerecha: [2] },
+        { numero: 2, tipoEje: "traccion", psiObjetivo: 105, profundidadMinima: 2.5, posicionesIzquierda: [3, 4], posicionesDerecha: [5, 6] },
+      ],
+      ...extra,
+    });
+
+    it("plantillas: el administrador crea una; el coordinador no", async () => {
+      const p = plantilla();
+      expect((await enviar("POST", "/configuraciones", "tok-admin", p)).statusCode).toBe(201);
+      const pos = await pool.query(`SELECT count(*)::int AS n FROM "PosicionEje" WHERE "configuracionEjeId" = $1`, [p.id]);
+      expect(pos.rows[0].n).toBe(6);
+      expect((await enviar("POST", "/configuraciones", "tok-coordinador", plantilla({ nombre: "Otra" }))).statusCode).toBe(403);
+    });
+
+    it("plantillas: un nombre repetido pide versión nueva, no se duplica", async () => {
+      await enviar("POST", "/configuraciones", "tok-admin", plantilla());
+      const r = await enviar("POST", "/configuraciones", "tok-admin", plantilla());
+      expect(r.statusCode).toBe(409);
+      expect(r.json().error.codigo).toBe("NOMBRE_EN_USO");
+    });
+
+    it("plantillas: posiciones con huecos o repetidas se rechazan", async () => {
+      const mala = plantilla({ ejes: [{ numero: 1, tipoEje: "direccional", posicionesIzquierda: [1], posicionesDerecha: [3] }] });
+      expect((await enviar("POST", "/configuraciones", "tok-admin", mala)).statusCode).toBe(422);
+    });
+
+    it("versión nueva: si cambia vehículos en uso, pide confirmar y después los mueve", async () => {
+      // La plantilla de la semilla tiene un vehículo que la usa.
+      const ejes = plantilla().ejes;
+      const sin = await enviar("POST", `/configuraciones/${SEMILLA.configuracion}/version`, "tok-admin", { ejes });
+      expect(sin.statusCode).toBe(409);
+      expect(sin.json().error.codigo).toBe("REQUIERE_CONFIRMACION");
+      const con = await enviar("POST", `/configuraciones/${SEMILLA.configuracion}/version`, "tok-admin", { ejes, confirmado: true });
+      expect(con.statusCode).toBe(201);
+      expect(con.json().vehiculosMovidos).toBe(1);
+      // Inmutable: la anterior sigue existiendo, ya no vigente.
+      const vieja = await pool.query(`SELECT vigente FROM "ConfiguracionEje" WHERE id = $1`, [SEMILLA.configuracion]);
+      expect(vieja.rows[0].vigente).toBe(false);
+    });
+
     it("sedes: el administrador crea una, con código único", async () => {
       const sede = { id: nuevoId(), nombre: "Sede Ciénaga", codigo: "cng" };
       const r = await enviar("POST", "/sedes", "tok-admin", sede);

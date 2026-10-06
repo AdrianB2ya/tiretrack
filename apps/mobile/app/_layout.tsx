@@ -42,6 +42,7 @@ export default function DisposicionRaiz() {
         <Stack.Screen name="cliente" options={{ title: "Mis servicios" }} />
         <Stack.Screen name="usuarios" options={{ title: "Usuarios" }} />
         <Stack.Screen name="sedes" options={{ title: "Sedes" }} />
+        <Stack.Screen name="plantillas" options={{ title: "Plantillas de ejes" }} />
         <Stack.Screen name="orden/[id]/index" options={{ title: "Orden" }} />
         <Stack.Screen name="orden/[id]/reasignar" options={{ title: "Reasignar" }} />
         <Stack.Screen name="orden/[id]/decidir" options={{ title: "Revisar orden" }} />

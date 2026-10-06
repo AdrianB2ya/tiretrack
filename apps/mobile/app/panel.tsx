@@ -7,7 +7,7 @@ import { useUsuario } from "../src/app/ProveedorSesion";
 import { BarraDeSesion } from "../src/app/BarraDeSesion";
 import { colores, espacio } from "../src/diseno/tokens";
 import { Boton } from "../src/diseno/componentes";
-import { puedeGestionarUsuarios } from "@tiretrack/domain";
+import { puedeGestionarConfiguraciones, puedeGestionarUsuarios } from "@tiretrack/domain";
 import type { OrdenLocal } from "../src/datos/repositorio";
 
 /** Panel del coordinador: lo que requiere su decisión hoy. */
@@ -52,6 +52,11 @@ export default function PantallaPanel() {
               </Boton>
             </View>
           </View>
+        ) : null}
+        {puedeGestionarConfiguraciones(usuario.rol) ? (
+          <Boton ancho tipo="secundario" testID="plantillas" onPress={() => router.push("/plantillas" as never)}>
+            Plantillas de ejes
+          </Boton>
         ) : null}
       </View>
       <PanelCoordinador
