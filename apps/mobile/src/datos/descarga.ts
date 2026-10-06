@@ -1,4 +1,4 @@
-import type { OrdenDescargada, RepositorioLocal, SedeLocal } from "./repositorio";
+import type { MedicionDescargada, OrdenDescargada, RepositorioLocal, SedeLocal } from "./repositorio";
 
 /**
  * Descarga de datos al dispositivo.
@@ -16,11 +16,7 @@ export interface PaqueteDescargado {
   readonly hasta: string;
   readonly incremental: boolean;
   readonly ordenes: OrdenDescargada[];
-  readonly mediciones: {
-    id: string; ordenId: string; posicion: number;
-    marcaId: string | null; disenoId: string | null; medida: string | null;
-    serial: string | null; profundidad: number | null;
-  }[];
+  readonly mediciones: MedicionDescargada[];
   readonly catalogo: {
     marcas: { id: string; nombre: string; esGlobal: boolean }[];
     disenos: { id: string; marcaId: string; nombre: string; tipoEje: string }[];

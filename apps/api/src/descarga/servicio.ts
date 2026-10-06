@@ -101,6 +101,14 @@ export interface OrdenDescargada {
   readonly tecnicoNombre: string | null;
 }
 
+/**
+ * La medición COMPLETA, con todo lo que el editor muestra y vuelve a enviar.
+ *
+ * Antes viajaban solo siete campos. Al corregir una orden devuelta, el
+ * técnico abría la posición sin DOT, presiones, servicios ni estado, y al
+ * guardar los reenviaba vacíos: la corrección borraba en el servidor lo que
+ * no había tocado.
+ */
 export interface MedicionDescargada {
   readonly id: string;
   readonly ordenId: string;
@@ -108,8 +116,19 @@ export interface MedicionDescargada {
   readonly marcaId: string | null;
   readonly disenoId: string | null;
   readonly medida: string | null;
+  readonly numCalor: string | null;
   readonly serial: string | null;
+  readonly dot: string | null;
+  readonly estadoLlanta: string | null;
+  readonly psiEncontrada: number | null;
+  readonly psiCalibrado: number | null;
   readonly profundidad: number | null;
+  readonly observaciones: string | null;
+  readonly noIdentificada: boolean;
+  readonly motivoNoIdentificada: string | null;
+  readonly capturadoPorId: string;
+  /** Códigos del catálogo fijo (`CALI`), no nombres. */
+  readonly servicios: string[];
 }
 
 export interface Consultable {
@@ -239,19 +258,37 @@ export class ServicioDescarga {
   /** Las mediciones viajan para que una orden devuelta se pueda corregir. */
   private async medicionesDe(ordenIds: string[]): Promise<MedicionDescargada[]> {
     const r = await this.db.query<Record<string, unknown>>(
-      `SELECT id, "ordenId", posicion, "marcaId", "disenoId", medida, serial, profundidad
-         FROM "LlantaRegistro" WHERE "ordenId" = ANY($1::text[])`,
+      `SELECT lr.id, lr."ordenId", lr.posicion, lr."marcaId", lr."disenoId", lr.medida, lr."numCalor",
+              lr.serial, lr.dot, lr."estadoLlanta", lr."psiEncontrada", lr."psiCalibrado", lr.profundidad,
+              lr.observaciones, lr."noIdentificada", lr."motivoNoIdentificada", lr."capturadoPorId",
+              coalesce((SELECT array_agg(s.codigo ORDER BY s.codigo)
+                          FROM "LlantaServicio" ls JOIN "Servicio" s ON s.id = ls."servicioId"
+                         WHERE ls."llantaRegistroId" = lr.id), ARRAY[]::text[]) AS servicios
+         FROM "LlantaRegistro" lr WHERE lr."ordenId" = ANY($1::text[])`,
       [ordenIds],
     );
+    // pg devuelve numeric como texto: sin convertir, "9.00" no es un número.
+    const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
+    const txt = (v: unknown) => (v === null || v === undefined ? null : String(v));
     return r.rows.map((f) => ({
       id: String(f["id"]),
       ordenId: String(f["ordenId"]),
       posicion: Number(f["posicion"]),
-      marcaId: (f["marcaId"] as string) ?? null,
-      disenoId: (f["disenoId"] as string) ?? null,
-      medida: (f["medida"] as string) ?? null,
-      serial: (f["serial"] as string) ?? null,
-      profundidad: f["profundidad"] === null ? null : Number(f["profundidad"]),
+      marcaId: txt(f["marcaId"]),
+      disenoId: txt(f["disenoId"]),
+      medida: txt(f["medida"]),
+      numCalor: txt(f["numCalor"]),
+      serial: txt(f["serial"]),
+      dot: txt(f["dot"]),
+      estadoLlanta: txt(f["estadoLlanta"]),
+      psiEncontrada: num(f["psiEncontrada"]),
+      psiCalibrado: num(f["psiCalibrado"]),
+      profundidad: num(f["profundidad"]),
+      observaciones: txt(f["observaciones"]),
+      noIdentificada: Boolean(f["noIdentificada"]),
+      motivoNoIdentificada: txt(f["motivoNoIdentificada"]),
+      capturadoPorId: String(f["capturadoPorId"]),
+      servicios: (f["servicios"] as string[]) ?? [],
     }));
   }
 

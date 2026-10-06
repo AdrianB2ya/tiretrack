@@ -2817,13 +2817,66 @@ Probado contra la base real con el rol de aplicación y RLS: crear, repetida
 rechazada, lista con nombres, pausar, auditoría. El paquete de la app no se
 pudo armar (Metro detenido por falta de memoria); tipos y pruebas pasan.
 
+## Primera prueba en el teléfono: la descarga fallaba siempre (2026-10-06)
+
+Síntomas que reportó el usuario: el panel del coordinador llevaba a una lista
+vacía, y una corrección de una orden devuelta quedó rechazada (409).
+
+### Causa: una columna inexistente
+
+`guardarMedicionesDescargadas` escribía en `capturada_en`, que no existe (es
+`actualizada_en`). **Toda descarga con mediciones fallaba** después de
+guardar las órdenes y antes de guardar la marca de descarga. Consecuencias
+encadenadas:
+
+- El error se tragaba en `sincronizar()` y la pantalla **no se refrescaba**:
+  el coordinador veía la lista vacía con las órdenes ya en el celular.
+- **Ninguna medición del servidor llegaba al celular.** Al corregir la
+  orden devuelta, el editor no encontraba la de la posición 3 y creaba otra
+  con id nuevo: el servidor la rechazó por posición ocupada, y la orden
+  volvió a revisión con el valor viejo.
+- La marca nunca se guardaba: toda descarga era completa (por eso el
+  servidor nunca recibía `desde`).
+
+**Por qué no lo vio ninguna prueba:** la única que descargaba mediciones
+tomaba el camino que las salta (operación pendiente). El INSERT nunca se
+ejecutó en una prueba. Es la lección de la 4.2 otra vez: lo que no se
+ejecuta no se prueba, aunque haya una prueba con su nombre.
+
+### Lo que se corrigió
+
+- **La medición viaja completa** (servidor y celular): número de calor, DOT,
+  estado, presiones, observaciones, "no identificada" con su motivo, autor y
+  servicios. Con siete campos, corregir una orden devuelta reenviaba vacío
+  lo que no se tocó y lo borraba en el servidor.
+- **Lo mismo dentro del celular**: `medicionesDe` y `borradorDesde` perdían
+  número de calor, estado, observaciones y motivo; reabrir una posición y
+  guardarla los borraba, y una no identificada sin motivo no pasaba el
+  contrato. `MedicionLocal` los exige ahora (el compilador señaló cada sitio).
+- **Por posición, no solo por id**: una medición local de la misma posición
+  con otro id, ya rechazada, cede ante la del servidor; una captura que
+  sigue sin enviar se respeta. Así una corrección reutiliza el id del
+  servidor.
+- **Un fallo de descarga se muestra** bajo la barra de sesión ("No se pudo
+  actualizar desde el servidor", con el detalle) y **la pantalla se refresca
+  siempre**.
+
+Verificado contra el servidor real con el código del celular: coordinador y
+técnico reciben 5 órdenes y 25 mediciones completas, y la marca queda
+puesta. Mutaciones: la columna vieja hace fallar 4 pruebas; sin el reemplazo
+por posición, 1.
+
+**En el teléfono del usuario** queda apartada la corrección rechazada de la
+posición 3 de OS-FUN-000004. Con la descarga arreglada, el celular recibe la
+medición del servidor; si hay que corregirla, el coordinador la devuelve.
+
 ## Punto de retoma (2026-10-05)
 
 **Estado:** el usuario prueba la app en el teléfono con Expo Go (SDK 52). Siguen PDF (6.3), vista de auditoría (5.4) y guía de despliegue.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 885/885, mobile 833/833.
+**Verificado:** `npm run verify` con base: raíz 886/886, mobile 839/839.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

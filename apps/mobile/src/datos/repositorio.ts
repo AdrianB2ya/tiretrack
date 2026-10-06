@@ -54,12 +54,17 @@ export interface MedicionLocal {
   readonly marcaId: string | null;
   readonly disenoId: string | null;
   readonly medida: string | null;
+  readonly numCalor: string | null;
   readonly serial: string | null;
   readonly dot: string | null;
+  readonly estadoLlanta: string | null;
   readonly psiEncontrada: number | null;
   readonly psiCalibrado: number | null;
   readonly profundidad: number | null;
+  readonly observaciones: string | null;
   readonly noIdentificada: boolean;
+  /** Código del motivo: sin él, una llanta no identificada no pasa el contrato. */
+  readonly motivoNoId: string | null;
   readonly servicios: readonly string[];
 }
 
@@ -106,6 +111,28 @@ export interface ServicioLocal {
 export interface TipoParcheLocal {
   readonly id: string;
   readonly nombre: string;
+}
+
+/** Medición tal como llega en la descarga. Los opcionales faltan si el servidor es anterior. */
+export interface MedicionDescargada {
+  readonly id: string;
+  readonly ordenId: string;
+  readonly posicion: number;
+  readonly marcaId: string | null;
+  readonly disenoId: string | null;
+  readonly medida: string | null;
+  readonly serial: string | null;
+  readonly profundidad: number | null;
+  readonly numCalor?: string | null;
+  readonly dot?: string | null;
+  readonly estadoLlanta?: string | null;
+  readonly psiEncontrada?: number | null;
+  readonly psiCalibrado?: number | null;
+  readonly observaciones?: string | null;
+  readonly noIdentificada?: boolean;
+  readonly motivoNoIdentificada?: string | null;
+  readonly capturadoPorId?: string;
+  readonly servicios?: readonly string[];
 }
 
 export interface ClienteLocal {
@@ -427,8 +454,12 @@ export class RepositorioLocal {
 
   async medicionesDe(ordenId: string): Promise<MedicionLocal[]> {
     const filas = await this.db.consultar<Record<string, unknown>>(
-      `SELECT id, orden_id, posicion, marca_id, diseno_id, medida, serial, dot,
-              psi_encontrada, psi_calibrado, profundidad, no_identificada
+      // Todo lo que el editor muestra. Faltaban el número de calor, el
+      // estado, las observaciones y el motivo de "no identificada": al
+      // reabrir una posición y guardarla otra vez, se enviaban vacíos.
+      `SELECT id, orden_id, posicion, marca_id, diseno_id, medida, num_calor, serial, dot,
+              estado_llanta, psi_encontrada, psi_calibrado, profundidad, observaciones,
+              no_identificada, motivo_no_id
          FROM medicion WHERE orden_id = ? ORDER BY posicion`,
       [ordenId],
     );
@@ -455,12 +486,16 @@ export class RepositorioLocal {
       marcaId: (f["marca_id"] as string) ?? null,
       disenoId: (f["diseno_id"] as string) ?? null,
       medida: (f["medida"] as string) ?? null,
+      numCalor: (f["num_calor"] as string) ?? null,
       serial: (f["serial"] as string) ?? null,
       dot: (f["dot"] as string) ?? null,
+      estadoLlanta: (f["estado_llanta"] as string) ?? null,
       psiEncontrada: f["psi_encontrada"] === null ? null : Number(f["psi_encontrada"]),
       psiCalibrado: f["psi_calibrado"] === null ? null : Number(f["psi_calibrado"]),
       profundidad: f["profundidad"] === null ? null : Number(f["profundidad"]),
+      observaciones: (f["observaciones"] as string) ?? null,
       noIdentificada: aBool(f["no_identificada"]),
+      motivoNoId: (f["motivo_no_id"] as string) ?? null,
       servicios: porMedicion.get(String(f["id"])) ?? [],
     }));
   }
@@ -995,12 +1030,18 @@ export class RepositorioLocal {
       marcaId: (f["marca_id"] as string) ?? null,
       disenoId: (f["diseno_id"] as string) ?? null,
       medida: (f["medida"] as string) ?? null,
+      numCalor: (f["num_calor"] as string) ?? null,
       serial: (f["serial"] as string) ?? null,
       dot: (f["dot"] as string) ?? null,
+      // Es la llanta que estaba antes, para precargar la desmontada: su
+      // estado y observaciones eran de otra visita.
+      estadoLlanta: null,
       psiEncontrada: f["psi_encontrada"] === null ? null : Number(f["psi_encontrada"]),
       psiCalibrado: f["psi_calibrado"] === null ? null : Number(f["psi_calibrado"]),
       profundidad: f["profundidad"] === null ? null : Number(f["profundidad"]),
+      observaciones: null,
       noIdentificada: aBool(f["no_identificada"]),
+      motivoNoId: null,
       servicios: [],
     };
   }
@@ -1230,31 +1271,72 @@ export class RepositorioLocal {
    * Se respeta lo local sin enviar: si el técnico ya corrigió esa posición y
    * su cambio sigue en la cola, la copia del servidor es la vieja.
    */
-  async guardarMedicionesDescargadas(
-    mediciones: readonly {
-      id: string; ordenId: string; posicion: number;
-      marcaId: string | null; disenoId: string | null; medida: string | null;
-      serial: string | null; profundidad: number | null;
-    }[],
-  ): Promise<void> {
+  async guardarMedicionesDescargadas(mediciones: readonly MedicionDescargada[]): Promise<void> {
     if (mediciones.length === 0) return;
     await this.enTransaccion(async () => {
       for (const m of mediciones) {
-        const pendiente = await this.db.consultar<{ n: number }>(
+        // Lo que el técnico capturó en ESA posición y sigue sin enviar manda:
+        // la copia del servidor es la vieja. Se busca por posición, no solo
+        // por id: si el celular capturó la posición con un id propio, el del
+        // servidor es otro, y reemplazarla borraría su trabajo.
+        const local = await this.db.consultar<{ id: string }>(
+          `SELECT id FROM medicion WHERE orden_id = ? AND posicion = ?`,
+          [m.ordenId, m.posicion],
+        );
+        const idsLocales = local.map((l) => l.id);
+        const pendiente = idsLocales.length === 0 ? [] : await this.db.consultar<{ n: number }>(
           `SELECT count(*) AS n FROM operacion
-            WHERE tipo = 'guardar_medicion' AND recurso_id = ? AND rechazada_en IS NULL`,
-          [m.id],
+            WHERE tipo = 'guardar_medicion' AND rechazada_en IS NULL
+              AND recurso_id IN (${idsLocales.map(() => "?").join(",")})`,
+          idsLocales,
         );
         if ((pendiente[0]?.n ?? 0) > 0) continue;
 
+        // Una medición local con otro id para la misma posición (capturada
+        // aquí y rechazada por el servidor) se reemplaza por la del servidor:
+        // es la que existe. Así una corrección posterior reutiliza SU id y no
+        // vuelve a chocar con "posición ocupada".
+        for (const id of idsLocales) {
+          if (id === m.id) continue;
+          await this.db.ejecutar(`DELETE FROM medicion_servicio WHERE medicion_id = ?`, [id]);
+          await this.db.ejecutar(`DELETE FROM medicion WHERE id = ?`, [id]);
+        }
+
+        // Todo lo que el editor muestra: si faltara, al corregir la orden se
+        // reenviaría vacío y borraría en el servidor lo que no se tocó. Un
+        // servidor anterior no manda los campos nuevos: quedan vacíos, como
+        // antes.
         await this.db.ejecutar(
-          `INSERT OR REPLACE INTO medicion
-             (id, orden_id, posicion, marca_id, diseno_id, medida, serial, profundidad,
-              no_identificada, capturado_por_id, capturada_en)
-           VALUES (?,?,?,?,?,?,?,?,0,'',?)`,
-          [m.id, m.ordenId, m.posicion, m.marcaId, m.disenoId, m.medida, m.serial,
-           m.profundidad, this.ahora()],
+          `INSERT INTO medicion
+             (id, orden_id, posicion, marca_id, diseno_id, medida, num_calor, serial, dot,
+              estado_llanta, psi_encontrada, psi_calibrado, profundidad, observaciones,
+              no_identificada, motivo_no_id, capturado_por_id, actualizada_en)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+           ON CONFLICT (id) DO UPDATE SET
+             posicion = excluded.posicion, marca_id = excluded.marca_id, diseno_id = excluded.diseno_id,
+             medida = excluded.medida, num_calor = excluded.num_calor, serial = excluded.serial,
+             dot = excluded.dot, estado_llanta = excluded.estado_llanta,
+             psi_encontrada = excluded.psi_encontrada, psi_calibrado = excluded.psi_calibrado,
+             profundidad = excluded.profundidad, observaciones = excluded.observaciones,
+             no_identificada = excluded.no_identificada, motivo_no_id = excluded.motivo_no_id,
+             capturado_por_id = excluded.capturado_por_id, actualizada_en = excluded.actualizada_en`,
+          [
+            m.id, m.ordenId, m.posicion, m.marcaId, m.disenoId, m.medida, m.numCalor ?? null,
+            m.serial, m.dot ?? null, m.estadoLlanta ?? null, m.psiEncontrada ?? null,
+            m.psiCalibrado ?? null, m.profundidad, m.observaciones ?? null,
+            aInt(m.noIdentificada ?? false), m.motivoNoIdentificada ?? null,
+            m.capturadoPorId ?? "", this.ahora(),
+          ],
         );
+        if (m.servicios) {
+          await this.db.ejecutar(`DELETE FROM medicion_servicio WHERE medicion_id = ?`, [m.id]);
+          for (const codigo of m.servicios) {
+            await this.db.ejecutar(
+              `INSERT INTO medicion_servicio (medicion_id, servicio_codigo) VALUES (?, ?)`,
+              [m.id, codigo],
+            );
+          }
+        }
       }
     });
   }

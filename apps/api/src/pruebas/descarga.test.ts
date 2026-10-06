@@ -137,6 +137,42 @@ describe.skipIf(!disponible)("descarga", () => {
     }
   });
 
+  it("la medición viaja completa: lo que el editor muestra y vuelve a enviar", async () => {
+    // Viajaban siete campos. Al corregir una orden devuelta, el técnico
+    // reenviaba la posición sin DOT, presiones ni servicios, y la corrección
+    // los borraba en el servidor.
+    const orden = "11111111-1111-4111-8111-0000000000dd";
+    await pool.query(
+      `INSERT INTO "OrdenServicio"
+         (id,"empresaId","sedeId","clienteId","sedeClienteId","vehiculoId",tecnico_id,
+          "configuracionEjeId",tipo,estado,fecha,"creadoPorId","motivoDevolucion")
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'preventivo','en_proceso','2026-09-21',$7,'Revisa la posición 1')`,
+      [orden, SEMILLA.empresa, SEMILLA.sede, SEMILLA.cliente, SEMILLA.sedeCliente,
+       SEMILLA.vehiculo, SEMILLA.tecnico, SEMILLA.configuracion],
+    );
+    await pool.query(
+      `INSERT INTO "LlantaRegistro"
+         (id,"ordenId","configuracionEjeId",posicion,"marcaId",serial,dot,"estadoLlanta",
+          "psiEncontrada","psiCalibrado",profundidad,observaciones,"capturadoPorId")
+       VALUES ('lr-1',$1,$2,1,'mar-1','MX1','3624','Nueva',98.5,110,8.25,'Corte leve',$3)`,
+      [orden, SEMILLA.configuracion, SEMILLA.tecnico],
+    );
+    await pool.query(`INSERT INTO "LlantaServicio" ("llantaRegistroId","servicioId") VALUES ('lr-1','srv-cali'),('lr-1','srv-rota')`);
+
+    const cliente = await pool.connect();
+    try {
+      const p = await new ServicioDescarga(cliente, () => new Date()).paquete(ctx as never);
+      expect(p.mediciones.find((m) => m.id === "lr-1")).toEqual({
+        id: "lr-1", ordenId: orden, posicion: 1, marcaId: "mar-1", disenoId: null, medida: null, numCalor: null,
+        serial: "MX1", dot: "3624", estadoLlanta: "Nueva", psiEncontrada: 98.5, psiCalibrado: 110, profundidad: 8.25,
+        observaciones: "Corte leve", noIdentificada: false, motivoNoIdentificada: null, capturadoPorId: SEMILLA.tecnico,
+        servicios: ["CALI", "ROTA"],
+      });
+    } finally {
+      cliente.release();
+    }
+  });
+
   it("arma el paquete sin consultas simultáneas sobre la misma conexión", async () => {
     const cliente = await pool.connect();
     try {

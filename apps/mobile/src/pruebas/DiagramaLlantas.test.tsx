@@ -47,6 +47,7 @@ function med(posicion: number, extra: Partial<MedicionLocal> = {}): MedicionLoca
     marcaId: "mar-1",
     disenoId: "dis-1",
     medida: "295/80R22.5",
+    numCalor: null, estadoLlanta: null, observaciones: null, motivoNoId: null,
     serial: "MX1",
     dot: "3624",
     psiEncontrada: 105,

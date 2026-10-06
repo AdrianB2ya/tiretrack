@@ -63,14 +63,14 @@ function Sonda() {
   return <Text>{contexto.cargando ? "cargando" : `ordenes:${contexto.ordenes.length}`}</Text>;
 }
 
-function montar(intervalo = 0) {
+function montar(intervalo = 0, descarga: { traer: () => Promise<never | null> } = { traer: async () => null }) {
   return render(
     <ProveedorDatos
       db={db}
       sesion={sesion}
       motor={motor}
       // Servidor sin datos nuevos: estas pruebas miran lo local.
-      descarga={{ traer: async () => null }}
+      descarga={descarga}
       intervaloSincronizacionMs={intervalo}
     >
       <Sonda />
@@ -92,6 +92,18 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await db.cerrar();
+});
+
+describe("descarga que falla", () => {
+  it("se dice, y lo que ya está en el teléfono se ve igual", async () => {
+    // El error se tragaba: la pantalla no se refrescaba y el coordinador veía
+    // la lista vacía con las órdenes ya guardadas en el celular.
+    montar(0, { traer: async () => { await repo.guardarOrden({ ...ordenBase, encolar: false }); throw new Error("table medicion has no column named capturada_en"); } });
+    await waitFor(() => expect(screen.getByText("ordenes:0")).toBeTruthy());
+    await act(async () => { await contexto?.sincronizar(); });
+    await waitFor(() => expect(screen.getByText("ordenes:1")).toBeTruthy());
+    expect(contexto?.errorDescarga).toMatch(/capturada_en/);
+  });
 });
 
 describe("carga inicial", () => {

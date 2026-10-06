@@ -47,6 +47,12 @@ export interface EstadoDatos {
   readonly pendientesDeEnviar: number;
   readonly sincronizando: boolean;
   readonly ultimaSincronizacion: ResumenSincronizacion | null;
+  /**
+   * Por qué falló la última actualización desde el servidor, o null. Antes el
+   * error se tragaba: la pantalla no se refrescaba y el coordinador veía la
+   * lista vacía con las órdenes ya guardadas en el celular.
+   */
+  readonly errorDescarga: string | null;
 }
 
 export interface AccionesDatos {
@@ -144,6 +150,7 @@ export function ProveedorDatos({
   const [pendientesDeEnviar, setPendientes] = useState(0);
   const [sincronizando, setSincronizando] = useState(false);
   const [ultimaSincronizacion, setUltima] = useState<ResumenSincronizacion | null>(null);
+  const [errorDescarga, setErrorDescarga] = useState<string | null>(null);
 
   /** Evita actualizar el estado si la pantalla ya se desmontó. */
   const montado = useRef(true);
@@ -204,15 +211,22 @@ export function ProveedorDatos({
       // Primero se envía y después se trae: así lo que el técnico acaba de
       // capturar ya está en el servidor cuando llega la copia de vuelta, y
       // no queda como "trabajo sin enviar" que bloquee la actualización.
-      await descargador.descargar(descarga);
+      try {
+        await descargador.descargar(descarga);
+        if (montado.current) setErrorDescarga(null);
+      } catch (e) {
+        // No se traga: se muestra, y lo que sí se guardó se ve igual.
+        if (montado.current) setErrorDescarga((e as Error).message || "Error desconocido");
+      }
       // Los bytes de las fotos, por fuera de la cola: una foto lenta no frena
       // las mediciones. Un fallo aquí no tumba la sincronización: la foto
       // queda esperando con su motivo y su próxima vuelta.
       if (subidor) await subidor.subirPendientes().catch(() => undefined);
-      // Refrescar después: la sincronización pudo asignar folios.
-      await refrescar();
       return resumen;
     } finally {
+      // Siempre: la sincronización pudo asignar folios, y aunque la descarga
+      // falle a mitad, lo que alcanzó a guardarse debe verse.
+      await refrescar().catch(() => undefined);
       if (montado.current) setSincronizando(false);
     }
   }, [motor, refrescar, descargador, descarga, subidor]);
@@ -456,6 +470,7 @@ export function ProveedorDatos({
       pendientesDeEnviar,
       sincronizando,
       ultimaSincronizacion,
+      errorDescarga,
       refrescar,
       sincronizar,
       cargarOrden,
@@ -478,7 +493,7 @@ export function ProveedorDatos({
       accionesFlota,
     }),
     [
-      cargando, ordenes, pendientesDeEnviar, sincronizando, ultimaSincronizacion,
+      cargando, ordenes, pendientesDeEnviar, sincronizando, ultimaSincronizacion, errorDescarga,
       refrescar, sincronizar, cargarOrden, guardarMedicion, actualizarDatosOrden,
       firmar, cambiarEstado, catalogoPara, bandejaRevision, tecnicosDeSede,
       reasignar, medicionAnterior, fotosDe, fotosSinSubir, adjuntarFoto, fuentesOrden, crearOrden,

@@ -386,3 +386,75 @@ describe("historial del cliente", () => {
     expect((await repo.buscarOrden("ord-1"))?.estado).toBe("cerrada");
   });
 });
+
+describe("mediciones descargadas", () => {
+  // Ninguna prueba guardaba de verdad una medición descargada: la única
+  // tomaba el camino que la salta. El INSERT usaba una columna inexistente
+  // ("capturada_en"), toda descarga con mediciones fallaba después de guardar
+  // las órdenes, y la pantalla del coordinador quedaba vacía.
+  const completa = {
+    id: "med-s", ordenId: "ord-1", posicion: 3, marcaId: "mar-1", disenoId: "dis-1",
+    medida: "295/80R22.5", numCalor: "C12", serial: "MX3", dot: "3624", estadoLlanta: "Nueva",
+    psiEncontrada: 98.5, psiCalibrado: 110, profundidad: 1.8, observaciones: "Corte en el flanco",
+    noIdentificada: false, motivoNoIdentificada: null, capturadoPorId: "u-tec1", servicios: ["CALI", "ROTA"],
+  };
+
+  it("se guardan completas, con sus servicios, y la marca de descarga queda puesta", async () => {
+    await descargador.descargar(servidorCon(unPaquete({ mediciones: [completa] })));
+    const [m] = await repo.medicionesDe("ord-1");
+    expect(m).toMatchObject({
+      id: "med-s", posicion: 3, numCalor: "C12", serial: "MX3", dot: "3624", estadoLlanta: "Nueva",
+      psiEncontrada: 98.5, psiCalibrado: 110, profundidad: 1.8, observaciones: "Corte en el flanco",
+    });
+    expect([...(m?.servicios ?? [])].sort()).toEqual(["CALI", "ROTA"]);
+    // Si fallara a mitad, la marca no se guardaría y cada descarga sería completa.
+    expect(await repo.marcaDeDescarga()).toBe("2026-09-21T09:00:00.000Z");
+  });
+
+  it("corregir una posición descargada reutiliza el id del servidor y no pierde lo que no se tocó", async () => {
+    // Era el rechazo "posición ocupada" de la orden devuelta: el celular no
+    // tenía la medición del servidor y creaba otra para la misma posición.
+    await descargador.descargar(servidorCon(unPaquete({
+      ordenes: [unaOrden({ motivoDevolucion: "Confirma la posición 3" })],
+      mediciones: [completa],
+    })));
+    const [anterior] = await repo.medicionesDe("ord-1");
+    await repo.guardarMedicion({
+      ordenId: "ord-1", posicion: 3, capturadoPorId: "u-tec1",
+      ...{ ...anterior, profundidad: 2.1, motivoNoId: null },
+    });
+    const [m] = await repo.medicionesDe("ord-1");
+    expect(m?.id).toBe("med-s");
+    const [op] = (await repo.operacionesPendientes()).filter((o) => o.tipo === "guardar_medicion");
+    expect(op?.datos).toMatchObject({ id: "med-s", profundidad: 2.1, dot: "3624", psiEncontrada: 98.5, estadoLlanta: "Nueva" });
+  });
+
+  it("una medición local de esa posición con otro id, ya rechazada, cede ante la del servidor", async () => {
+    await descargador.descargar(servidorCon(unPaquete()));
+    const idLocal = await repo.guardarMedicion({ ordenId: "ord-1", posicion: 3, profundidad: 2, capturadoPorId: "u-tec1" });
+    const [op] = await repo.operacionesPendientes();
+    await repo.apartarOperacion(op!.id, "POSICION_OCUPADA: la posición ya tiene medición");
+    await db.ejecutar(`UPDATE orden SET sincronizada = 1 WHERE id = 'ord-1'`);
+
+    await descargador.descargar(servidorCon(unPaquete({ mediciones: [completa] })));
+    const ms = await repo.medicionesDe("ord-1");
+    expect(ms.map((m) => m.id)).toEqual(["med-s"]);
+    expect(idLocal).not.toBe("med-s");
+  });
+
+  it("una captura local de esa posición que sigue sin enviar se respeta", async () => {
+    await descargador.descargar(servidorCon(unPaquete()));
+    await repo.guardarMedicion({ ordenId: "ord-1", posicion: 3, profundidad: 2, capturadoPorId: "u-tec1" });
+    await db.ejecutar(`UPDATE orden SET sincronizada = 1 WHERE id = 'ord-1'`);
+    await descargador.descargar(servidorCon(unPaquete({ mediciones: [completa] })));
+    const ms = await repo.medicionesDe("ord-1");
+    expect(ms).toHaveLength(1);
+    expect(ms[0]?.profundidad).toBe(2);
+  });
+
+  it("de un servidor anterior, sin los campos nuevos, se guarda lo que venga", async () => {
+    const vieja = { id: "med-v", ordenId: "ord-1", posicion: 1, marcaId: null, disenoId: null, medida: null, serial: "S", profundidad: 9 };
+    await descargador.descargar(servidorCon(unPaquete({ mediciones: [vieja] })));
+    expect((await repo.medicionesDe("ord-1"))[0]).toMatchObject({ id: "med-v", serial: "S", dot: null });
+  });
+});
