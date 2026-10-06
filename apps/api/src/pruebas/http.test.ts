@@ -477,6 +477,30 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
     });
   });
 
+  describe("alertas de llantas", () => {
+    const alertas = (token: string) =>
+      app.inject({ method: "GET", url: `${PREFIJO_API}/alertas`, headers: { authorization: `Bearer ${token}` } });
+
+    it("la oficina ve las llantas para cambiar de sus sedes, con el vehículo y el cliente", async () => {
+      await guardarMedicion(medicion(1, { serial: "MX1", profundidad: 2, dot: "0819" }));
+      await pool.query(`UPDATE "OrdenServicio" SET estado = 'cerrada' WHERE id = $1`, [ORDEN]);
+      await pool.query(`INSERT INTO "UsuarioSede" ("usuarioId","sedeId") VALUES ($1,$2)`, [SEMILLA.coordinador, SEMILLA.sede]);
+      const r = await alertas("tok-coordinador");
+      expect(r.statusCode).toBe(200);
+      const tipos = r.json().map((a: { tipo: string }) => a.tipo).sort();
+      // Vencida y gastada son dos motivos distintos para sacarla.
+      expect(tipos).toEqual(["dot_vencido", "profundidad_baja"]);
+      expect(r.json()[0]).toMatchObject({ posicion: 1, vehiculoCodigo: "CA-12", clienteNombre: "Transportes Reyna" });
+    });
+
+    it("de una sede ajena no ve nada, y el técnico no las consulta", async () => {
+      await guardarMedicion(medicion(1, { serial: "MX1", profundidad: 2 }));
+      await pool.query(`UPDATE "OrdenServicio" SET estado = 'cerrada' WHERE id = $1`, [ORDEN]);
+      expect((await alertas("tok-coordinador")).json()).toEqual([]);
+      expect((await alertas("tok-tecnico")).statusCode).toBe(403);
+    });
+  });
+
   describe("PDF de la orden", () => {
     const pdf = (token: string, orden = ORDEN) =>
       app.inject({ method: "GET", url: `${PREFIJO_API}/ordenes/${orden}/pdf`, headers: { authorization: `Bearer ${token}` } });

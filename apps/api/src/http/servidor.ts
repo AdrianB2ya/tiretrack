@@ -40,12 +40,13 @@ const zVersionConfiguracion = z.object({ ejes: z.array(zEjeDefinicion).min(1), c
 
 /** Consulta de la descarga: `desde` es la marca `hasta` que entregó el servidor. */
 const zConsultaDescarga = z.object({ desde: zInstante.optional() });
-import { fechaEnColombia, ROLES, type Rol, type Veredicto } from "@tiretrack/domain";
+import { fechaEnColombia, puedeAprobar, ROLES, type Rol, type Veredicto } from "@tiretrack/domain";
 import type { Claims, ResultadoActivacion, ResultadoLogin } from "../acceso/servicio";
 import { ServicioUsuarios } from "../usuarios/servicio";
 import { ServicioProgramaciones } from "../programaciones/servicio";
 import { ServicioRecomendaciones } from "../recomendaciones/servicio";
 import { ServicioDocumento } from "../informe/documento";
+import { TrabajosProgramados } from "../trabajos/programados";
 import { RepositorioOrdenesPg } from "../ordenes/repositorio";
 import { COMANDO, ServicioOrdenes } from "../ordenes/servicio";
 import { RepositorioMedicionesPg, ServicioMediciones } from "../mediciones/servicio";
@@ -301,6 +302,10 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
       usuarios: new ServicioUsuarios(db),
       programaciones: new ServicioProgramaciones(db),
       recomendaciones: new ServicioRecomendaciones(db),
+      // Solo lectura de alertas: no abre transacciones propias.
+      alertas: new TrabajosProgramados(db, reloj),
+      /** La conexión de la transacción, para consultas pequeñas de una ruta. */
+      consulta: db,
       fotos: new ServicioFotos(
         new RepositorioFotosPg(cliente),
         op.almacen,
@@ -714,6 +719,34 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
         .header("content-disposition", `attachment; filename="${r.nombre}"`)
         .send(r.pdf);
     });
+
+    /**
+     * Llantas para cambiar: DOT vencido o por vencer, profundidad bajo el
+     * mínimo de su eje. Se calculaban en el servidor y no se le mostraban a
+     * nadie. Solo la oficina, y solo sus sedes.
+     */
+    app.get("/alertas", consulta(async (s, ctx) => {
+      if (!puedeAprobar(ctx.rol)) return { status: 403, cuerpo: { error: { codigo: "SIN_PERMISO", mensaje: "Las alertas son de la oficina" } } };
+      const db = s.consulta;
+      const alertas = await s.alertas.revisarAlertas(ctx.empresaId, { soloSedesDe: ctx.usuarioId });
+      const ids = [...new Set(alertas.map((a) => a.vehiculoId))];
+      const vehiculos = ids.length === 0 ? [] : (await db.query<{ id: string; codigo: string; placa: string | null; cliente: string }>(
+        `SELECT v.id, v.codigo, v.placa, c.nombre AS cliente FROM "Vehiculo" v
+           JOIN "SedeCliente" sc ON sc.id = v."sedeClienteId" JOIN "Cliente" c ON c.id = sc."clienteId"
+          WHERE v.id = ANY($1::text[])`,
+        [ids],
+      )).rows;
+      const porId = new Map(vehiculos.map((v) => [v.id, v]));
+      return {
+        status: 200,
+        cuerpo: alertas.map((a) => ({
+          ...a,
+          vehiculoCodigo: porId.get(a.vehiculoId)?.codigo ?? a.vehiculoId,
+          vehiculoPlaca: porId.get(a.vehiculoId)?.placa ?? null,
+          clienteNombre: porId.get(a.vehiculoId)?.cliente ?? "",
+        })),
+      };
+    }));
 
     /** La evidencia de la orden, con URL de lectura que vence. */
     app.get("/ordenes/:id/fotos", consulta(async (s, ctx, req) => {

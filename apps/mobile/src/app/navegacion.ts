@@ -75,6 +75,7 @@ export function opcionesMas(rol: Rol | string): OpcionMas[] {
   }
   if (puedeAprobar(r)) {
     o.push({ clave: "flota", etiqueta: "Clientes y vehículos", detalle: "Registrar clientes, sedes y vehículos", ruta: "/flota" });
+    o.push({ clave: "alertas", etiqueta: "Llantas para cambiar", detalle: "DOT vencido o bajo el mínimo, según la última medición", ruta: "/alertas" });
     o.push({ clave: "informe", etiqueta: "Informe", detalle: "Consultar y exportar mediciones", ruta: "/informe" });
   }
   if (puedeGestionarUsuarios(r)) {

@@ -54,6 +54,7 @@ export default function DisposicionConSesion() {
       <Stack.Screen name="informe" options={{ title: "Informe" }} />
       <Stack.Screen name="programaciones" options={{ title: "Visitas recurrentes" }} />
       <Stack.Screen name="mas" options={{ title: "Más" }} />
+      <Stack.Screen name="alertas" options={{ title: "Llantas para cambiar" }} />
       <Stack.Screen name="plataforma" options={{ title: "Plataforma" }} />
       <Stack.Screen name="orden/[id]/index" options={{ title: "Orden" }} />
       <Stack.Screen name="orden/[id]/reasignar" options={{ title: "Reasignar" }} />

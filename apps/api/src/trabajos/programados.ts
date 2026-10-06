@@ -308,7 +308,7 @@ export class TrabajosProgramados {
    * alertar por todas llenaría la bandeja de repetidos de hace meses que ya
    * se resolvieron.
    */
-  async revisarAlertas(empresaId: string): Promise<Alerta[]> {
+  async revisarAlertas(empresaId: string, opciones: { soloSedesDe?: string } = {}): Promise<Alerta[]> {
     const ahora = this.reloj();
 
     const r = await this.db.query<LlantaParaRevisar & { fecha: string }>(
@@ -322,8 +322,11 @@ export class TrabajosProgramados {
                 ON pe."configuracionEjeId" = o."configuracionEjeId"
                AND pe.numero = lr.posicion
         WHERE o."empresaId" = $1 AND o.estado = 'cerrada'
+          -- El coordinador ve solo sus sedes (decisión del usuario).
+          AND ($2::text IS NULL OR o."sedeId" IN (
+                SELECT "sedeId" FROM "UsuarioSede" WHERE "usuarioId" = $2 AND activa))
         ORDER BY o."vehiculoId", lr.posicion, o.fecha DESC`,
-      [empresaId],
+      [empresaId, opciones.soloSedesDe ?? null],
     );
 
     const alertas = r.rows.flatMap((fila) =>

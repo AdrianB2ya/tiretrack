@@ -42,9 +42,19 @@ export default function PantallaPanel() {
     <View style={{ flex: 1, backgroundColor: colores.fondo }}>
       <BarraDeSesion />
       <View style={{ paddingHorizontal: espacio.md, paddingTop: espacio.sm }}>
-        <Boton ancho testID="nueva-orden" onPress={() => router.push("/nueva-orden" as never)}>
-          Programar una orden
-        </Boton>
+        <View style={{ flexDirection: "row", gap: espacio.sm }}>
+          <View style={{ flex: 1 }}>
+            <Boton ancho testID="nueva-orden" onPress={() => router.push("/nueva-orden" as never)}>
+              Programar una orden
+            </Boton>
+          </View>
+          <View style={{ flex: 1 }}>
+            {/* Una llanta vencida o gastada es una decisión de hoy, no una métrica. */}
+            <Boton ancho tipo="secundario" testID="alertas" onPress={() => router.push("/alertas" as never)}>
+              Llantas para cambiar
+            </Boton>
+          </View>
+        </View>
       </View>
       <View style={{ flex: 1 }}>
         <PanelCoordinador

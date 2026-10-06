@@ -3147,13 +3147,25 @@ baja el binario directo al disco del teléfono (`expo-file-system`), renueva
 la sesión una vez ante un 401, distingue "no disponible" de "sin señal", y se
 abre la hoja de compartir.
 
+## Llantas para cambiar (alertas, 2026-10-06)
+
+`TrabajosProgramados.revisarAlertas` (1.9) calculaba las llantas con DOT
+vencido o por vencer y bajo el mínimo de su eje —de la última medición de
+cada posición, en órdenes cerradas— y **no se le mostraban a nadie**.
+
+- `GET /alertas`: solo la oficina, y **solo sus sedes** (filtro nuevo
+  `soloSedesDe`), con el código del vehículo y el cliente.
+- App: "Llantas para cambiar" en el panel y en "Más". Agrupadas por vehículo
+  (como se programa el cambio), lo crítico arriba, la severidad en texto, y
+  "Programar el cambio". En línea; sin señal lo dice y deja reintentar.
+
 ## Punto de retoma (2026-10-05)
 
 **Estado:** el usuario prueba la app en el teléfono con Expo Go (SDK 52). Siguen PDF (6.3), vista de auditoría (5.4) y guía de despliegue.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 919/919, mobile 879 + recorrido 429.
+**Verificado:** `npm run verify` con base: raíz 921/921, mobile 882 + recorrido 439.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):
