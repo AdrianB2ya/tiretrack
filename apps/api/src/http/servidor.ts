@@ -657,6 +657,14 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
       return { status: 200, cuerpo: { tecnicoId: r.valor.tecnicoId } };
     }));
 
+    /** La evidencia de la orden, con URL de lectura que vence. */
+    app.get("/ordenes/:id/fotos", consulta(async (s, ctx, req) => {
+      const id = zId.safeParse(params(req).id);
+      if (!id.success) return { status: 404, cuerpo: { error: { codigo: "NO_EXISTE", mensaje: "La orden no existe" } } };
+      const r = await s.fotos.evidencia(ctx, id.data);
+      return r.ok ? { status: 200, cuerpo: r.valor } : rechazo(r.veredicto);
+    }));
+
     app.post("/ordenes/:id/fotos", operacion(async (s, ctx, req) => {
       const p = zAdjuntarFoto.safeParse(req.body);
       if (!p.success) return datosInvalidos(p.error.issues);

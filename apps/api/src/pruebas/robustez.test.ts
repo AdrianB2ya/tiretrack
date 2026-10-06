@@ -165,6 +165,7 @@ describe.skipIf(!disponible)("robustez: ninguna entrada mala da 500", () => {
       await probar("PUT", `/ordenes/${e}/mediciones/${e}`, { cuerpo: { posicion: 1 }, entrada: id });
       await probar("POST", `/ordenes/${e}/estado`, { cuerpo: { estado: "en_revision" }, entrada: id });
       await probar("POST", `/ordenes/${e}/reasignar`, { cuerpo: { tecnicoId: SEMILLA.otroTecnico, motivo: "Cambio de turno" }, token: "tok-coordinador", entrada: id });
+      await probar("GET", `/ordenes/${e}/fotos`, { entrada: id });
       await probar("GET", `/flota/clientes/${e}/sedes`, { entrada: id });
       await probar("GET", `/flota/sedes/${e}/vehiculos`, { entrada: id });
       await probar("POST", `/fotos/${e}/confirmar`, { cuerpo: {}, entrada: id });

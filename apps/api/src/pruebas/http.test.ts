@@ -476,6 +476,49 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
     });
   });
 
+  describe("ver las fotos desde otro teléfono", () => {
+    // Cada teléfono veía solo las fotos que tomó: el coordinador aprobaba sin
+    // ver la evidencia.
+    async function fotoConfirmada(cuerpo: Record<string, unknown>) {
+      const id = nuevoId();
+      expect((await pedir({ ruta: `/ordenes/${ORDEN}/fotos`, cuerpo: { id, nombre: "f.jpg", tipoMime: "image/jpeg", tamanoBytes: 1000, ...cuerpo } })).statusCode).toBe(201);
+      expect((await pedir({ ruta: `/fotos/${id}/confirmar`, cuerpo: {} })).statusCode).toBe(200);
+      return id;
+    }
+    const ver = (token: string) =>
+      app.inject({ method: "GET", url: `${PREFIJO_API}/ordenes/${ORDEN}/fotos`, headers: { authorization: `Bearer ${token}` } });
+
+    it("el coordinador ve la evidencia de la orden y de cada posición, con URL de lectura", async () => {
+      const general = await fotoConfirmada({});
+      const m = medicion(2, { serial: "MX2" });
+      await guardarMedicion(m);
+      const dePosicion = await fotoConfirmada({ medicionId: m.id });
+      const r = await ver("tok-coordinador");
+      expect(r.statusCode).toBe(200);
+      expect(r.json()).toEqual([
+        expect.objectContaining({ id: general, posicion: null, url: expect.stringContaining("https://leer.test/") }),
+        expect.objectContaining({ id: dePosicion, posicion: 2 }),
+      ]);
+    });
+
+    it("una foto sin confirmar no existe para nadie", async () => {
+      await pedir({ ruta: `/ordenes/${ORDEN}/fotos`, cuerpo: { id: nuevoId(), nombre: "f.jpg", tipoMime: "image/jpeg", tamanoBytes: 1000 } });
+      expect((await ver("tok-coordinador")).json()).toEqual([]);
+    });
+
+    it("el cliente no ve la evidencia de una orden que aún se está trabajando", async () => {
+      await fotoConfirmada({});
+      expect((await ver("tok-cliente")).statusCode).toBe(404);
+      await pool.query(`UPDATE "OrdenServicio" SET estado = 'pendiente_cliente' WHERE id = $1`, [ORDEN]);
+      expect((await ver("tok-cliente")).json()).toHaveLength(1);
+    });
+
+    it("una orden que no existe es 404", async () => {
+      const r = await app.inject({ method: "GET", url: `${PREFIJO_API}/ordenes/${nuevoId()}/fotos`, headers: { authorization: "Bearer tok-coordinador" } });
+      expect(r.statusCode).toBe(404);
+    });
+  });
+
   describe("llanta desmontada", () => {
     it("se guarda, se descarga y llega al informe", async () => {
       // El contrato la aceptaba y el servidor no la guardaba: se perdía sin

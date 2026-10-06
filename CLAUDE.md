@@ -3057,13 +3057,37 @@ parte del flujo:
 - **La prueba de mediciones escribía su tabla a mano**, sin esas columnas:
   ahora usa el esquema generado desde Prisma, como la de trabajos.
 
+## Ver la evidencia desde cualquier teléfono (2026-10-06)
+
+Cada celular veía solo las fotos que él tomó: **el coordinador aprobaba sin
+ver la evidencia** y el cliente no la veía nunca. El servidor sabía firmar
+URL de lectura, pero ninguna ruta las entregaba.
+
+- `GET /ordenes/:id/fotos` (`ServicioFotos.evidencia`): todas las fotos
+  **confirmadas** de la orden —generales y de cada posición, con su número—,
+  cada una con URL de lectura que vence. Una orden que quien pregunta no ve
+  (RLS) es **404**; el cliente, como en su portal, solo la de órdenes que
+  esperan su aprobación o están cerradas.
+- App: pantalla `orden/[id]/fotos` (`Evidencia`), agrupada por posición, con
+  la foto en grande al tocarla. Botón "Ver la evidencia en el servidor" en el
+  detalle de la orden (todos los roles) y "Ver las fotos" al decidir la
+  revisión. En línea: sin señal lo dice y deja reintentar.
+
+### El recorrido de pantallas corre en su propio paso
+
+Con ~430 pruebas pesadas, en paralelo con el resto de la app se quedaba sin
+procesador: las primeras vencían a los 5 s y una corrida completa se colgó
+más de 15 minutos. Ahora `npm test` de la app corre todo lo demás y después
+`test:recorrido` solo (≈2,5 min), y el recorrido espera a que la sesión
+termine de restaurarse en vez de un tiempo fijo.
+
 ## Punto de retoma (2026-10-05)
 
 **Estado:** el usuario prueba la app en el teléfono con Expo Go (SDK 52). Siguen PDF (6.3), vista de auditoría (5.4) y guía de despliegue.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 899/899, mobile 1257/1257.
+**Verificado:** `npm run verify` con base: raíz 903/903, mobile 866 + recorrido 429.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

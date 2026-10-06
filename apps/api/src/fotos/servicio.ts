@@ -55,6 +55,8 @@ export interface RepositorioFotos {
   deOrden(ordenId: string): Promise<Foto[]>;
   deLlanta(llantaRegistroId: string): Promise<Foto[]>;
   contarDeOrden(ordenId: string): Promise<number>;
+  /** Todas las fotos confirmadas de la orden: generales y de cada posición. */
+  evidenciaDeOrden(ordenId: string): Promise<(Foto & { posicion: number | null })[]>;
   contarDeLlanta(llantaRegistroId: string): Promise<number>;
   /** Las que quedaron sin confirmar: subidas que nunca llegaron. */
   sinConfirmarAnterioresA(fecha: Date): Promise<Foto[]>;
@@ -102,6 +104,19 @@ export class RepositorioFotosPg implements RepositorioFotos {
     const r = await this.db.query<Foto>(
       `SELECT ${this.campos} FROM "Foto"
         WHERE "ordenId" = $1 AND confirmada = true ORDER BY "subidaEn"`,
+      [ordenId],
+    );
+    return r.rows;
+  }
+
+  async evidenciaDeOrden(ordenId: string): Promise<(Foto & { posicion: number | null })[]> {
+    const r = await this.db.query<Foto & { posicion: number | null }>(
+      `SELECT f.id, f."ordenId", f."llantaRegistroId", f.ruta, f.nombre, f."tamanoBytes",
+              f."subidaPorId", f.confirmada, lr.posicion
+         FROM "Foto" f
+         LEFT JOIN "LlantaRegistro" lr ON lr.id = f."llantaRegistroId"
+        WHERE f.confirmada = true AND (f."ordenId" = $1 OR lr."ordenId" = $1)
+        ORDER BY lr.posicion NULLS FIRST, f."subidaEn"`,
       [ordenId],
     );
     return r.rows;
@@ -303,6 +318,37 @@ export class ServicioFotos {
     // No toca el contenido: la foto ya contó al adjuntarse. Confirmar solo
     // certifica que los bytes llegaron, y puede ocurrir en cualquier momento.
     return { ok: true, valor: confirmada };
+  }
+
+  /**
+   * La evidencia de una orden, para verla desde cualquier teléfono: antes cada
+   * celular veía solo las fotos que él tomó, y el coordinador aprobaba sin ver
+   * la evidencia.
+   *
+   * Las fotos no son públicas: cada una va con una URL de lectura que vence.
+   * Una orden que quien pregunta no ve (RLS: el técnico solo las suyas) es
+   * NO_EXISTE, no "sin permiso": un 403 confirmaría que existe. El cliente,
+   * como en su portal, solo ve las que esperan su aprobación o están cerradas.
+   */
+  async evidencia(
+    ctx: Contexto,
+    ordenId: string,
+  ): Promise<Resultado<{ id: string; nombre: string; posicion: number | null; url: string; expiraEn: number }[]>> {
+    // RLS: si quien pregunta no puede ver la orden, no aparece.
+    const orden = await this.repo.estadoDeOrden(ordenId);
+    if (!orden) return fallo("NO_EXISTE", "La orden no existe");
+    const estado = orden.estado;
+    if (ctx.rol === "cliente" && estado !== "pendiente_cliente" && estado !== "cerrada") {
+      return fallo("NO_EXISTE", "La orden no existe");
+    }
+    const fotos = await this.repo.evidenciaDeOrden(ordenId);
+    const valor = await Promise.all(
+      fotos.map(async (foto) => {
+        const firmada = await this.almacen.urlDeLectura(foto.ruta);
+        return { id: foto.id, nombre: foto.nombre, posicion: foto.posicion, url: firmada.url, expiraEn: firmada.expiraEn };
+      }),
+    );
+    return { ok: true, valor };
   }
 
   /** Las fotos no son públicas: se entregan con URL temporal. */

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Component, useEffect, type ComponentType, type ReactNode } from "react";
-import { render, act, cleanup } from "@testing-library/react";
+import { render, act, cleanup, waitFor } from "@testing-library/react";
 import { Text } from "react-native";
 import { readdirSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
@@ -195,6 +195,16 @@ function montar(Pantalla: ComponentType, repo: RepositorioLocal, onError: (e: Er
 const asentar = () => act(async () => { await new Promise((r) => setTimeout(r, 60)); });
 
 /**
+ * Espera a que la sesión termine de restaurarse y la pantalla se asiente.
+ * Con un tiempo fijo, la suite completa —más cargada— la encontraba todavía
+ * restaurando y fallaba a ratos.
+ */
+async function esperarPantalla(container: HTMLElement) {
+  await waitFor(() => expect(container.textContent ?? "").not.toBe("cargando sesión"), { timeout: 15_000 });
+  await asentar();
+}
+
+/**
  * Avisos de React y React Native en la consola. Son errores también: el de
  * "VirtualizedLists should never be nested" era un aviso, y en el teléfono
  * salió como pantalla roja.
@@ -220,6 +230,10 @@ afterEach(async () => {
 
 const LISTA = pantallas();
 
+// La suite completa corre en paralelo y es mucho más lenta que este archivo
+// solo: con el tiempo por defecto (5 s) las primeras pruebas vencían.
+vi.setConfig({ testTimeout: 60_000 });
+
 describe("recorrido de pantallas", () => {
   it("encuentra las pantallas de la app", () => {
     expect(LISTA.length).toBeGreaterThan(20);
@@ -236,7 +250,7 @@ describe("recorrido de pantallas", () => {
           const errores: Error[] = [];
           const { default: Pantalla } = (await import(archivo)) as { default: ComponentType };
           const { container } = montar(Pantalla, repo, (e) => errores.push(e));
-          await asentar();
+          await esperarPantalla(container);
           expect(errores.map((e) => e.message)).toEqual([]);
           expect(avisos).toEqual([]);
           // Una pantalla en blanco también es un fallo: el usuario no sabe qué pasó.
@@ -252,7 +266,7 @@ describe("recorrido de pantallas", () => {
       const errores: Error[] = [];
       const { default: Pantalla } = (await import(archivo)) as { default: ComponentType };
       const { container } = montar(Pantalla, repo, (e) => errores.push(e), false);
-      await asentar();
+      await esperarPantalla(container);
       expect(errores.map((e) => e.message)).toEqual([]);
       expect(avisos).toEqual([]);
       expect((container.textContent ?? "").trim().length).toBeGreaterThan(0);
@@ -279,7 +293,7 @@ describe("tocar todo", () => {
           const errores: Error[] = [];
           const { default: Pantalla } = (await import(archivo)) as { default: ComponentType };
           const { container } = montar(Pantalla, repo, (e) => errores.push(e));
-          await asentar();
+          await esperarPantalla(container);
           // Se toca por posición en la lista de lo tocable, volviendo a
           // buscar cada vez: tocar puede cambiar lo que hay en pantalla.
           for (let i = 0; i < 40; i++) {

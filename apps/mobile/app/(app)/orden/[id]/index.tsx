@@ -131,6 +131,11 @@ export default function PantallaDetalle() {
         maximo={MAXIMO_POR_ORDEN}
         deshabilitada={!capturar?.habilitada}
       />
+      {/* La evidencia que está en el servidor, la haya tomado quien sea: antes
+          cada teléfono veía solo las suyas. */}
+      <Boton tipo="secundario" ancho testID="ver-evidencia" onPress={() => router.push(`/orden/${orden.id}/fotos` as never)}>
+        Ver la evidencia en el servidor
+      </Boton>
 
       {esCliente ? (
         <View style={estilos.requisitos}>

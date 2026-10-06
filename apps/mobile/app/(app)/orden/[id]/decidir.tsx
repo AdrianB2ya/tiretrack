@@ -75,6 +75,10 @@ export default function RutaDecidir() {
         onDevolver={(motivo) => void decidir("en_proceso", motivo)}
       />
       <View style={estilos.pie}>
+        {/* Aprobar sin ver la evidencia era lo único posible antes. */}
+        <Boton tipo="secundario" ancho testID="ver-evidencia" onPress={() => router.push(`/orden/${item.orden.id}/fotos` as never)}>
+          Ver las fotos
+        </Boton>
         <Boton tipo="fantasma" ancho onPress={() => router.push(`/orden/${item.orden.id}` as never)}>
           Ver el diagrama completo
         </Boton>

@@ -7,7 +7,8 @@
     "start": "expo start",
     "android": "expo run:android",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run --exclude src/pruebas/recorrido.test.tsx && npm run test:recorrido",
+    "test:recorrido": "vitest run src/pruebas/recorrido.test.tsx"
   },
   "dependencies": {
     "@react-native-community/netinfo": "^11.4.1",
