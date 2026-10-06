@@ -2584,6 +2584,14 @@ la activación vive en `ServicioAuth`.
   tabla de tokens solo admite el token propio.
 - El superadmin nunca se crea desde una empresa.
 
+**En la app** (`src/sesion/activacion.ts`, `PantallaActivacion.tsx`, ruta
+`activar`): "Tengo un código de activación" en el ingreso. Revisa correo,
+largo del código y contraseña **antes de enviar** (cada código malo cuenta
+para el bloqueo). Si el rol exige doble factor, muestra la clave de a cuatro
+y un botón que abre la app autenticadora con el enlace `otpauth://`. Al
+terminar **entra sola** con la contraseña recién elegida; si no puede (p. ej.
+el código de 6 números ya cambió), va al ingreso.
+
 **El esquema de pruebas ahora genera las claves únicas de Prisma.** Faltaban:
 un correo y un código de sede duplicados se aceptaban en las pruebas, y antes
 el folio había fallado por lo mismo. Es la cuarta diferencia entre pruebas y

@@ -49,6 +49,7 @@ export default function PantallaIngresar() {
         await abrirSesion(c, true);
       }}
       entrando={entrando}
+      onActivarCuenta={() => router.push("/activar" as never)}
     />
   );
 }

@@ -58,7 +58,7 @@ describe("pantallas construidas y conectadas", () => {
     const pantallas = [
       "CapturaFirma", "DecisionRevision", "FormularioDatosOrden", "PantallaCuenta",
       "PantallaEnvio", "PantallaIngreso", "BandejaRevision", "ListaOrdenes", "FotosDe",
-      "FormularioNuevaOrden", "PantallaFlota", "PortalCliente", "DecisionCliente",
+      "FormularioNuevaOrden", "PantallaFlota", "PortalCliente", "DecisionCliente", "PantallaActivacion",
     ];
     const codigo = rutas();
     expect(pantallas.filter((p) => !new RegExp(`<${p}\\b`).test(codigo))).toEqual([]);

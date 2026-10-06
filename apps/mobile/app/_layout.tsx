@@ -32,6 +32,7 @@ export default function DisposicionRaiz() {
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="ingresar" options={{ headerShown: false }} />
+        <Stack.Screen name="activar" options={{ headerShown: false }} />
         <Stack.Screen name="ordenes" options={{ title: "Mis órdenes" }} />
         <Stack.Screen name="revision" options={{ title: "Por revisar" }} />
         <Stack.Screen name="panel" options={{ title: "Panel" }} />

@@ -17,9 +17,11 @@ export interface PantallaIngresoProps {
   /** Descarta el trabajo sin enviar del usuario anterior, ya advertido. */
   onDescartarYEntrar: (credenciales: Credenciales) => Promise<void>;
   entrando?: boolean;
+  /** Primera vez: el administrador le dio un código de activación. */
+  onActivarCuenta?: () => void;
 }
 
-export function PantallaIngreso({ onIngresar, onDescartarYEntrar, entrando = false }: PantallaIngresoProps) {
+export function PantallaIngreso({ onIngresar, onDescartarYEntrar, entrando = false, onActivarCuenta }: PantallaIngresoProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [verClave, setVerClave] = useState(false);
@@ -245,9 +247,16 @@ export function PantallaIngreso({ onIngresar, onDescartarYEntrar, entrando = fal
           Entrar
         </Boton>
 
+        {onActivarCuenta ? (
+          <Boton ancho tipo="fantasma" testID="activar-cuenta" onPress={onActivarCuenta}>
+            Tengo un código de activación
+          </Boton>
+        ) : null}
+
         <Text style={estilos.nota}>
           Para entrar la primera vez necesitas señal. Después podrás trabajar sin ella.
         </Text>
+        <Text style={estilos.nota}>¿Olvidaste tu contraseña? Pídele un código nuevo a tu administrador.</Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
