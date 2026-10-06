@@ -12,6 +12,7 @@ import {
   type EstadoOrden,
   type Rol,
   type Veredicto,
+  fechaEnColombia,
 } from "@tiretrack/domain";
 import type { Orden, RepositorioOrdenes } from "./repositorio";
 
@@ -83,7 +84,8 @@ export class ServicioOrdenes {
   ) {}
 
   private hoy(): string {
-    return this.reloj().toISOString().split("T")[0] as string;
+    // El día en Colombia: en UTC, después de las 7 p. m. ya es mañana.
+    return fechaEnColombia(this.reloj());
   }
 
   // ── Creación ──────────────────────────────────────────────────────────────

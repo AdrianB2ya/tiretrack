@@ -10,7 +10,7 @@ import { siguienteSinCapturar } from "../../../src/ordenes/diagrama";
 import { FotosDe } from "../../../src/fotos/FotosDe";
 import { DecisionCliente } from "../../../src/cliente/DecisionCliente";
 import { camaraDelDispositivo, manipuladorDelDispositivo } from "../../../src/fotos/captura";
-import { estaAbierta, MAXIMO_POR_ORDEN, puedeAprobar, type EstadoOrden } from "@tiretrack/domain";
+import { estaAbierta, fechaEnColombia, MAXIMO_POR_ORDEN, puedeAprobar, type EstadoOrden } from "@tiretrack/domain";
 import { colores, espacio, estadosOrden, texto } from "../../../src/diseno/tokens";
 
 /**
@@ -140,7 +140,7 @@ export default function PantallaDetalle() {
       {esCliente && orden.estado === "pendiente_cliente" ? (
         <DecisionCliente
           limiteCliente={orden.limiteCliente}
-          hoy={new Date().toISOString().slice(0, 10)}
+          hoy={fechaEnColombia()}
           procesando={decidiendo}
           onAprobar={() => void decidirCliente("cerrada")}
           onObjetar={(motivo) => void decidirCliente("en_proceso", motivo)}

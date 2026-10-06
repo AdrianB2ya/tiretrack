@@ -287,6 +287,7 @@ Estado: `[x]` hecha · `[ ]` pendiente
 | `catalogo/normalizacion` | Clave normalizada, distancia de edición, duplicados y parecidos |
 | `folio/folio` | Formato, parseo y distinción entre folio y referencia temporal |
 | `tiempo/habiles` | Días hábiles, plazo de aprobación tácita, recurrencias |
+| `tiempo/zona` | "Hoy" en hora de Colombia (desfase fijo, sin horario de verano) |
 
 Las funciones devuelven `Veredicto` (`{ permitido, codigo, mensaje }`) en vez
 de lanzar excepciones o devolver booleanos pelados: la interfaz necesita
@@ -2695,13 +2696,37 @@ adjunta archivos en Android.
 **Quién puede exportar** sigue siendo una decisión abierta: la app no la
 duplica; el botón está en el panel (coordinador y administrador).
 
+## Hora de Colombia en todo el sistema (2026-10-06)
+
+**Decisión del usuario:** el sistema usa la hora de Colombia, no una zona
+por empresa. `fechaEnColombia()` en `packages/domain/src/tiempo/zona.ts` es
+la única forma de saber qué día es "hoy", en el servidor y en la app.
+
+Antes "hoy" se calculaba en UTC: después de las 7 p. m. ya era el día
+siguiente. El archivo exportado llevaba la fecha de mañana, el cierre tácito
+podía cerrar una orden horas antes de que se le acabara el plazo al cliente,
+y una recurrencia se generaba la noche anterior. Una orden creada de noche
+desde la app también nacía con la fecha de mañana.
+
+- **Desfase fijo de −5 h**, no `Intl` con `timeZone`: Colombia no tiene
+  horario de verano, y así da igual en Node, en las pruebas y en el motor
+  JavaScript del celular. La app tampoco usa la zona que tenga configurada
+  el teléfono.
+- **Solo cambia el día calendario.** Los instantes (`now()`, vencimiento de
+  URLs y tokens, `creadoEn`) siguen en UTC, que es lo correcto.
+- Pruebas en el borde de las 7 p. m. para el nombre del archivo, el cierre
+  tácito y las recurrencias. Al volver a UTC, las tres fallan.
+- **Pendiente para la 5.4:** el filtro de fecha de la auditoría compara
+  `creadoEn` (UTC) contra un día; hay que convertirlo a Colombia cuando se
+  haga la pantalla.
+
 ## Punto de retoma (2026-10-05)
 
 **Estado:** el usuario prueba la app en el teléfono con Expo Go (SDK 52). Siguen PDF (6.3), programación recurrente (4.4), vista de auditoría (5.4) y guía de despliegue.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas e informe ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 847/847, mobile 819/819.
+**Verificado:** `npm run verify` con base: raíz 855/855, mobile 819/819.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):
@@ -2732,10 +2757,6 @@ cd apps/mobile && EXPO_PUBLIC_API_URL=http://<IP-LAN>:4000/api/v1 REACT_NATIVE_P
 
 **Pendiente de decisión:**
 
-- **Zona horaria del servidor**: "hoy" se calcula en UTC. Después de las
-  7 p. m. en Colombia el nombre del archivo exportado ya dice el día
-  siguiente. Puede afectar también plazos y recurrencias; falta decidir si va
-  una zona por empresa.
 - La descarga incremental compara contra el instante en que se arma el
   paquete: un cambio de una transacción que confirma justo después puede
   quedar fuera. Un margen de solape lo cubriría (el celular ya tolera

@@ -159,6 +159,16 @@ describe.skipIf(!disponible)("trabajos programados", () => {
       expect(f.rows[0].estado).toBe("pendiente_cliente");
     });
 
+    it("el plazo vence con el día de Colombia, no con el de UTC", async () => {
+      // 10 p. m. del 13 en Bogotá: en UTC ya es el 14, pero el cliente
+      // todavía tiene hasta el final de su día 13.
+      reloj = new Date("2026-09-14T03:00:00.000Z");
+      await orden("o1", { limiteCliente: "2026-09-14" });
+      expect((await trabajos.cerrarPlazosVencidos()).procesados).toBe(0);
+      reloj = new Date("2026-09-14T05:00:00.000Z");
+      expect((await trabajos.cerrarPlazosVencidos()).exitosos).toBe(1);
+    });
+
     it("no toca órdenes en otro estado", async () => {
       await orden("o1", { estado: "en_proceso", limiteCliente: "2026-01-01" });
       const r = await trabajos.cerrarPlazosVencidos();
@@ -309,6 +319,15 @@ describe.skipIf(!disponible)("trabajos programados", () => {
       await programacion({ proxima: "2026-10-14" });
       const r = await trabajos.generarOrdenesRecurrentes();
       expect(r.procesados).toBe(0);
+    });
+
+    it("la recurrencia se genera el día que toca en Colombia", async () => {
+      // 9 p. m. del 13 en Bogotá: la del 14 todavía no toca.
+      reloj = new Date("2026-09-14T02:00:00.000Z");
+      await programacion({ proxima: "2026-09-14" });
+      expect((await trabajos.generarOrdenesRecurrentes()).procesados).toBe(0);
+      reloj = new Date("2026-09-14T11:00:00.000Z");
+      expect((await trabajos.generarOrdenesRecurrentes()).exitosos).toBe(1);
     });
 
     it("no genera si el vehículo ya tiene una orden abierta", async () => {

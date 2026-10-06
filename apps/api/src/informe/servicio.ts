@@ -10,6 +10,7 @@ import {
   type PasoTrazabilidad,
   type Rol,
   type Veredicto,
+  fechaEnColombia,
 } from "@tiretrack/domain";
 
 /**
@@ -82,7 +83,8 @@ export class ServicioInforme {
   ) {}
 
   private hoy(): string {
-    return this.reloj().toISOString().split("T")[0] as string;
+    // El día en Colombia: en UTC, después de las 7 p. m. ya es mañana.
+    return fechaEnColombia(this.reloj());
   }
 
   /**

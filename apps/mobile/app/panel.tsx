@@ -7,7 +7,7 @@ import { useUsuario } from "../src/app/ProveedorSesion";
 import { BarraDeSesion } from "../src/app/BarraDeSesion";
 import { colores, espacio } from "../src/diseno/tokens";
 import { Boton } from "../src/diseno/componentes";
-import { puedeGestionarConfiguraciones, puedeGestionarUsuarios } from "@tiretrack/domain";
+import { fechaEnColombia, puedeGestionarConfiguraciones, puedeGestionarUsuarios } from "@tiretrack/domain";
 import type { OrdenLocal } from "../src/datos/repositorio";
 
 /** Panel del coordinador: lo que requiere su decisión hoy. */
@@ -15,7 +15,7 @@ export default function PantallaPanel() {
   const router = useRouter();
   const usuario = useUsuario();
   const { ordenes, pendientesDeEnviar } = useDatos();
-  const [hoy] = useState(() => new Date().toISOString().slice(0, 10));
+  const [hoy] = useState(() => fechaEnColombia());
   const [locales, setLocales] = useState<OrdenLocal[]>([]);
 
   useEffect(() => {

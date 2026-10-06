@@ -5,6 +5,7 @@ import { armarOrden, puedeCrearOrden, type QuienCrea } from "../src/ordenes/nuev
 import { useDatos } from "../src/app/ProveedorDatos";
 import { useUsuario } from "../src/app/ProveedorSesion";
 import { Vacio } from "../src/diseno/componentes";
+import { fechaEnColombia } from "@tiretrack/domain";
 
 /** Orden nueva: programada por el coordinador, o imprevista del técnico. */
 export default function RutaNuevaOrden() {
@@ -12,7 +13,7 @@ export default function RutaNuevaOrden() {
   const usuario = useUsuario();
   const { fuentesOrden, crearOrden } = useDatos();
   const [creando, setCreando] = useState(false);
-  const [hoy] = useState(() => new Date().toISOString().slice(0, 10));
+  const [hoy] = useState(() => fechaEnColombia());
   // Al volver de registrar un cliente, recargar las listas.
   const [recarga, setRecarga] = useState(0);
   useFocusEffect(useCallback(() => setRecarga((n) => n + 1), []));

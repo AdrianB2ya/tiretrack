@@ -10,6 +10,7 @@ import {
   type Alerta,
   type Frecuencia,
   type LlantaParaRevisar,
+  fechaEnColombia,
 } from "@tiretrack/domain";
 
 /**
@@ -47,7 +48,8 @@ export class TrabajosProgramados {
   ) {}
 
   private hoy(): string {
-    return this.reloj().toISOString().split("T")[0] as string;
+    // El día en Colombia: en UTC, después de las 7 p. m. ya es mañana.
+    return fechaEnColombia(this.reloj());
   }
 
   // ── Cierre por vencimiento del plazo del cliente ──────────────────────────

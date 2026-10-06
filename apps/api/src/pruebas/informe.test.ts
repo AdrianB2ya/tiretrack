@@ -291,6 +291,14 @@ describe.skipIf(!disponible)("informe", () => {
       expect(r.valor.nombreArchivo).toBe("informe-2-ordenes-2026-09-14.csv");
     });
 
+    it("la fecha del nombre es la de Colombia, no la de UTC", async () => {
+      // 9 p. m. del 14 en Bogotá; en UTC ya es el 15.
+      const noche = new ServicioInforme(db, () => new Date("2026-09-15T02:00:00.000Z"));
+      const r = await noche.exportar(ADMIN);
+      if (!r.ok) throw new Error();
+      expect(r.valor.nombreArchivo).toBe("informe-2-ordenes-2026-09-14.csv");
+    });
+
     it("informa cuántas órdenes iban sin cerrar", async () => {
       const r = await servicio.exportar(ADMIN);
       if (!r.ok) throw new Error();

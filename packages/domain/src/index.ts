@@ -23,6 +23,7 @@ export * from "./catalogo/normalizacion";
 export * from "./catalogo/ambito";
 export * from "./folio/folio";
 export * from "./tiempo/habiles";
+export * from "./tiempo/zona";
 export * from "./acceso/politica";
 export * from "./acceso/usuarios";
 export * from "./flota/reglas";

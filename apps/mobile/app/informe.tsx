@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { fechaEnColombia } from "@tiretrack/domain";
 import { PantallaInforme, type FuentesInforme } from "../src/informe/PantallaInforme";
 import { compartirArchivo } from "../src/informe/compartirArchivo";
 import { nombreDeDescarga } from "../src/informe/reglasInforme";
@@ -23,11 +24,9 @@ export default function RutaInforme() {
         return { ok: true, texto: r.texto, nombre: nombreDeDescarga(r.encabezado("content-disposition")) };
       },
       compartir: compartirArchivo,
-      hoy: () => {
-        // Fecha local del celular: "hoy" es el día del coordinador, no el de UTC.
-        const d = new Date();
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      },
+      // El día en Colombia, igual que el servidor: no la zona que tenga
+      // configurada el celular.
+      hoy: () => fechaEnColombia(),
     }),
     [enLinea, descargarTexto, fuentesFlota],
   );

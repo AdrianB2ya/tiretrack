@@ -5,12 +5,13 @@ import { PortalCliente } from "../src/cliente/PortalCliente";
 import { BarraDeSesion } from "../src/app/BarraDeSesion";
 import { useDatos } from "../src/app/ProveedorDatos";
 import { colores } from "../src/diseno/tokens";
+import { fechaEnColombia } from "@tiretrack/domain";
 
 /** Portal del cliente: aprobar servicios y consultar su historial. */
 export default function RutaCliente() {
   const router = useRouter();
   const { ordenes, sincronizando, sincronizar } = useDatos();
-  const [hoy] = useState(() => new Date().toISOString().slice(0, 10));
+  const [hoy] = useState(() => fechaEnColombia());
   return (
     <View style={estilos.pantalla}>
       <BarraDeSesion />
