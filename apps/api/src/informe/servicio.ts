@@ -56,6 +56,7 @@ export interface Exportacion {
 }
 
 export interface FilaVista {
+  readonly ordenId: string | null;
   readonly fecha: string;
   readonly folio: string;
   readonly estado: string;
@@ -272,6 +273,7 @@ export class ServicioInforme {
       ordenes: r.ordenes,
       sinCerrar: r.sinCerrar,
       filas: filas.slice(0, limite).map((x) => ({
+        ordenId: x.ordenId ?? null,
         fecha: x.fecha,
         folio: x.folio ?? x.codigoReferencia ?? "",
         estado: x.estado,

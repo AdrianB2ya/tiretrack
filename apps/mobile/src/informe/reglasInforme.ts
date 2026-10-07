@@ -86,6 +86,8 @@ export function aConsulta(f: FiltroPantalla): string {
 }
 
 export interface FilaVista {
+  /** Opcional: un servidor anterior no lo manda. */
+  readonly ordenId?: string | null;
   readonly fecha: string;
   readonly folio: string;
   readonly estado: string;

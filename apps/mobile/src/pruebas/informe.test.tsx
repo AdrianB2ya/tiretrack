@@ -125,6 +125,7 @@ describe("pantalla del informe", () => {
   it("se eligen órdenes: el CSV y el PDF salen solo con esas", async () => {
     const conLista: VistaPrevia = {
       ...VISTA, ordenes: 2,
+      filas: [{ ...fila(1), ordenId: "o-1" }, { ...fila(2), ordenId: "o-1" }],
       listaOrdenes: [
         { id: "o-1", folio: "OS-FUN-000001", fecha: "2026-10-01", estado: "cerrada", vehiculo: "CA-12", posiciones: 2 },
         { id: "o-2", folio: "OS-FUN-000002", fecha: "2026-10-02", estado: "en_revision", vehiculo: "CV-07", posiciones: 1 },
@@ -134,6 +135,11 @@ describe("pantalla del informe", () => {
     render(<PantallaInforme fuentes={f} />);
     fireEvent.click(screen.getByTestId("ver-informe"));
     expect(await screen.findByText(/Se exportan todas las órdenes/)).toBeTruthy();
+    // Una sola lista: las llantas van dentro de su orden, plegadas.
+    expect(screen.queryByText("Pos. 1 · Michelin MX1 · 9,5 mm")).toBeNull();
+    fireEvent.click(screen.getByTestId("ver-llantas-o-1"));
+    expect(screen.getByText("Pos. 1 · Michelin MX1 · 9,5 mm")).toBeTruthy();
+    expect(screen.queryByTestId("ver-llantas-o-2")).toBeNull();
     fireEvent.click(screen.getByTestId("elegir-orden-o-2"));
     expect(screen.getByText("1 orden elegida")).toBeTruthy();
     fireEvent.click(screen.getByTestId("exportar-pdf"));

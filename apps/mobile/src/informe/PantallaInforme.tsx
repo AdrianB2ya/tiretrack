@@ -60,6 +60,8 @@ export function PantallaInforme({ fuentes }: { fuentes: FuentesInforme }) {
   const [bajandoPdf, setBajandoPdf] = useState(false);
   // Las órdenes elegidas para exportar. Vacío = todas las del filtro.
   const [elegidas, setElegidas] = useState<string[]>([]);
+  // Las órdenes con sus llantas a la vista.
+  const [abiertas, setAbiertas] = useState<string[]>([]);
   const [aviso, setAviso] = useState<{ tono: "peligro" | "exito" | "advertencia"; titulo: string; detalle?: string } | null>(null);
 
   useEffect(() => {
@@ -91,6 +93,7 @@ export function PantallaInforme({ fuentes }: { fuentes: FuentesInforme }) {
       }
       setVista({ datos: r.datos, consulta });
       setElegidas([]);
+      setAbiertas([]);
       // Con serial, el recorrido de esa llanta es casi siempre lo que se busca.
       if (f.serial.trim() && r.datos.registros > 0) {
         const t = await fuentes.trazabilidad(f.serial.trim());
@@ -116,6 +119,10 @@ export function PantallaInforme({ fuentes }: { fuentes: FuentesInforme }) {
       setBajandoPdf(false);
     }
   };
+
+  const listaOrdenes = vista?.datos.listaOrdenes ?? [];
+  const plegar = (id: string) =>
+    setAbiertas((xs) => (xs.includes(id) ? xs.filter((x) => x !== id) : [...xs, id]));
 
   const alternar = (id: string) =>
     setElegidas((xs) => (xs.includes(id) ? xs.filter((x) => x !== id) : [...xs, id]));
@@ -208,30 +215,17 @@ export function PantallaInforme({ fuentes }: { fuentes: FuentesInforme }) {
           <Text style={estilos.resumen} testID="resumen-informe">{resumen(vista.datos)}</Text>
           {!vigente ? <Aviso tono="advertencia" titulo="Cambiaste el filtro" detalle="Vuelve a tocar Ver resultados antes de exportar." /> : null}
           {sinCerrar ? <Aviso tono="advertencia" titulo="Datos preliminares" detalle={sinCerrar} /> : null}
-          {vista.datos.registros > 0 && (vista.datos.listaOrdenes?.length ?? 0) > 0 ? (
-            <View style={estilos.bloque}>
-              <Text style={estilos.nombre}>
-                {elegidas.length === 0
-                  ? "Se exportan todas las órdenes. Marca las que quieras para exportar solo esas."
-                  : `${elegidas.length} ${elegidas.length === 1 ? "orden elegida" : "órdenes elegidas"}`}
-              </Text>
-              {elegidas.length > 0 ? (
-                <Boton tipo="fantasma" testID="todas-las-ordenes" onPress={() => setElegidas([])}>
-                  Quitar la selección (exportar todas)
-                </Boton>
-              ) : null}
-              {(vista.datos.listaOrdenes ?? []).map((o) => (
-                <Opcion
-                  key={o.id}
-                  multiple
-                  activa={elegidas.includes(o.id)}
-                  etiqueta={`${o.folio || "Sin folio"} · ${o.vehiculo}`}
-                  detalle={`${o.fecha} · ${estadosOrden[o.estado as keyof typeof estadosOrden]?.etiqueta ?? o.estado} · ${o.posiciones} ${o.posiciones === 1 ? "llanta" : "llantas"}`}
-                  testID={`elegir-orden-${o.id}`}
-                  onPress={() => alternar(o.id)}
-                />
-              ))}
-            </View>
+          {listaOrdenes.length > 0 ? (
+            <Text style={estilos.nombre}>
+              {elegidas.length === 0
+                ? "Se exportan todas las órdenes. Marca las que quieras para exportar solo esas."
+                : `${elegidas.length} ${elegidas.length === 1 ? "orden elegida" : "órdenes elegidas"}`}
+            </Text>
+          ) : null}
+          {elegidas.length > 0 ? (
+            <Boton tipo="fantasma" testID="todas-las-ordenes" onPress={() => setElegidas([])}>
+              Quitar la selección (exportar todas)
+            </Boton>
           ) : null}
           {vista.datos.registros > 0 ? (
             <>
@@ -265,7 +259,42 @@ export function PantallaInforme({ fuentes }: { fuentes: FuentesInforme }) {
             </Tarjeta>
           ) : null}
 
-          {vista.datos.filas.map((fila, i) => {
+          {/* Una tarjeta por orden, con su casilla; sus llantas, plegadas. */}
+          {listaOrdenes.map((o) => {
+            const estado = estadosOrden[o.estado as keyof typeof estadosOrden];
+            const suyas = vista.datos.filas.filter((x) => x.ordenId === o.id);
+            const abierta = abiertas.includes(o.id);
+            return (
+              <Tarjeta key={o.id} testID={`orden-informe-${o.id}`}>
+                <Opcion
+                  multiple
+                  activa={elegidas.includes(o.id)}
+                  etiqueta={`${o.folio || "Sin folio"} · ${o.vehiculo}`}
+                  detalle={`${o.fecha} · ${estado?.etiqueta ?? o.estado} · ${o.posiciones} ${o.posiciones === 1 ? "llanta" : "llantas"}`}
+                  testID={`elegir-orden-${o.id}`}
+                  onPress={() => alternar(o.id)}
+                />
+                {suyas.length > 0 ? (
+                  <Boton tipo="fantasma" testID={`ver-llantas-${o.id}`} onPress={() => plegar(o.id)}>
+                    {abierta ? "Ocultar sus llantas" : `Ver sus llantas (${o.posiciones})`}
+                  </Boton>
+                ) : null}
+                {abierta
+                  ? suyas.map((fila, i) => (
+                      <Text key={`${fila.posicion}-${i}`} style={estilos.cuerpo}>
+                        {describirFila(fila)}
+                      </Text>
+                    ))
+                  : null}
+                {abierta && suyas.length < o.posiciones ? (
+                  <Text style={estilos.detalle}>Se muestran {suyas.length} de {o.posiciones}; el archivo las lleva todas.</Text>
+                ) : null}
+              </Tarjeta>
+            );
+          })}
+
+          {/* Servidor anterior, sin lista de órdenes: la vista por llanta de antes. */}
+          {listaOrdenes.length === 0 && vista.datos.filas.map((fila, i) => {
             const estado = estadosOrden[fila.estado as keyof typeof estadosOrden];
             return (
               <Tarjeta key={`${fila.folio}-${fila.posicion}-${i}`}>
@@ -278,7 +307,7 @@ export function PantallaInforme({ fuentes }: { fuentes: FuentesInforme }) {
               </Tarjeta>
             );
           })}
-          {vista.datos.registros > vista.datos.filas.length ? (
+          {listaOrdenes.length === 0 && vista.datos.registros > vista.datos.filas.length ? (
             <Text style={estilos.detalle}>
               Se muestran las primeras {vista.datos.filas.length}. El archivo lleva las {vista.datos.registros}.
             </Text>

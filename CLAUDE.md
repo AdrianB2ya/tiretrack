@@ -3276,6 +3276,11 @@ salía CSV. **Decisión del usuario:** además del CSV, las órdenes elegidas en
 - El CSV sigue siendo el formato del taller (una fila por llanta): es para
   trabajar en Excel; el PDF es para entregar.
 - `Opcion` admite `multiple` (casilla, `role="checkbox"`).
+- **Una sola lista**: cada orden es una tarjeta con su casilla y sus llantas
+  plegadas ("Ver sus llantas"). Al principio la vista por llanta quedó
+  debajo de la lista de órdenes y el usuario vio dos listas mezcladas. Cada
+  fila de la vista previa lleva su `ordenId`; sin lista (servidor anterior)
+  se muestra la vista por llanta de antes.
 
 ## Punto de retoma (2026-10-05)
 
