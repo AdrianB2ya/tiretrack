@@ -41,7 +41,7 @@ const zVersionConfiguracion = z.object({ ejes: z.array(zEjeDefinicion).min(1), c
 
 /** Consulta de la descarga: `desde` es la marca `hasta` que entregó el servidor. */
 const zConsultaDescarga = z.object({ desde: zInstante.optional() });
-import { fechaEnColombia, puedeAprobar, puedeVerAuditoria, ROLES, type Rol, type Veredicto } from "@tiretrack/domain";
+import { fechaEnColombia, MAX_ORDENES_PDF, puedeAprobar, puedeVerAuditoria, ROLES, type Rol, type Veredicto } from "@tiretrack/domain";
 import type { Claims, ResultadoActivacion, ResultadoLogin } from "../acceso/servicio";
 import { ServicioUsuarios } from "../usuarios/servicio";
 import { ServicioProgramaciones } from "../programaciones/servicio";
@@ -906,6 +906,78 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
      * Devuelve el archivo, no JSON: lo que el coordinador hace con esto es
      * abrirlo en una hoja de cálculo.
      */
+    /**
+     * Las órdenes del informe en un solo PDF (decisión del usuario): cada una
+     * completa, como su PDF individual, con sus avisos. Mismo filtro que el
+     * CSV; si se eligieron órdenes, solo esas. Queda en la auditoría.
+     */
+    app.get("/informe/pdf", async (req, reply) => {
+      const auth = req.headers.authorization;
+      const claims = auth?.startsWith("Bearer ") ? op.verificarToken(auth.slice(7)) : null;
+      if (!claims) return reply.status(401).send({ error: { codigo: "NO_AUTENTICADO", mensaje: "Sesión inválida" } });
+      const posible = contextoDe(claims);
+      if ("motivo" in posible) {
+        return reply.status(403).send({ error: { codigo: posible.motivo, mensaje: "Esta sesión no exporta informes" } });
+      }
+      const ctx = posible;
+      const filtro = filtroInforme(req);
+      if (!filtro.ok) return reply.status(filtro.r.status).send(filtro.r.cuerpo);
+      const q = sinIndefinidos(filtro.q);
+      type ResultadoPdf =
+        | { tipo: "vacio" }
+        | { tipo: "demasiadas"; n: number }
+        | { tipo: "pdf"; nombre: string; pdf: Buffer };
+
+      const r = await enTransaccion(op.pool, ctx, async (db): Promise<{ confirmar: boolean; valor: ResultadoPdf }> => {
+        const informe = new ServicioInforme(db, reloj);
+        // Las órdenes que el filtro encuentra (con RLS: solo las visibles).
+        const ids = [...new Set((await informe.consultar(ctx, q)).map((x) => x.ordenId).filter((x): x is string => Boolean(x)))];
+        if (ids.length === 0) {
+          return { confirmar: false, valor: { tipo: "vacio" } };
+        }
+        if (ids.length > MAX_ORDENES_PDF) {
+          return { confirmar: false, valor: { tipo: "demasiadas", n: ids.length } };
+        }
+        const documento = new ServicioDocumento(db);
+        const lista = [];
+        // Una a una sobre la misma conexión: pg no admite consultas simultáneas en ella.
+        for (const id of ids) {
+          const d = await documento.datos(ctx, id);
+          if (d) lista.push(d);
+        }
+        if (lista.length === 0) return { confirmar: false, valor: { tipo: "vacio" } };
+        const folios = lista.map((d) => d.orden.folio ?? d.orden.codigoReferencia ?? "sin folio");
+        await informe.registrarAuditoria(ctx, "exportar_informe", {
+          origen: "pdf_informe",
+          ordenes: lista.length,
+          folios: folios.slice(0, 20),
+          sinCerrar: lista.filter((d) => d.orden.estado !== "cerrada").length,
+          filtros: q,
+        });
+        const hoy = fechaEnColombia(reloj());
+        const generadoEn = new Date(reloj().getTime() - 5 * 3_600_000).toISOString().slice(0, 16).replace("T", " ");
+        const nombre = lista.length === 1 ? documento.nombreArchivo(lista[0]!) : `ordenes-${hoy}.pdf`;
+        return {
+          confirmar: true,
+          valor: { tipo: "pdf", nombre, pdf: await documento.pdfVarias(lista, `Órdenes de servicio ${hoy}`, generadoEn) },
+        };
+      });
+
+      if (r.tipo === "vacio") {
+        return reply.status(404).send({ error: { codigo: "SIN_REGISTROS", mensaje: "No hay órdenes con ese filtro" } });
+      }
+      if (r.tipo === "demasiadas") {
+        return reply.status(422).send({
+          error: { codigo: "DEMASIADAS_ORDENES", mensaje: `Son ${r.n} órdenes: elige hasta ${MAX_ORDENES_PDF} para el PDF, o exporta el CSV` },
+        });
+      }
+      return reply
+        .status(200)
+        .header("content-type", "application/pdf")
+        .header("content-disposition", `attachment; filename="${r.nombre}"`)
+        .send(r.pdf);
+    });
+
     app.get("/informe/exportar", async (req, reply) => {
       const auth = req.headers.authorization;
       const claims = auth?.startsWith("Bearer ") ? op.verificarToken(auth.slice(7)) : null;

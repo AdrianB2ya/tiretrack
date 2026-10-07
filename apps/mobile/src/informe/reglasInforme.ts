@@ -1,5 +1,5 @@
 import { zFiltroInforme } from "@tiretrack/contracts";
-import { CATALOGO_SERVICIOS, ESTADOS_LLANTA } from "@tiretrack/domain";
+import { CATALOGO_SERVICIOS, ESTADOS_LLANTA, MAX_ORDENES_PDF } from "@tiretrack/domain";
 
 /**
  * Informe en la app: filtros, vista previa y exportación.
@@ -99,11 +99,43 @@ export interface FilaVista {
   readonly servicios: readonly string[];
 }
 
+export interface OrdenVista {
+  readonly id: string;
+  readonly folio: string;
+  readonly fecha: string;
+  readonly estado: string;
+  readonly vehiculo: string;
+  readonly posiciones: number;
+}
+
 export interface VistaPrevia {
   readonly registros: number;
   readonly ordenes: number;
   readonly sinCerrar: number;
   readonly filas: readonly FilaVista[];
+  /** Opcional: un servidor anterior no la manda, y entonces no se elige. */
+  readonly listaOrdenes?: readonly OrdenVista[];
+}
+
+/**
+ * La consulta de la vista previa más las órdenes elegidas. Sin elegir,
+ * sale todo lo del filtro.
+ */
+export function conOrdenes(consulta: string, elegidas: readonly string[]): string {
+  if (elegidas.length === 0) return consulta;
+  const q = new URLSearchParams(consulta.startsWith("?") ? consulta.slice(1) : consulta);
+  for (const id of elegidas) q.append("ordenIds", id);
+  return `?${q.toString()}`;
+}
+
+/** Por qué no se puede sacar el PDF, o null si se puede. */
+export function motivoSinPdf(totalOrdenes: number, elegidas: number): string | null {
+  const n = elegidas > 0 ? elegidas : totalOrdenes;
+  if (n === 0) return "No hay órdenes para el PDF";
+  if (n > MAX_ORDENES_PDF) {
+    return `El PDF admite hasta ${MAX_ORDENES_PDF} órdenes y son ${n}. Elige cuáles, o exporta la hoja de cálculo.`;
+  }
+  return null;
 }
 
 const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;

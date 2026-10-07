@@ -9,6 +9,8 @@ import {
   aConsulta,
   avisoSinCerrar,
   conBOM,
+  conOrdenes,
+  motivoSinPdf,
   describirDesgaste,
   describirFila,
   rangoRapido,
@@ -34,6 +36,8 @@ export interface FuentesInforme {
   vistaPrevia(consulta: string): Promise<{ ok: true; datos: VistaPrevia } | Fallo>;
   trazabilidad(serial: string): Promise<{ ok: true; datos: Trazabilidad } | Fallo>;
   exportar(consulta: string): Promise<{ ok: true; texto: string; nombre: string } | Fallo>;
+  /** Las órdenes en un solo PDF, bajado al teléfono y compartido. */
+  exportarPdf(consulta: string): Promise<{ ok: true } | Fallo>;
   compartir(nombre: string, contenido: string): Promise<{ ok: true } | { ok: false; mensaje: string }>;
   hoy(): string;
 }
@@ -53,6 +57,9 @@ export function PantallaInforme({ fuentes }: { fuentes: FuentesInforme }) {
   const [intentado, setIntentado] = useState(false);
   const [buscando, setBuscando] = useState(false);
   const [exportando, setExportando] = useState(false);
+  const [bajandoPdf, setBajandoPdf] = useState(false);
+  // Las órdenes elegidas para exportar. Vacío = todas las del filtro.
+  const [elegidas, setElegidas] = useState<string[]>([]);
   const [aviso, setAviso] = useState<{ tono: "peligro" | "exito" | "advertencia"; titulo: string; detalle?: string } | null>(null);
 
   useEffect(() => {
@@ -83,6 +90,7 @@ export function PantallaInforme({ fuentes }: { fuentes: FuentesInforme }) {
         return setAviso({ tono: "peligro", titulo: r.status === 0 ? "Sin señal" : "No se pudo consultar", detalle: r.mensaje });
       }
       setVista({ datos: r.datos, consulta });
+      setElegidas([]);
       // Con serial, el recorrido de esa llanta es casi siempre lo que se busca.
       if (f.serial.trim() && r.datos.registros > 0) {
         const t = await fuentes.trazabilidad(f.serial.trim());
@@ -93,12 +101,31 @@ export function PantallaInforme({ fuentes }: { fuentes: FuentesInforme }) {
     }
   };
 
+  const exportarPdf = async () => {
+    if (!vigente) return;
+    setBajandoPdf(true);
+    setAviso(null);
+    try {
+      const r = await fuentes.exportarPdf(conOrdenes(consulta, elegidas));
+      setAviso(r.ok
+        ? { tono: "exito", titulo: "PDF listo", detalle: "La exportación quedó registrada." }
+        : { tono: "peligro", titulo: r.status === 0 ? "Sin señal" : "No se generó el PDF", detalle: r.mensaje });
+    } catch (e) {
+      setAviso({ tono: "peligro", titulo: "No se generó el PDF", detalle: (e as Error).message });
+    } finally {
+      setBajandoPdf(false);
+    }
+  };
+
+  const alternar = (id: string) =>
+    setElegidas((xs) => (xs.includes(id) ? xs.filter((x) => x !== id) : [...xs, id]));
+
   const exportar = async () => {
     if (!vigente) return;
     setExportando(true);
     setAviso(null);
     try {
-      const r = await fuentes.exportar(consulta);
+      const r = await fuentes.exportar(conOrdenes(consulta, elegidas));
       if (!r.ok) {
         return setAviso({ tono: "peligro", titulo: r.status === 0 ? "Sin señal" : "No se exportó", detalle: r.mensaje });
       }
@@ -181,10 +208,48 @@ export function PantallaInforme({ fuentes }: { fuentes: FuentesInforme }) {
           <Text style={estilos.resumen} testID="resumen-informe">{resumen(vista.datos)}</Text>
           {!vigente ? <Aviso tono="advertencia" titulo="Cambiaste el filtro" detalle="Vuelve a tocar Ver resultados antes de exportar." /> : null}
           {sinCerrar ? <Aviso tono="advertencia" titulo="Datos preliminares" detalle={sinCerrar} /> : null}
+          {vista.datos.registros > 0 && (vista.datos.listaOrdenes?.length ?? 0) > 0 ? (
+            <View style={estilos.bloque}>
+              <Text style={estilos.nombre}>
+                {elegidas.length === 0
+                  ? "Se exportan todas las órdenes. Marca las que quieras para exportar solo esas."
+                  : `${elegidas.length} ${elegidas.length === 1 ? "orden elegida" : "órdenes elegidas"}`}
+              </Text>
+              {elegidas.length > 0 ? (
+                <Boton tipo="fantasma" testID="todas-las-ordenes" onPress={() => setElegidas([])}>
+                  Quitar la selección (exportar todas)
+                </Boton>
+              ) : null}
+              {(vista.datos.listaOrdenes ?? []).map((o) => (
+                <Opcion
+                  key={o.id}
+                  multiple
+                  activa={elegidas.includes(o.id)}
+                  etiqueta={`${o.folio || "Sin folio"} · ${o.vehiculo}`}
+                  detalle={`${o.fecha} · ${estadosOrden[o.estado as keyof typeof estadosOrden]?.etiqueta ?? o.estado} · ${o.posiciones} ${o.posiciones === 1 ? "llanta" : "llantas"}`}
+                  testID={`elegir-orden-${o.id}`}
+                  onPress={() => alternar(o.id)}
+                />
+              ))}
+            </View>
+          ) : null}
           {vista.datos.registros > 0 ? (
-            <Boton ancho tipo="secundario" testID="exportar-informe" cargando={exportando} deshabilitado={!vigente} onPress={() => void exportar()}>
-              Exportar a hoja de cálculo
-            </Boton>
+            <>
+              <Boton ancho tipo="secundario" testID="exportar-informe" cargando={exportando} deshabilitado={!vigente} onPress={() => void exportar()}>
+                Exportar a hoja de cálculo (CSV)
+              </Boton>
+              {(() => {
+                const motivo = motivoSinPdf(vista.datos.ordenes, elegidas.length);
+                return (
+                  <>
+                    <Boton ancho tipo="secundario" testID="exportar-pdf" cargando={bajandoPdf} deshabilitado={!vigente || motivo !== null} onPress={() => void exportarPdf()}>
+                      Descargar las órdenes en PDF
+                    </Boton>
+                    {motivo ? <Text style={estilos.detalle}>{motivo}</Text> : null}
+                  </>
+                );
+              })()}
+            </>
           ) : null}
 
           {traza && traza.pasos.length > 0 ? (

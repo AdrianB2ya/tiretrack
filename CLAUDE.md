@@ -3255,13 +3255,35 @@ del administrador.
 - Volver global sigue siendo de la plataforma (`puedePromoverAGlobal`), no
   de una empresa.
 
+## Informe: elegir órdenes y PDF de varias (2026-10-06)
+
+Pedido del usuario al probar: en el informe no podía elegir órdenes y solo
+salía CSV. **Decisión del usuario:** además del CSV, las órdenes elegidas en
+**un solo PDF**, cada una completa como su PDF individual.
+
+- **Elegir órdenes**: el servidor aceptaba `ordenIds` desde la revisión
+  contra la base real, pero **la pantalla nunca lo ofreció**. La vista previa
+  trae `listaOrdenes` (hasta 200; opcional, por compatibilidad) y la pantalla
+  las lista como casillas. Sin marcar ninguna se exporta todo el filtro; lo
+  marcado vale para el CSV y para el PDF.
+- `GET /informe/pdf`: mismo filtro que el CSV. Cada orden empieza en página
+  nueva **con sus propios avisos** (una PRELIMINAR entre aprobadas lo sigue
+  diciendo), con datos congelados y bajo RLS (el cliente solo ve las suyas
+  aprobadas o cerradas). Queda en la auditoría (`origen: pdf_informe`).
+- **Tope de 30 órdenes por PDF** (`MAX_ORDENES_PDF`, en el dominio: el
+  servidor lo rechaza con 422 y la app avisa antes y pide elegir). Para más,
+  el CSV.
+- El CSV sigue siendo el formato del taller (una fila por llanta): es para
+  trabajar en Excel; el PDF es para entregar.
+- `Opcion` admite `multiple` (casilla, `role="checkbox"`).
+
 ## Punto de retoma (2026-10-05)
 
 **Estado:** el usuario prueba la app en el teléfono con Expo Go (SDK 52). La guía de despliegue (`DESPLEGAR.md`) está lista; falta que el usuario cree las cuentas.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 950/950, mobile 895 + recorrido 459.
+**Verificado:** `npm run verify` con base: raíz 952/952, mobile 898 + recorrido 459.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

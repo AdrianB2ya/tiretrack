@@ -188,6 +188,7 @@ describe.skipIf(!disponible)("robustez: ninguna entrada mala da 500", () => {
       await probar("GET", `/informe/trazabilidad?${q}`, { token: "tok-coordinador", entrada: q });
       await probar("GET", `/flota/clientes?${q}`, { entrada: q });
       await probar("GET", `/auditoria?${q}`, { token: "tok-admin", entrada: q });
+      await probar("GET", `/informe/pdf?${q}`, { token: "tok-coordinador", entrada: q });
     }
   }, 120_000);
 

@@ -26,6 +26,8 @@ export function columnaDeServicio(codigo: string): string {
 
 /** Datos crudos de una fila: lo que trae la consulta, sin formatear. */
 export interface FilaCruda {
+  /** Para elegir órdenes en el informe; no es una columna del archivo. */
+  readonly ordenId?: string;
   readonly fecha: string;
   readonly vehiculoCodigo: string | null;
   readonly vehiculoPlaca: string | null;

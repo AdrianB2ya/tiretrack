@@ -612,6 +612,26 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
       expect(despues.rows[0].detalle).toMatchObject({ origen: "pdf_orden", ordenId: ORDEN });
     });
 
+    it("el informe en PDF trae las órdenes elegidas, en un solo archivo, y queda en la auditoría", async () => {
+      await guardarMedicion(medicion(1, { serial: "MX1", profundidad: 9 }));
+      const r = await app.inject({
+        method: "GET", url: `${PREFIJO_API}/informe/pdf?ordenIds=${ORDEN}`, headers: { authorization: "Bearer tok-coordinador" },
+      });
+      expect(r.statusCode).toBe(200);
+      expect(r.headers["content-type"]).toBe("application/pdf");
+      expect(r.rawPayload.subarray(0, 5).toString()).toBe("%PDF-");
+      const a = await pool.query(`SELECT detalle FROM "Auditoria" ORDER BY "creadoEn" DESC LIMIT 1`);
+      expect(a.rows[0].detalle).toMatchObject({ origen: "pdf_informe", ordenes: 1 });
+    });
+
+    it("sin órdenes en el filtro responde que no hay, no un PDF vacío", async () => {
+      const r = await app.inject({
+        method: "GET", url: `${PREFIJO_API}/informe/pdf?ordenIds=${nuevoId()}`, headers: { authorization: "Bearer tok-coordinador" },
+      });
+      expect(r.statusCode).toBe(404);
+      expect(r.json().error.codigo).toBe("SIN_REGISTROS");
+    });
+
     it("usa los datos congelados al aprobar, no los vivos", async () => {
       // Un documento cerrado no cambia porque cambien los datos maestros.
       await pool.query(`UPDATE "OrdenServicio" SET "clienteNombre" = 'Reyna (al aprobar)', "vehiculoCodigo" = 'CA-12-VIEJO' WHERE id = $1`, [ORDEN]);

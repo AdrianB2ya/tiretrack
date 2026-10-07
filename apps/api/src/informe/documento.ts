@@ -113,19 +113,42 @@ export class ServicioDocumento {
 
   /** Dibuja el documento. A4, letras estándar (cubren las tildes del español). */
   async pdf(d: DatosDocumentoOrden, generadoEn: string): Promise<Buffer> {
-    return dibujar(armarDocumentoOrden(d), generadoEn);
+    const doc = armarDocumentoOrden(d);
+    return generar(`${doc.titulo} ${doc.identificador}`, (pdf) => dibujarOrden(pdf, doc, generadoEn));
+  }
+
+  /**
+   * Varias órdenes en un solo PDF (el informe), cada una desde una página
+   * nueva y con sus propios avisos: una preliminar entre aprobadas sigue
+   * diciendo PRELIMINAR.
+   */
+  async pdfVarias(lista: readonly DatosDocumentoOrden[], titulo: string, generadoEn: string): Promise<Buffer> {
+    return generar(titulo, (pdf) => {
+      lista.forEach((d, i) => {
+        if (i > 0) pdf.addPage();
+        dibujarOrden(pdf, armarDocumentoOrden(d), generadoEn);
+      });
+    });
   }
 }
 
-function dibujar(doc: Documento, generadoEn: string): Promise<Buffer> {
+function generar(titulo: string, dibujar: (pdf: PDFKit.PDFDocument) => void): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const pdf = new PDFDocument({ size: "A4", margin: 40, info: { Title: `${doc.titulo} ${doc.identificador}`, Creator: "TireTrack" } });
+    const pdf = new PDFDocument({ size: "A4", margin: 40, info: { Title: titulo, Creator: "TireTrack" } });
     const partes: Buffer[] = [];
     pdf.on("data", (b: Buffer) => partes.push(b));
     pdf.on("end", () => resolve(Buffer.concat(partes)));
     pdf.on("error", reject);
+    dibujar(pdf);
+    pdf.end();
+  });
+}
 
+function dibujarOrden(pdf: PDFKit.PDFDocument, doc: Documento, generadoEn: string): void {
+  {
     const ancho = pdf.page.width - 80;
+    pdf.fillColor("#000");
+    pdf.y = Math.max(pdf.y, 40);
     pdf.font("Helvetica-Bold").fontSize(16).text(doc.titulo, { continued: true }).font("Helvetica").text(`  ${doc.identificador}`);
     pdf.moveDown(0.5);
 
@@ -206,6 +229,6 @@ function dibujar(doc: Documento, generadoEn: string): Promise<Buffer> {
 
     pdf.moveDown(1.5);
     pdf.font("Helvetica").fontSize(7).fillColor("#666666").text(`Generado por TireTrack el ${generadoEn}.`, 40, pdf.y, { width: ancho });
-    pdf.end();
-  });
+    pdf.fillColor("#000");
+  }
 }

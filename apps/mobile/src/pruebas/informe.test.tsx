@@ -6,7 +6,9 @@ import {
   aConsulta,
   avisoSinCerrar,
   conBOM,
+  conOrdenes,
   describirFila,
+  motivoSinPdf,
   nombreDeDescarga,
   rangoRapido,
   resumen,
@@ -101,6 +103,7 @@ describe("pantalla del informe", () => {
         desgaste: { perdida: 2.5, servicios: 2 },
       } }),
       exportar: vi.fn().mockResolvedValue({ ok: true, texto: "Posición;Serial", nombre: "informe.csv" }),
+      exportarPdf: vi.fn().mockResolvedValue({ ok: true }),
       compartir: vi.fn().mockResolvedValue({ ok: true }),
       hoy: () => "2026-10-05",
       ...extra,
@@ -117,6 +120,27 @@ describe("pantalla del informe", () => {
     expect(screen.getByText(/La orden va sin cerrar/)).toBeTruthy();
     expect(screen.getByText("Pos. 1 · Michelin MX1 · 9,5 mm")).toBeTruthy();
     expect(f.vistaPrevia).toHaveBeenCalledWith(`?clienteId=${CLIENTE}&desde=2026-10-01&hasta=2026-10-05`);
+  });
+
+  it("se eligen órdenes: el CSV y el PDF salen solo con esas", async () => {
+    const conLista: VistaPrevia = {
+      ...VISTA, ordenes: 2,
+      listaOrdenes: [
+        { id: "o-1", folio: "OS-FUN-000001", fecha: "2026-10-01", estado: "cerrada", vehiculo: "CA-12", posiciones: 2 },
+        { id: "o-2", folio: "OS-FUN-000002", fecha: "2026-10-02", estado: "en_revision", vehiculo: "CV-07", posiciones: 1 },
+      ],
+    };
+    const f = fuentes({ vistaPrevia: vi.fn().mockResolvedValue({ ok: true, datos: conLista }) });
+    render(<PantallaInforme fuentes={f} />);
+    fireEvent.click(screen.getByTestId("ver-informe"));
+    expect(await screen.findByText(/Se exportan todas las órdenes/)).toBeTruthy();
+    fireEvent.click(screen.getByTestId("elegir-orden-o-2"));
+    expect(screen.getByText("1 orden elegida")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("exportar-pdf"));
+    await waitFor(() => expect(f.exportarPdf).toHaveBeenCalledWith("?ordenIds=o-2"));
+    expect(await screen.findByText("PDF listo")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("exportar-informe"));
+    await waitFor(() => expect(f.exportar).toHaveBeenCalledWith("?ordenIds=o-2"));
   });
 
   it("exporta con los MISMOS filtros que se vieron, y conserva el BOM", async () => {
@@ -202,5 +226,19 @@ describe("descarga de texto", () => {
     });
     const r = await c.descargarTexto("/informe/exportar");
     expect(r).toMatchObject({ ok: false, status: 422, codigo: "SIN_REGISTROS" });
+  });
+});
+
+describe("órdenes elegidas", () => {
+  it("se agregan a la consulta; sin elegir, la consulta queda igual", () => {
+    expect(conOrdenes("?desde=2026-10-01", ["a", "b"])).toBe("?desde=2026-10-01&ordenIds=a&ordenIds=b");
+    expect(conOrdenes("", ["a"])).toBe("?ordenIds=a");
+    expect(conOrdenes("?desde=2026-10-01", [])).toBe("?desde=2026-10-01");
+  });
+
+  it("el PDF tiene tope: con muchas órdenes pide elegir", () => {
+    expect(motivoSinPdf(45, 0)).toMatch(/hasta 30 órdenes y son 45/);
+    expect(motivoSinPdf(45, 3)).toBeNull();
+    expect(motivoSinPdf(0, 0)).toMatch(/No hay órdenes/);
   });
 });

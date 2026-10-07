@@ -251,18 +251,20 @@ export function Vacio({ mensaje }: { mensaje: string }) {
  * lleva "✓" en el texto, no solo otro color, y se anuncia con `aria-checked`
  * —`accessibilityState` se pierde en la presentación (tarea 3.4)—.
  */
-export function Opcion({ activa, etiqueta, detalle, onPress, testID }: {
+export function Opcion({ activa, etiqueta, detalle, onPress, testID, multiple = false }: {
   activa: boolean;
   etiqueta: string;
   /** Segunda línea, más tenue: el nombre del vehículo bajo su código. */
   detalle?: string;
   onPress: () => void;
   testID?: string;
+  /** Casilla (se marcan varias) en vez de una sola opción. */
+  multiple?: boolean;
 }) {
   return (
     <Pressable
       onPress={onPress}
-      role="radio"
+      role={multiple ? "checkbox" : "radio"}
       aria-checked={activa}
       accessibilityLabel={detalle ? `${etiqueta}, ${detalle}` : etiqueta}
       testID={testID}

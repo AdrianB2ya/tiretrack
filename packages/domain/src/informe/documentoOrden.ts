@@ -158,3 +158,9 @@ export function nombreArchivoOrden(d: DatosDocumentoOrden): string {
   const base = d.orden.folio ?? d.orden.codigoReferencia ?? "orden";
   return `${base.replace(/[^\w-]/g, "_")}.pdf`;
 }
+
+/**
+ * Órdenes por PDF del informe. Más que esto no se le entrega a nadie: para
+ * eso está el CSV. Lo usan el servidor (rechaza) y la app (avisa antes).
+ */
+export const MAX_ORDENES_PDF = 30;

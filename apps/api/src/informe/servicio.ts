@@ -75,7 +75,23 @@ export interface VistaPrevia {
   readonly sinCerrar: number;
   /** Las primeras; el total está en `registros`. */
   readonly filas: FilaVista[];
+  /**
+   * Las órdenes que encontró el filtro, para elegir cuáles exportar.
+   * Hasta `MAX_ORDENES_VISTA`: más que eso no se elige a mano.
+   */
+  readonly listaOrdenes: OrdenVista[];
 }
+
+export interface OrdenVista {
+  readonly id: string;
+  readonly folio: string;
+  readonly fecha: string;
+  readonly estado: string;
+  readonly vehiculo: string;
+  readonly posiciones: number;
+}
+
+export const MAX_ORDENES_VISTA = 200;
 
 export class ServicioInforme {
   constructor(
@@ -141,6 +157,7 @@ export class ServicioInforme {
 
     const r = await this.db.query<FilaCruda>(
       `SELECT
+         o.id AS "ordenId",
          to_char(o.fecha,'YYYY-MM-DD') AS fecha,
          coalesce(o."vehiculoCodigo", v.codigo) AS "vehiculoCodigo",
          coalesce(o."vehiculoPlaca", v.placa)   AS "vehiculoPlaca",
@@ -267,6 +284,7 @@ export class ServicioInforme {
         desSerial: x.desSerial,
         servicios: [...x.servicios],
       })),
+      listaOrdenes: ordenesDe(filas).slice(0, MAX_ORDENES_VISTA),
     };
   }
 
@@ -346,6 +364,22 @@ export class ServicioInforme {
 
 /** Cuántos registros por página; se pide uno más para saber si hay otra. */
 export const POR_PAGINA_AUDITORIA = 50;
+
+/** Una por orden, en el orden del informe (lo más reciente primero). */
+function ordenesDe(filas: readonly FilaCruda[]): OrdenVista[] {
+  const porId = new Map<string, OrdenVista>();
+  for (const x of filas) {
+    if (!x.ordenId) continue;
+    const previa = porId.get(x.ordenId);
+    porId.set(x.ordenId, previa
+      ? { ...previa, posiciones: previa.posiciones + 1 }
+      : {
+          id: x.ordenId, folio: x.folio ?? x.codigoReferencia ?? "", fecha: x.fecha, estado: x.estado,
+          vehiculo: x.vehiculoCodigo ?? x.vehiculoPlaca ?? "", posiciones: 1,
+        });
+  }
+  return [...porId.values()];
+}
 
 const aNumero = (v: unknown): number | null =>
   v === null || v === undefined ? null : typeof v === "number" ? v : Number(v);
