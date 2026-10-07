@@ -3319,6 +3319,15 @@ cd apps/api && node --env-file=.env --import tsx src/server.ts
 cd apps/mobile && EXPO_PUBLIC_API_URL=http://<IP-LAN>:4000/api/v1 REACT_NATIVE_PACKAGER_HOSTNAME=<IP-LAN> npx expo start --go --offline
 ```
 
+**Despliegue de prueba (decisión del usuario, 2026-10-06):** sin pagar, para
+unas pruebas con el APK: GitHub + **Neon** (PostgreSQL, sin tarjeta) +
+**Render** gratis (API; se duerme a los 15 min, se mantiene despierta con
+cron-job.org pegándole a `/salud`, que no toca la base) + Cloudflare R2
+(tarjeta, sin cobro bajo 10 GB) + Expo. `TRABAJOS_CADA_MINUTOS=360` para no
+despertar la base de Neon cada 15 minutos y gastar sus horas gratuitas.
+Instalar con `npm ci --include=dev`: con `NODE_ENV=production` se omite
+`tsx` y la API no arranca.
+
 **Pendiente de decisión:**
 
 - La descarga incremental compara contra el instante en que se arma el

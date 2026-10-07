@@ -1,5 +1,9 @@
 # Poner TireTrack en producción
 
+> Para unas pruebas con el APK sin pagar: ruta gratuita GitHub + Neon
+> (base) + Render (API) + Cloudflare R2 (fotos; pide tarjeta, no cobra bajo
+> 10 GB) + Expo. La versión paso a paso está en la guía web que armó Claude.
+
 Esta guía va de cero a la primera empresa usando la app. Lo que el código
 puede hacer solo ya está hecho. Lo que falta son **cuentas y decisiones que
 son tuyas**: dónde corre el servidor, la base de datos, el dominio, el bucket
@@ -120,7 +124,7 @@ problemas juntos. Si algo falta, no arranca y dice qué.
 ### 3.2 Instalar y arrancar
 
 ```bash
-npm ci                         # con las dependencias de desarrollo: hacen falta tsx y prisma
+npm ci --include=dev           # con NODE_ENV=production, un npm ci normal omite tsx y prisma, y la API no arranca
 cd apps/api
 node --import tsx src/server.ts
 ```
