@@ -5,6 +5,7 @@ import { CATALOGO_SERVICIOS } from "@tiretrack/domain";
 import { hayBaseDeDatos, poolAislado } from "./base";
 import { crearEsquemaCompleto, TABLAS } from "./esquemas";
 import { crearEmpresa } from "../herramientas/crearEmpresa";
+import { usuariosDeEmpresa } from "../herramientas/codigosEmpresa";
 
 /** Alta de una empresa en producción, sin datos de demostración. */
 
@@ -65,6 +66,19 @@ describe.skipIf(!disponible)("alta de empresa", () => {
     const mala = await crearEmpresa(db, { ...ALTA, empresa: { nombre: "X", nit: "1" } });
     expect(mala.ok).toBe(false);
     expect((await db.query(`SELECT count(*)::int AS n FROM "Empresa"`)).rows[0].n).toBe(1);
+  });
+
+  it("lista los usuarios de la empresa para emitirles códigos, el administrador primero", async () => {
+    const r = await crearEmpresa(db, ALTA);
+    if (!r.ok) throw new Error(r.motivo);
+    await db.query(
+      `INSERT INTO "Usuario" (id, "empresaId", nombre, cedula, email, "passwordHash", rol)
+       VALUES ('11111111-1111-4111-8111-00000000c0de', $1, 'Ana Torres', '1065221980', 'ana@asistectire.com', 'x', 'tecnico')`,
+      [r.empresaId],
+    );
+    const lista = await usuariosDeEmpresa(db, ALTA.empresa.nit);
+    expect(lista?.map((u) => u.rol)).toEqual(["administrador", "tecnico"]);
+    expect(await usuariosDeEmpresa(db, "000")).toBeNull();
   });
 
   it("si algo falla a mitad, no queda una empresa a medias", async () => {
