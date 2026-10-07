@@ -3323,6 +3323,16 @@ cd apps/api && node --env-file=.env --import tsx src/server.ts
 cd apps/mobile && EXPO_PUBLIC_API_URL=http://<IP-LAN>:4000/api/v1 REACT_NATIVE_PACKAGER_HOSTNAME=<IP-LAN> npx expo start --go --offline
 ```
 
+**En línea (2026-10-07):** API en Render (`tiretrack-api.onrender.com`), base en
+Neon con la semilla de demostración, APK del perfil `campo` instalado en un
+Samsung y los usuarios de la semilla activados con `codigos-empresa`. El
+primer APK abría en blanco por `expo-linking` sin declarar (ya corregido y
+con prueba). Herramientas para el entorno: `claves-base` (claves de los
+roles de la API, probadas) y `codigos-empresa` (un código por usuario). En
+Windows, `psql.exe` lo bloquea el control de aplicaciones: el SQL va por el
+editor de Neon; `adb` sí funciona (`C:platform-tools`) para leer el
+registro del teléfono.
+
 **Despliegue de prueba (decisión del usuario, 2026-10-06):** sin pagar, para
 unas pruebas con el APK: GitHub + **Neon** (PostgreSQL, sin tarjeta) +
 **Render** gratis (API; se duerme a los 15 min, se mantiene despierta con
