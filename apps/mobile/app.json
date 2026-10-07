@@ -43,11 +43,6 @@
         "NSPhotoLibraryUsageDescription": "TireTrack accede a tus fotos solo si eliges una imagen ya tomada para adjuntarla a una orden."
       }
     },
-    "extra": {
-      "eas": {
-        "projectId": "COMPLETAR-AL-CREAR-EL-PROYECTO-EN-EAS"
-      }
-    },
     "updates": {
       "enabled": false
     }

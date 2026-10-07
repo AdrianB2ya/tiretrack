@@ -2,7 +2,6 @@
   "cli": { "version": ">= 12.0.0", "appVersionSource": "local" },
   "build": {
     "campo": {
-      "//": "Para probar en un teléfono real: genera un APK instalable directamente, sin pasar por tiendas ni emuladores.",
       "android": { "buildType": "apk" },
       "distribution": "internal",
       "channel": "campo",
@@ -11,12 +10,10 @@
       }
     },
     "pruebas": {
-      "//": "Contra el servidor de pruebas, para que alguien lo use en un patio real antes de producción.",
       "extends": "campo",
       "env": { "EXPO_PUBLIC_API_URL": "https://api-pruebas.tiretrack.app/api/v1" }
     },
     "produccion": {
-      "//": "Paquete para tiendas. Sube el versionCode en app.json antes de compilar.",
       "android": { "buildType": "app-bundle" },
       "channel": "produccion",
       "env": { "EXPO_PUBLIC_API_URL": "https://api.tiretrack.app/api/v1" }

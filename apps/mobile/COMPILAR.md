@@ -11,6 +11,17 @@ dicen que la lógica es correcta; no dicen que la app abra.
 
 ---
 
+## Perfiles de `eas.json`
+
+`eas.json` no admite comentarios (EAS rechaza claves como `"//"` con
+"eas.json is not valid"), así que van aquí:
+
+| Perfil | Para qué |
+|---|---|
+| `campo` | Probar en un teléfono real: genera un APK que se instala directo, sin tiendas |
+| `pruebas` | Igual que `campo`, contra el servidor de pruebas, para usarlo en un patio real antes de producción |
+| `produccion` | Paquete para tiendas. Subir el `versionCode` en `app.json` antes de compilar |
+
 ## 1. Crear el proyecto en EAS
 
 ```bash
@@ -20,8 +31,8 @@ cd apps/mobile
 eas init          # crea el proyecto y escribe el projectId
 ```
 
-`eas init` reemplaza el valor de `extra.eas.projectId` en `app.json`, que hoy
-dice `COMPLETAR-AL-CREAR-EL-PROYECTO-EN-EAS`.
+`eas init` escribe `extra.eas.projectId` en `app.json` (no viene con un valor
+de relleno: uno inventado hacía fallar `eas init` buscando un proyecto que no existe).
 
 ## 2. Apuntar la app a un servidor alcanzable
 
