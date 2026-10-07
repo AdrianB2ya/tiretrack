@@ -170,3 +170,47 @@ describe("raíz de las pantallas", () => {
     expect(fuera).toEqual([]);
   });
 });
+
+/**
+ * Módulos nativos declarados por la app.
+ *
+ * El primer APK abría en blanco: "Cannot find native module 'ExpoLinking'".
+ * expo-router exige que la app instale expo-linking y expo-constants; en este
+ * monorepo estaban en el node_modules de la raíz, traídos por expo-router, así
+ * que Expo Go y las pruebas funcionaban, pero la compilación nativa solo
+ * enlaza lo que la app declara. Nada lo detectaba hasta el teléfono.
+ */
+describe("dependencias que la compilación nativa necesita", () => {
+  const paquete = JSON.parse(readFileSync(join(raiz, "package.json"), "utf8")) as {
+    dependencies: Record<string, string>;
+  };
+  const declaradas = new Set(Object.keys(paquete.dependencies));
+
+  it("cada dependencia obligatoria de expo-router está declarada en la app", () => {
+    const router = JSON.parse(
+      readFileSync(require.resolve("expo-router/package.json", { paths: [raiz] }), "utf8"),
+    ) as { peerDependencies?: Record<string, string>; peerDependenciesMeta?: Record<string, { optional?: boolean }> };
+    const obligatorias = Object.keys(router.peerDependencies ?? {}).filter(
+      (p) => !router.peerDependenciesMeta?.[p]?.optional,
+    );
+    expect(obligatorias.filter((p) => !declaradas.has(p))).toEqual([]);
+  });
+
+  it("cada módulo expo-* o react-native-* que importa la app está declarado", () => {
+    const usados = new Set<string>();
+    const recorrer = (dir: string) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const ruta = join(dir, e.name);
+        if (e.isDirectory()) {
+          if (e.name !== "node_modules" && e.name !== "pruebas") recorrer(ruta);
+        } else if (/\.(tsx?|jsx?)$/.test(e.name) && !e.name.includes(".test.")) {
+          const texto = readFileSync(ruta, "utf8");
+          for (const m of texto.matchAll(/(?:from\s+|import\s*\(\s*)["']((?:expo|react-native)-[^"'/]+)/g)) usados.add(m[1] as string);
+        }
+      }
+    };
+    recorrer(join(raiz, "app"));
+    recorrer(join(raiz, "src"));
+    expect([...usados].filter((p) => !declaradas.has(p))).toEqual([]);
+  });
+});
