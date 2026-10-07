@@ -944,3 +944,36 @@ describe("lectura de órdenes", () => {
     expect(leidas.filter((c) => !columnas.includes(c as string))).toEqual([]);
   });
 });
+
+describe("una orden programada se inicia al capturar", () => {
+  // Las operaciones se encolan en el mismo milisegundo: el reloj no avanza.
+  const tipos = async () =>
+    (await repo.operacionesPendientes()).map((o) => `${o.tipo}${o.tipo === "cambiar_estado" ? ":" + (o.datos as { estado: string }).estado : ""}`);
+
+  beforeEach(async () => {
+    await repo.guardarOrden({ ...ordenBase, estado: "programada", encolar: false });
+  });
+
+  it("la primera medición la pasa a en proceso y encola el inicio ANTES de la medición", async () => {
+    await repo.guardarMedicion({ ordenId: "ord-1", posicion: 1, profundidad: 9, capturadoPorId: "u-tec1" });
+    expect((await repo.buscarOrden("ord-1"))?.estado).toBe("en_proceso");
+    expect(await tipos()).toEqual(["cambiar_estado:en_proceso", "guardar_medicion"]);
+  });
+
+  it("la segunda medición no vuelve a iniciarla", async () => {
+    await repo.guardarMedicion({ ordenId: "ord-1", posicion: 1, profundidad: 9, capturadoPorId: "u-tec1" });
+    await repo.guardarMedicion({ ordenId: "ord-1", posicion: 2, profundidad: 8, capturadoPorId: "u-tec1" });
+    expect((await tipos()).filter((t) => t.startsWith("cambiar_estado"))).toHaveLength(1);
+  });
+
+  it("el kilometraje también la inicia", async () => {
+    await repo.actualizarDatosOrden("ord-1", { kilometraje: 1000 });
+    expect((await repo.buscarOrden("ord-1"))?.estado).toBe("en_proceso");
+  });
+
+  it("enviar una que quedó programada encola los dos pasos, en orden, en el mismo milisegundo", async () => {
+    await repo.cambiarEstado("ord-1", "en_revision");
+    expect((await repo.buscarOrden("ord-1"))?.estado).toBe("en_revision");
+    expect(await tipos()).toEqual(["cambiar_estado:en_proceso", "cambiar_estado:en_revision"]);
+  });
+});

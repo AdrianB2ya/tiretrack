@@ -3286,6 +3286,23 @@ salía CSV. **Decisión del usuario:** además del CSV, las órdenes elegidas en
   fila de la vista previa lleva su `ordenId`; sin lista (servidor anterior)
   se muestra la vista por llanta de antes.
 
+## La orden programada se inicia al capturar (2026-10-07)
+
+Primera prueba en campo con el APK: el técnico capturó una orden programada
+y al enviarla salía "no se puede pasar de programada a en revisión". La app
+dejaba capturar en `programada` (la regla de edición lo permite) pero nada
+la pasaba a `en_proceso`, y la máquina de estados no admite el salto directo.
+
+- **Guardar una medición, los datos de la orden o una foto** en una orden
+  programada la inicia: pasa a `en_proceso` en el celular y se encola el
+  cambio de estado **antes** de lo capturado, en la misma transacción
+  (`iniciarSiProgramada`). Así también aparece "en curso" en el panel.
+- **Enviar una que quedó programada** (capturada antes de esta corrección)
+  encola los dos pasos en orden; `puedeEnviar` valida los dos.
+- **La cola se ordena por `creada_en, rowid`**: iniciar y enviar caen en el
+  mismo milisegundo. SQLite hoy las devuelve en orden igual, así que la
+  prueba no distingue el desempate; va como garantía, no por un fallo visto.
+
 ## Punto de retoma (2026-10-05)
 
 **Estado:** el usuario prueba la app en el teléfono con Expo Go (SDK 52). La guía de despliegue (`DESPLEGAR.md`) está lista; falta que el usuario cree las cuentas.

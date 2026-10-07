@@ -98,6 +98,12 @@ describe("lo que impide enviar", () => {
     expect(puedeEnviar(estado(), "tecnico", "u-tec1").permitido).toBe(true);
   });
 
+  it("una que quedó programada también: se inicia al enviarla (pasó en el teléfono)", () => {
+    expect(puedeEnviar(estado({ estado: "programada" }), "tecnico", "u-tec1").permitido).toBe(true);
+    // Pero no la envía otro técnico.
+    expect(puedeEnviar(estado({ estado: "programada" }), "tecnico", "u-otro").permitido).toBe(false);
+  });
+
   it("sin ninguna posición capturada", () => {
     const v = puedeEnviar(estado({}, []), "tecnico", "u-tec1");
     expect(v.permitido).toBe(false);

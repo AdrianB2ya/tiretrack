@@ -155,11 +155,19 @@ export function puedeEnviar(e: EstadoEnvio, rol: Rol, usuarioId: string): Veredi
 
   // La máquina de estados tiene la última palabra: es la misma que valida el
   // servidor, y descubrir allí un rechazo ya sin señal sería peor.
-  return evaluarTransicion(e.orden.estado as never, "en_revision", {
+  const contexto = {
     rol,
     esTecnicoAsignado: e.orden.tecnicoId === usuarioId,
     firmaVigente: tieneFirmaVigente(e.orden),
-  });
+  };
+  // Una orden que quedó programada se inicia al enviarla (el repositorio
+  // encola los dos pasos): se validan los dos, en orden.
+  if (e.orden.estado === "programada") {
+    const iniciar = evaluarTransicion("programada", "en_proceso", contexto);
+    if (!iniciar.permitido) return iniciar;
+    return evaluarTransicion("en_proceso", "en_revision", contexto);
+  }
+  return evaluarTransicion(e.orden.estado as never, "en_revision", contexto);
 }
 
 export function advertenciasDe(e: EstadoEnvio): PuntoRevision[] {

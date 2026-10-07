@@ -316,6 +316,26 @@ export class RepositorioLocal {
     }
   }
 
+  /**
+   * Una orden programada se inicia sola cuando el técnico empieza a
+   * capturar: pasa a "en_proceso" en el celular y se encola el cambio de
+   * estado ANTES de lo capturado. Sin esto la orden se quedaba en
+   * "programada" con mediciones adentro, y al enviarla la máquina de estados
+   * rechazaba el salto directo de "programada" a "en_revision".
+   *
+   * Va dentro de la transacción de quien llama: o queda la captura con su
+   * inicio, o no queda nada.
+   */
+  private async iniciarSiProgramada(ordenId: string): Promise<void> {
+    const [o] = await this.db.consultar<{ estado: string }>(`SELECT estado FROM orden WHERE id = ?`, [ordenId]);
+    if (o?.estado !== "programada") return;
+    await this.db.ejecutar(
+      `UPDATE orden SET estado = 'en_proceso', sincronizada = 0, actualizada_en = ? WHERE id = ?`,
+      [this.ahora(), ordenId],
+    );
+    await this.encolar("cambiar_estado", ordenId, ordenId, { estado: "en_proceso" });
+  }
+
   private async encolar(
     tipo: TipoOperacion,
     recursoId: string,
@@ -402,6 +422,7 @@ export class RepositorioLocal {
     datos: { kilometraje?: number; hallazgos?: string; accion?: string },
   ): Promise<void> {
     await this.enTransaccion(async () => {
+      await this.iniciarSiProgramada(ordenId);
       await this.db.ejecutar(
         `UPDATE orden
             SET kilometraje = coalesce(?, kilometraje),
@@ -459,6 +480,7 @@ export class RepositorioLocal {
     const id = m.id ?? existente?.[0]?.id ?? nuevoId();
 
     return this.enTransaccion(async () => {
+      await this.iniciarSiProgramada(m.ordenId);
       await this.db.ejecutar(
         `INSERT OR REPLACE INTO medicion
            (id, orden_id, posicion, marca_id, diseno_id, medida, num_calor, serial, dot,
@@ -1214,6 +1236,7 @@ export class RepositorioLocal {
     const id = f.id ?? nuevoId();
     const ahora = this.ahora();
     await this.enTransaccion(async () => {
+      await this.iniciarSiProgramada(f.ordenId);
       await this.db.ejecutar(
         `INSERT INTO foto (id, orden_id, medicion_id, uri_local, nombre, tamano_bytes, tipo_mime, creada_en)
          VALUES (?,?,?,?,?,?,?,?)`,
@@ -1618,6 +1641,10 @@ export class RepositorioLocal {
   async cambiarEstado(ordenId: string, estado: string, motivo?: string): Promise<void> {
     const ahora = this.ahora();
     await this.enTransaccion(async () => {
+      // Una orden capturada antes de esta corrección pudo quedar en
+      // "programada": se inicia primero, para que el servidor reciba los dos
+      // pasos en orden.
+      if (estado === "en_revision") await this.iniciarSiProgramada(ordenId);
       await this.db.ejecutar(
         `UPDATE orden
             SET estado = ?,
@@ -1658,7 +1685,9 @@ export class RepositorioLocal {
          FROM operacion
         WHERE rechazada_en IS NULL
           AND (reintentar_en IS NULL OR reintentar_en <= ?)
-        ORDER BY creada_en
+        -- rowid desempata lo encolado en el mismo milisegundo (iniciar y enviar
+        -- una orden): sin él, el servidor podía recibir el envío antes del inicio.
+        ORDER BY creada_en, rowid
         LIMIT ?`,
       [ahora, limite],
     );
