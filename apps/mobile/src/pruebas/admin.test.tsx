@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { mensajeActivacion, revisarSedeEmpresa, revisarUsuario } from "../admin/reglasAdmin";
 import { PantallaUsuarios, type FuentesUsuarios } from "../admin/PantallaUsuarios";
 import { PantallaSedes } from "../admin/PantallaSedes";
@@ -44,11 +44,33 @@ describe("pantalla de usuarios", () => {
       clientes: vi.fn().mockResolvedValue([]),
       crear: vi.fn().mockResolvedValue({ ok: true, datos: { codigo: "K7M2-X9QP", expiraEn: "2026-10-08T12:00:00Z" } }),
       nuevoCodigo: vi.fn().mockResolvedValue({ ok: true, datos: { codigo: "AAAA-CCCC", expiraEn: "2026-10-08T12:00:00Z" } }),
+      cambiarActivo: vi.fn().mockResolvedValue({ ok: true, datos: {} }),
       compartir: vi.fn(),
       ...extra,
     } as never;
   }
   const escribir = (etiqueta: string, valor: string) => fireEvent.change(screen.getByLabelText(etiqueta), { target: { value: valor } });
+
+  it("desactivar pide un segundo toque, y después recarga la lista", async () => {
+    const f = fuentes();
+    render(<PantallaUsuarios fuentes={f} />);
+    const boton = await screen.findByTestId("activo-u-1");
+    await act(async () => { fireEvent.click(boton); });
+    expect(f.cambiarActivo).not.toHaveBeenCalled();
+    expect(screen.getByText("¿Desactivar a Carlos Méndez?")).toBeTruthy();
+    await act(async () => { fireEvent.click(screen.getByText("Sí, desactivar")); });
+    expect(f.cambiarActivo).toHaveBeenCalledWith("u-1", false);
+    expect(f.usuarios).toHaveBeenCalledTimes(2);
+  });
+
+  it("si tiene trabajo abierto, dice el motivo del servidor", async () => {
+    const f = fuentes({ cambiarActivo: vi.fn().mockResolvedValue({ ok: false, mensaje: "Tiene 2 órdenes abiertas: reasígnalas primero" }) });
+    render(<PantallaUsuarios fuentes={f} />);
+    const boton = await screen.findByTestId("activo-u-1");
+    await act(async () => { fireEvent.click(boton); });
+    await act(async () => { fireEvent.click(screen.getByTestId("activo-u-1")); });
+    expect(await screen.findByText(/reasígnalas primero/)).toBeTruthy();
+  });
 
   it("marca quién no ha activado su cuenta, en texto", async () => {
     render(<PantallaUsuarios fuentes={fuentes()} />);

@@ -1,7 +1,7 @@
 import type pg from "pg";
 import { randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
-import { puedeAsignarRol, puedeGestionarUsuarios, type Rol, type Veredicto } from "@tiretrack/domain";
+import { nuevoId, puedeAsignarRol, puedeDesactivarUsuario, puedeGestionarUsuarios, type Rol, type Veredicto } from "@tiretrack/domain";
 import type { z } from "zod";
 import type { zCrearUsuario } from "@tiretrack/contracts";
 
@@ -124,6 +124,47 @@ export class ServicioUsuarios {
     if (!puedeGestionarUsuarios(ctx.rol)) return sinPermiso;
     const r = await this.db.query(`SELECT 1 FROM "Usuario" WHERE id = $1 AND "empresaId" = $2`, [usuarioId, ctx.empresaId]);
     return r.rowCount ? { ok: true, valor: true } : fallo("NO_EXISTE", "El usuario no existe");
+  }
+
+  /**
+   * Desactivar (deja de trabajar en la empresa). No se borra: sus órdenes y
+   * mediciones siguen siendo de quien las hizo. Con trabajo abierto no se
+   * puede (regla del dominio). Las sesiones las revoca el servicio de acceso
+   * después de confirmar esto: con el rol de aplicación no se tocan sesiones
+   * ajenas.
+   */
+  async desactivar(ctx: Contexto, usuarioId: string): Promise<Resultado<true>> {
+    const existe = await this.existe(ctx, usuarioId);
+    if (!existe.ok) return existe;
+    const uso = await this.db.query<{ ordenes: number; programaciones: number }>(
+      `SELECT (SELECT count(*)::int FROM "OrdenServicio" WHERE tecnico_id = $1 AND estado NOT IN ('cerrada','anulada')) AS ordenes,
+              (SELECT count(*)::int FROM "ProgramacionRecurrente" WHERE "tecnicoId" = $1 AND activa) AS programaciones`,
+      [usuarioId],
+    );
+    const v = puedeDesactivarUsuario(ctx.rol, usuarioId === ctx.usuarioId, {
+      ordenesAbiertas: uso.rows[0]?.ordenes ?? 0,
+      programacionesActivas: uso.rows[0]?.programaciones ?? 0,
+    });
+    if (!v.permitido) return { ok: false, veredicto: v };
+    await this.db.query(`UPDATE "Usuario" SET activo = false WHERE id = $1`, [usuarioId]);
+    await this.auditar(ctx, "deshabilitar", { usuarioId });
+    return { ok: true, valor: true };
+  }
+
+  /** Volver a activar: entra con su misma contraseña. */
+  async reactivar(ctx: Contexto, usuarioId: string): Promise<Resultado<true>> {
+    const existe = await this.existe(ctx, usuarioId);
+    if (!existe.ok) return existe;
+    await this.db.query(`UPDATE "Usuario" SET activo = true WHERE id = $1`, [usuarioId]);
+    await this.auditar(ctx, "actualizar", { usuarioId, reactivado: true });
+    return { ok: true, valor: true };
+  }
+
+  private async auditar(ctx: Contexto, accion: string, detalle: Record<string, unknown>): Promise<void> {
+    await this.db.query(
+      `INSERT INTO "Auditoria" (id,"empresaId","usuarioId",rol,accion,detalle) VALUES ($1,$2,$3,$4,$5::"AccionAuditoria",$6)`,
+      [nuevoId(), ctx.empresaId, ctx.usuarioId, ctx.rol, accion, JSON.stringify({ ...detalle, entidad: "usuario" })],
+    );
   }
 
   async sedes(ctx: Contexto): Promise<Resultado<SedeListada[]>> {

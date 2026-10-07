@@ -25,11 +25,13 @@ export interface PaqueteDescargado {
     medidas: { id: string; disenoId: string; medida: string; profundidadOriginal: number | null }[];
   };
   readonly flota: {
-    clientes: { id: string; nombre: string; nit: string | null }[];
-    sedes: { id: string; clienteId: string; nombre: string }[];
+    // `activo` opcional: un servidor anterior no lo manda, y entonces todo
+    // se toma como activo, que era el comportamiento previo.
+    clientes: { id: string; nombre: string; nit: string | null; activo?: boolean }[];
+    sedes: { id: string; clienteId: string; nombre: string; activo?: boolean }[];
     vehiculos: {
       id: string; sedeClienteId: string; configuracionEjeId: string;
-      codigo: string; placa: string | null; nombre: string; kmActual: number;
+      codigo: string; placa: string | null; nombre: string; kmActual: number; activo?: boolean;
     }[];
   };
   readonly configuraciones: {

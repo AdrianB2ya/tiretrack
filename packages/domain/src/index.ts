@@ -22,6 +22,7 @@ export * from "./llanta/medicion";
 
 export * from "./catalogo/normalizacion";
 export * from "./catalogo/ambito";
+export * from "./catalogo/revision";
 export * from "./folio/folio";
 export * from "./tiempo/habiles";
 export * from "./tiempo/zona";
@@ -33,3 +34,4 @@ export * from "./informe/formato";
 export * from "./informe/documentoOrden";
 export * from "./trabajos/reglas";
 export * from "./trabajos/programacion";
+export * from "./auditoria/vista";

@@ -33,7 +33,7 @@ describe.skipIf(!disponible)("informe", () => {
     await db.query(`
       DROP TABLE IF EXISTS "Auditoria", "LlantaServicio", "LlantaRegistro",
                            "OrdenServicio", "Servicio", "Diseno", "Marca",
-                           "Vehiculo" CASCADE;
+                           "Vehiculo", "Usuario" CASCADE;
       DROP TYPE IF EXISTS "EstadoOrden", "AccionAuditoria" CASCADE;
 
       CREATE TYPE "EstadoOrden" AS ENUM
@@ -44,8 +44,9 @@ describe.skipIf(!disponible)("informe", () => {
          'exportar_informe','exportar_listado');
 
       CREATE TABLE "Vehiculo" (id text PRIMARY KEY, codigo text, placa text);
-      CREATE TABLE "Marca" (id text PRIMARY KEY, nombre text NOT NULL);
-      CREATE TABLE "Diseno" (id text PRIMARY KEY, nombre text NOT NULL);
+      CREATE TABLE "Usuario" (id text PRIMARY KEY, nombre text NOT NULL);
+      CREATE TABLE "Marca" (id text PRIMARY KEY, nombre text NOT NULL, "reemplazadaPorId" text);
+      CREATE TABLE "Diseno" (id text PRIMARY KEY, nombre text NOT NULL, "reemplazadoPorId" text);
       CREATE TABLE "Servicio" (id text PRIMARY KEY, codigo text NOT NULL, nombre text NOT NULL, orden int DEFAULT 0);
 
       CREATE TABLE "OrdenServicio" (
@@ -83,7 +84,7 @@ describe.skipIf(!disponible)("informe", () => {
         id text PRIMARY KEY,
         "empresaId" text, "usuarioId" text, "usuarioNombre" text, rol text,
         accion "AccionAuditoria" NOT NULL,
-        detalle jsonb, ip text,
+        detalle jsonb, ip text, "viaSuplantacion" boolean NOT NULL DEFAULT false,
         "creadoEn" timestamptz NOT NULL DEFAULT clock_timestamp()
       );
     `);
@@ -151,6 +152,17 @@ describe.skipIf(!disponible)("informe", () => {
     it("resuelve los nombres de marca y diseño", async () => {
       const filas = await servicio.consultar(ADMIN, { vehiculoId: "veh-1" });
       const pos1 = filas.find((f) => f.posicion === 1);
+      expect(pos1?.marca).toBe("Michelin");
+      expect(pos1?.diseno).toBe("XZY-3");
+    });
+
+    it("una marca unificada en la revisión se informa con el nombre de la correcta", async () => {
+      // "Michelim" creada en campo y unificada con Michelin: la medición
+      // conserva su id, el informe agrupa por la correcta.
+      await db.query(`INSERT INTO "Marca" (id,nombre,"reemplazadaPorId") VALUES ('mar-typo','Michelim','mar-1')`);
+      await db.query(`INSERT INTO "Diseno" (id,nombre,"reemplazadoPorId") VALUES ('dis-typo','XZY3','dis-1')`);
+      await db.query(`UPDATE "LlantaRegistro" SET "marcaId" = 'mar-typo', "disenoId" = 'dis-typo' WHERE id = 'lr-1'`);
+      const pos1 = (await servicio.consultar(ADMIN, { vehiculoId: "veh-1" })).find((f) => f.posicion === 1);
       expect(pos1?.marca).toBe("Michelin");
       expect(pos1?.diseno).toBe("XZY-3");
     });

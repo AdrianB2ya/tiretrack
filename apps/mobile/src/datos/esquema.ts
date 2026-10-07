@@ -449,6 +449,17 @@ export const MIGRACIONES: readonly Migracion[] = [
       CREATE INDEX idx_recomendacion_vehiculo ON recomendacion (vehiculo_id);
     `,
   },
+  {
+    version: 13,
+    nombre: "flota deshabilitada",
+    sql: `
+      -- Lo deshabilitado se conserva —las órdenes viejas muestran su nombre—
+      -- pero no se ofrece para trabajo nuevo.
+      ALTER TABLE cliente ADD COLUMN activo INTEGER NOT NULL DEFAULT 1;
+      ALTER TABLE sede_cliente ADD COLUMN activo INTEGER NOT NULL DEFAULT 1;
+      ALTER TABLE vehiculo ADD COLUMN activo INTEGER NOT NULL DEFAULT 1;
+    `,
+  },
 ];
 
 export const VERSION_ESQUEMA = MIGRACIONES[MIGRACIONES.length - 1]?.version ?? 0;

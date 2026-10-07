@@ -643,17 +643,18 @@ export class RepositorioLocal {
 
   /** Reemplaza la flota descargada. Se guarda entera al sincronizar. */
   async guardarFlota(datos: {
-    clientes?: readonly ClienteLocal[];
-    sedes?: readonly { id: string; clienteId: string; nombre: string }[];
-    vehiculos?: readonly VehiculoLocal[];
+    clientes?: readonly (ClienteLocal & { activo?: boolean })[];
+    sedes?: readonly { id: string; clienteId: string; nombre: string; activo?: boolean }[];
+    vehiculos?: readonly (VehiculoLocal & { activo?: boolean })[];
   }): Promise<void> {
+    const activo = (x: { activo?: boolean }) => (x.activo === false ? 0 : 1);
     await this.enTransaccion(async () => {
       if (datos.clientes) {
         // Lo creado en campo y aún no confirmado no se borra (ver migración 10).
         await this.db.ejecutar(`DELETE FROM cliente WHERE creada_local = 0`);
         for (const c of datos.clientes) {
-          await this.db.ejecutar(`INSERT OR REPLACE INTO cliente (id, nombre, nit, creada_local) VALUES (?,?,?,0)`, [
-            c.id, c.nombre, c.nit,
+          await this.db.ejecutar(`INSERT OR REPLACE INTO cliente (id, nombre, nit, activo, creada_local) VALUES (?,?,?,?,0)`, [
+            c.id, c.nombre, c.nit, activo(c),
           ]);
         }
       }
@@ -661,8 +662,8 @@ export class RepositorioLocal {
         await this.db.ejecutar(`DELETE FROM sede_cliente WHERE creada_local = 0`);
         for (const s of datos.sedes) {
           await this.db.ejecutar(
-            `INSERT OR REPLACE INTO sede_cliente (id, cliente_id, nombre, creada_local) VALUES (?,?,?,0)`,
-            [s.id, s.clienteId, s.nombre],
+            `INSERT OR REPLACE INTO sede_cliente (id, cliente_id, nombre, activo, creada_local) VALUES (?,?,?,?,0)`,
+            [s.id, s.clienteId, s.nombre, activo(s)],
           );
         }
       }
@@ -671,9 +672,9 @@ export class RepositorioLocal {
         for (const v of datos.vehiculos) {
           await this.db.ejecutar(
             `INSERT OR REPLACE INTO vehiculo
-               (id, sede_cliente_id, configuracion_eje_id, codigo, placa, nombre, km_actual, creada_local)
-             VALUES (?,?,?,?,?,?,?,0)`,
-            [v.id, v.sedeClienteId, v.configuracionEjeId, v.codigo, v.placa, v.nombre, v.kmActual],
+               (id, sede_cliente_id, configuracion_eje_id, codigo, placa, nombre, km_actual, activo, creada_local)
+             VALUES (?,?,?,?,?,?,?,?,0)`,
+            [v.id, v.sedeClienteId, v.configuracionEjeId, v.codigo, v.placa, v.nombre, v.kmActual, activo(v)],
           );
         }
       }
@@ -780,13 +781,13 @@ export class RepositorioLocal {
   // ── Cascada de la orden nueva: cliente → sede del cliente → vehículo ──
 
   async clientes(): Promise<{ id: string; nombre: string; nit: string | null }[]> {
-    const filas = await this.db.consultar<Record<string, unknown>>(`SELECT id, nombre, nit FROM cliente ORDER BY nombre`);
+    const filas = await this.db.consultar<Record<string, unknown>>(`SELECT id, nombre, nit FROM cliente WHERE activo = 1 ORDER BY nombre`);
     return filas.map((f) => ({ id: String(f["id"]), nombre: String(f["nombre"]), nit: (f["nit"] as string) ?? null }));
   }
 
   async sedesDeCliente(clienteId: string): Promise<{ id: string; nombre: string }[]> {
     const filas = await this.db.consultar<Record<string, unknown>>(
-      `SELECT id, nombre FROM sede_cliente WHERE cliente_id = ? ORDER BY nombre`,
+      `SELECT id, nombre FROM sede_cliente WHERE cliente_id = ? AND activo = 1 ORDER BY nombre`,
       [clienteId],
     );
     return filas.map((f) => ({ id: String(f["id"]), nombre: String(f["nombre"]) }));
@@ -795,7 +796,7 @@ export class RepositorioLocal {
   async vehiculosDeSedeCliente(sedeClienteId: string): Promise<VehiculoLocal[]> {
     const filas = await this.db.consultar<Record<string, unknown>>(
       `SELECT id, sede_cliente_id, configuracion_eje_id, codigo, placa, nombre, km_actual
-         FROM vehiculo WHERE sede_cliente_id = ? ORDER BY codigo`,
+         FROM vehiculo WHERE sede_cliente_id = ? AND activo = 1 ORDER BY codigo`,
       [sedeClienteId],
     );
     return filas.map((f) => ({

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CADA_MAXIMO, FRECUENCIAS } from "@tiretrack/domain";
+import { ACCIONES_AUDITORIA, CADA_MAXIMO, FRECUENCIAS } from "@tiretrack/domain";
 import {
   zFechaISO,
   zId,
@@ -284,6 +284,19 @@ export const zFiltroInforme = z.object({
   ordenIds: z.array(zId).optional(),
 });
 export type FiltroInforme = z.infer<typeof zFiltroInforme>;
+
+/**
+ * Consulta de la auditoría (5.4). Fechas como días de Colombia; `antes` es
+ * el cursor para "ver más": el instante del último registro visto.
+ */
+export const zConsultaAuditoria = z.object({
+  accion: z.enum(ACCIONES_AUDITORIA).optional(),
+  usuarioId: zId.optional(),
+  desde: zFechaISO.optional(),
+  hasta: zFechaISO.optional(),
+  antes: z.string().datetime().optional(),
+});
+export type ConsultaAuditoria = z.infer<typeof zConsultaAuditoria>;
 
 export const zRegistroAuditoria = z.object({
   accion: z.string(),

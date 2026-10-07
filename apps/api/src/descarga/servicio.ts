@@ -47,11 +47,13 @@ export interface Paquete {
     medidas: { id: string; disenoId: string; medida: string; profundidadOriginal: number | null }[];
   };
   readonly flota: {
-    clientes: { id: string; nombre: string; nit: string | null }[];
-    sedes: { id: string; clienteId: string; nombre: string }[];
+    // `activo`: lo deshabilitado sigue viajando —las órdenes viejas necesitan
+    // su nombre— pero no se ofrece para trabajo nuevo.
+    clientes: { id: string; nombre: string; nit: string | null; activo: boolean }[];
+    sedes: { id: string; clienteId: string; nombre: string; activo: boolean }[];
     vehiculos: {
       id: string; sedeClienteId: string; configuracionEjeId: string;
-      codigo: string; placa: string | null; nombre: string; kmActual: number;
+      codigo: string; placa: string | null; nombre: string; kmActual: number; activo: boolean;
     }[];
   };
   readonly configuraciones: {
@@ -359,24 +361,24 @@ export class ServicioDescarga {
   }
 
   private async flota(): Promise<Paquete["flota"]> {
-    const clientes = await this.db.query<Record<string, unknown>>(`SELECT id, nombre, nit FROM "Cliente" ORDER BY nombre`);
-    const sedes = await this.db.query<Record<string, unknown>>(`SELECT id, "clienteId", nombre FROM "SedeCliente"`);
+    const clientes = await this.db.query<Record<string, unknown>>(`SELECT id, nombre, nit, activo FROM "Cliente" ORDER BY nombre`);
+    const sedes = await this.db.query<Record<string, unknown>>(`SELECT id, "clienteId", nombre, activa FROM "SedeCliente"`);
     const vehiculos = await this.db.query<Record<string, unknown>>(
-      `SELECT id, "sedeClienteId", "configuracionEjeId", codigo, placa, nombre, "kmActual"
+      `SELECT id, "sedeClienteId", "configuracionEjeId", codigo, placa, nombre, "kmActual", activo
          FROM "Vehiculo"`,
     );
     return {
       clientes: clientes.rows.map((f) => ({
-        id: String(f["id"]), nombre: String(f["nombre"]), nit: (f["nit"] as string) ?? null,
+        id: String(f["id"]), nombre: String(f["nombre"]), nit: (f["nit"] as string) ?? null, activo: Boolean(f["activo"]),
       })),
       sedes: sedes.rows.map((f) => ({
-        id: String(f["id"]), clienteId: String(f["clienteId"]), nombre: String(f["nombre"]),
+        id: String(f["id"]), clienteId: String(f["clienteId"]), nombre: String(f["nombre"]), activo: Boolean(f["activa"]),
       })),
       vehiculos: vehiculos.rows.map((f) => ({
         id: String(f["id"]), sedeClienteId: String(f["sedeClienteId"]),
         configuracionEjeId: String(f["configuracionEjeId"]), codigo: String(f["codigo"]),
         placa: (f["placa"] as string) ?? null, nombre: String(f["nombre"] ?? f["codigo"]),
-        kmActual: Number(f["kmActual"] ?? 0),
+        kmActual: Number(f["kmActual"] ?? 0), activo: Boolean(f["activo"]),
       })),
     };
   }

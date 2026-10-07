@@ -9,11 +9,15 @@ import {
   puedeCrearEntrada,
   puedeModificar,
   puedePromoverAGlobal,
+  puedeRevisarCreadasEnCampo,
+  candidatasParaUnificar,
+  disenosEquivalentes,
+  evaluarUnificacion,
   type EntradaConAmbito,
   type Rol,
   type Veredicto,
 } from "@tiretrack/domain";
-import type { RepositorioCatalogo, Marca, Diseno, Medida } from "./repositorio";
+import type { RepositorioCatalogo, Marca, Diseno, Medida, Revisable } from "./repositorio";
 
 /**
  * Catálogo de llantas.
@@ -211,11 +215,74 @@ export class ServicioCatalogo {
   }
 
   async marcarRevisada(ctx: Contexto, tipo: "marca" | "diseno", id: string): Promise<Resultado<void>> {
-    if (ctx.rol !== "administrador" && ctx.rol !== "superadmin") {
+    if (!puedeRevisarCreadasEnCampo(ctx.rol)) {
       return fallo("SIN_PERMISO", "Solo el administrador revisa el catálogo creado en campo");
     }
+    // Solo lo propio: una global o de otra empresa no es "lo creado aquí".
+    const e = await this.repo.revisable(tipo, id);
+    if (!e || e.esGlobal || e.empresaId !== ctx.empresaId) return fallo("NO_EXISTE", "No existe");
     await this.repo.marcarRevisada(tipo, id);
     return { ok: true, valor: undefined };
+  }
+
+  /**
+   * La bandeja del administrador: lo creado en campo, cada uno con las
+   * entradas vigentes más parecidas, que es donde se reconoce un duplicado.
+   */
+  async revision(ctx: Contexto): Promise<Resultado<{
+    marcas: (Revisable & { candidatas: Revisable[] })[];
+    disenos: (Revisable & { candidatas: Revisable[] })[];
+  }>> {
+    if (!puedeRevisarCreadasEnCampo(ctx.rol)) {
+      return fallo("SIN_PERMISO", "Solo el administrador revisa el catálogo creado en campo");
+    }
+    const pendientes = await this.repo.listarCreadasEnCampo(ctx.empresaId);
+    const marcasVigentes = await this.repo.vigentes("marca", ctx.empresaId);
+    const disenosVigentes = await this.repo.vigentes("diseno", ctx.empresaId);
+    const conCandidatas = async (tipo: "marca" | "diseno", id: string, todas: Revisable[]) => {
+      const e = (await this.repo.revisable(tipo, id)) as Revisable;
+      return { ...e, candidatas: candidatasParaUnificar(e, todas, ctx.empresaId).slice(0, 5) };
+    };
+    return {
+      ok: true,
+      valor: {
+        marcas: await Promise.all(pendientes.marcas.map((m) => conCandidatas("marca", m.id, marcasVigentes))),
+        disenos: await Promise.all(pendientes.disenos.map((d) => conCandidatas("diseno", d.id, disenosVigentes))),
+      },
+    };
+  }
+
+  /**
+   * Unificar un duplicado con la entrada correcta. No reescribe mediciones:
+   * los documentos cerrados no cambian. La duplicada queda como alias y los
+   * informes agrupan por la correcta (ver dominio `catalogo/revision`).
+   * Al unificar una marca, sus diseños de mismo nombre que uno de la correcta
+   * se unifican con él.
+   */
+  async unificar(
+    ctx: Contexto,
+    tipo: "marca" | "diseno",
+    origenId: string,
+    destinoId: string,
+  ): Promise<Resultado<{ disenosUnificados: number }>> {
+    if (!puedeRevisarCreadasEnCampo(ctx.rol)) {
+      return fallo("SIN_PERMISO", "Solo el administrador revisa el catálogo creado en campo");
+    }
+    const origen = await this.repo.revisable(tipo, origenId);
+    const destino = await this.repo.revisable(tipo, destinoId);
+    if (!origen || !destino) return fallo("NO_EXISTE", "No existe");
+    const v = evaluarUnificacion(origen, destino, ctx.empresaId);
+    if (!v.permitido) return { ok: false, veredicto: v };
+
+    const ahora = this.reloj();
+    let disenosUnificados = 0;
+    if (tipo === "marca") {
+      const pares = disenosEquivalentes(await this.repo.disenosDeMarca(origenId), await this.repo.disenosDeMarca(destinoId));
+      for (const p of pares) await this.repo.unificar("diseno", p.origenId, p.destinoId, ahora);
+      disenosUnificados = pares.length;
+    }
+    await this.repo.unificar(tipo, origenId, destinoId, ahora);
+    return { ok: true, valor: { disenosUnificados } };
   }
 
   /**

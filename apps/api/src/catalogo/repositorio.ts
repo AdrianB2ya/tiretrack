@@ -59,6 +59,26 @@ export interface RepositorioCatalogo {
 
   listarCreadasEnCampo(empresaId: string): Promise<{ marcas: Marca[]; disenos: Diseno[] }>;
   marcarRevisada(tipo: "marca" | "diseno", id: string): Promise<void>;
+
+  /** Con su alias, para decidir una unificación. */
+  revisable(tipo: "marca" | "diseno", id: string): Promise<Revisable | null>;
+  /** Todas las vigentes que la empresa ve (propias y globales), para elegir destino. */
+  vigentes(tipo: "marca" | "diseno", empresaId: string): Promise<Revisable[]>;
+  /** Los diseños vigentes de una marca, sin filtrar por ámbito. */
+  disenosDeMarca(marcaId: string): Promise<{ id: string; nombre: string }[]>;
+  /** Deja `origen` como alias de `destino`: no se ofrece más, no se borra. */
+  unificar(tipo: "marca" | "diseno", origenId: string, destinoId: string, ahora: Date): Promise<void>;
+}
+
+export interface Revisable {
+  readonly id: string;
+  readonly nombre: string;
+  readonly empresaId: string | null;
+  readonly esGlobal: boolean;
+  readonly activa: boolean;
+  readonly reemplazadaPorId: string | null;
+  readonly marcaId?: string;
+  readonly marcaNombre?: string;
 }
 
 export class RepositorioCatalogoPg implements RepositorioCatalogo {
@@ -226,6 +246,7 @@ export class RepositorioCatalogoPg implements RepositorioCatalogo {
       `SELECT id, "empresaId", "marcaId", nombre, "tipoEje", "esGlobal", "creadaEnCampo", activo
          FROM "Diseno"
         WHERE "creadaEnCampo" = true AND activo = true AND "empresaId" = $1
+          AND EXISTS (SELECT 1 FROM "Marca" m WHERE m.id = "Diseno"."marcaId" AND m.activa)
         ORDER BY nombre`,
       [empresaId],
     );
@@ -235,5 +256,53 @@ export class RepositorioCatalogoPg implements RepositorioCatalogo {
   async marcarRevisada(tipo: "marca" | "diseno", id: string): Promise<void> {
     const tabla = tipo === "marca" ? "Marca" : "Diseno";
     await this.db.query(`UPDATE "${tabla}" SET "creadaEnCampo" = false WHERE id = $1`, [id]);
+  }
+
+  private consultaRevisable(tipo: "marca" | "diseno"): string {
+    return tipo === "marca"
+      ? `SELECT id, nombre, "empresaId", "esGlobal", activa, "reemplazadaPorId" FROM "Marca"`
+      : `SELECT d.id, d.nombre, d."empresaId", d."esGlobal", d.activo AS activa,
+                d."reemplazadoPorId" AS "reemplazadaPorId", d."marcaId", m.nombre AS "marcaNombre"
+           FROM "Diseno" d JOIN "Marca" m ON m.id = d."marcaId"`;
+  }
+
+  async revisable(tipo: "marca" | "diseno", id: string): Promise<Revisable | null> {
+    const pref = tipo === "marca" ? "" : "d.";
+    const r = await this.db.query<Revisable>(`${this.consultaRevisable(tipo)} WHERE ${pref}id = $1`, [id]);
+    return r.rows[0] ?? null;
+  }
+
+  async vigentes(tipo: "marca" | "diseno", empresaId: string): Promise<Revisable[]> {
+    const pref = tipo === "marca" ? "" : "d.";
+    const activo = tipo === "marca" ? "activa" : "d.activo";
+    const r = await this.db.query<Revisable>(
+      `${this.consultaRevisable(tipo)}
+        WHERE ${activo} = true AND (${pref}"esGlobal" = true OR ${pref}"empresaId" = $1)
+        ORDER BY ${pref}nombre`,
+      [empresaId],
+    );
+    return r.rows;
+  }
+
+  async disenosDeMarca(marcaId: string): Promise<{ id: string; nombre: string }[]> {
+    const r = await this.db.query<{ id: string; nombre: string }>(
+      `SELECT id, nombre FROM "Diseno" WHERE "marcaId" = $1 AND activo = true`,
+      [marcaId],
+    );
+    return r.rows;
+  }
+
+  async unificar(tipo: "marca" | "diseno", origenId: string, destinoId: string, ahora: Date): Promise<void> {
+    if (tipo === "marca") {
+      await this.db.query(
+        `UPDATE "Marca" SET "reemplazadaPorId" = $2, activa = false, "creadaEnCampo" = false, "desactivadoEn" = $3 WHERE id = $1`,
+        [origenId, destinoId, ahora],
+      );
+    } else {
+      await this.db.query(
+        `UPDATE "Diseno" SET "reemplazadoPorId" = $2, activo = false, "creadaEnCampo" = false, "desactivadoEn" = $3 WHERE id = $1`,
+        [origenId, destinoId, ahora],
+      );
+    }
   }
 }

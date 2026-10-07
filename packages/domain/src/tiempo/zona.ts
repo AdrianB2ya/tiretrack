@@ -21,3 +21,9 @@ export function fechaEnColombia(instante: Date = new Date()): string {
   const local = new Date(instante.getTime() + DESFASE_COLOMBIA_HORAS * 3_600_000);
   return local.toISOString().slice(0, 10);
 }
+
+/** Día y hora en Colombia (AAAA-MM-DD HH:MM), para mostrar un instante guardado en UTC. */
+export function fechaHoraEnColombia(instante: Date | string): string {
+  const t = typeof instante === "string" ? new Date(instante) : instante;
+  return new Date(t.getTime() + DESFASE_COLOMBIA_HORAS * 3_600_000).toISOString().slice(0, 16).replace("T", " ");
+}

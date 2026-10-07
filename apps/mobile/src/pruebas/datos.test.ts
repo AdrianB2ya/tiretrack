@@ -629,6 +629,23 @@ describe("flota descargada", () => {
     expect(ctx?.vehiculoPlaca).toBe("SXK482");
   });
 
+  it("lo deshabilitado no se ofrece para trabajo nuevo, pero las órdenes viejas conservan su nombre", async () => {
+    await repo.guardarFlota({
+      clientes: [flota.clientes[0]!, { ...flota.clientes[1]!, activo: false }],
+      sedes: flota.sedes,
+      vehiculos: [{ ...flota.vehiculos[0]!, activo: false }, flota.vehiculos[1]!],
+    });
+    await repo.guardarOrden({ ...ordenBase, encolar: false });
+    expect((await repo.clientes()).map((c) => c.id)).toEqual(["cli-1"]);
+    expect(await repo.vehiculosDeSedeCliente("sc-1")).toEqual([]);
+    expect((await repo.contextoDeOrden("ord-1"))?.vehiculoCodigo).toBe("CA-12");
+  });
+
+  it("sin la marca de activo (servidor anterior) todo se toma como activo", async () => {
+    await repo.guardarFlota(flota);
+    expect(await repo.clientes()).toHaveLength(2);
+  });
+
   it("sin flota descargada devuelve null en vez de fallar", async () => {
     // La orden puede llegar antes que la flota si la sincronización se
     // interrumpió a mitad.

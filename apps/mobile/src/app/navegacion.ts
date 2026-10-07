@@ -3,6 +3,8 @@ import {
   puedeGestionarConfiguraciones,
   puedeGestionarProgramaciones,
   puedeGestionarUsuarios,
+  puedeVerAuditoria,
+  puedeRevisarCreadasEnCampo,
   type Rol,
 } from "@tiretrack/domain";
 
@@ -81,6 +83,12 @@ export function opcionesMas(rol: Rol | string): OpcionMas[] {
   if (puedeGestionarUsuarios(r)) {
     o.push({ clave: "usuarios", etiqueta: "Usuarios", detalle: "Altas y códigos de activación", ruta: "/usuarios" });
     o.push({ clave: "sedes", etiqueta: "Sedes", detalle: "Sedes de la empresa", ruta: "/sedes" });
+  }
+  if (puedeRevisarCreadasEnCampo(r) && r !== "superadmin") {
+    o.push({ clave: "revision-catalogo", etiqueta: "Marcas creadas en campo", detalle: "Aprobar o unificar lo que escribieron los técnicos", ruta: "/revision-catalogo" });
+  }
+  if (puedeVerAuditoria(r)) {
+    o.push({ clave: "auditoria", etiqueta: "Auditoría", detalle: "Quién sacó datos y quién cambió qué", ruta: "/auditoria" });
   }
   if (puedeGestionarConfiguraciones(r)) {
     o.push({ clave: "plantillas", etiqueta: "Plantillas de ejes", detalle: "Cómo se dibuja cada tipo de vehículo", ruta: "/plantillas" });

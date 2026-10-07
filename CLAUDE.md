@@ -258,7 +258,7 @@ Estado: `[x]` hecha · `[ ]` pendiente
 - [x] 5.1 Portal del cliente (dentro de la app, ruta `cliente`)
 - [x] 5.2 Usuarios y sedes (rutas `usuarios`, `sedes`, `activar`)
 - [x] 5.3 Clientes, sedes y vehículos (ruta `flota`) y plantillas de ejes (ruta `plantillas`)
-- [ ] 5.4 Auditoría
+- [x] 5.4 Auditoría (ruta `auditoria`, solo administrador)
 
 ### Fase 6 · Informes
 - [x] 6.1 Informe con filtros (ruta `informe`: vista previa y recorrido por serial)
@@ -2716,9 +2716,7 @@ desde la app también nacía con la fecha de mañana.
   URLs y tokens, `creadoEn`) siguen en UTC, que es lo correcto.
 - Pruebas en el borde de las 7 p. m. para el nombre del archivo, el cierre
   tácito y las recurrencias. Al volver a UTC, las tres fallan.
-- **Pendiente para la 5.4:** el filtro de fecha de la auditoría compara
-  `creadoEn` (UTC) contra un día; hay que convertirlo a Colombia cuando se
-  haga la pantalla.
+- El filtro de fecha de la auditoría se convirtió a Colombia en la 5.4.
 
 ## Trabajos programados en marcha (4.4, servidor)
 
@@ -3159,13 +3157,111 @@ cada posición, en órdenes cerradas— y **no se le mostraban a nadie**.
   (como se programa el cambio), lo crítico arriba, la severidad en texto, y
   "Programar el cambio". En línea; sin señal lo dice y deja reintentar.
 
+## Deshabilitar usuarios, clientes, sedes y vehículos (2026-10-06)
+
+Los servicios de flota sabían deshabilitar desde la 1.5 **sin ruta ni
+pantalla**; los usuarios no se podían desactivar de ninguna forma.
+
+- **Usuarios** (`puedeDesactivarUsuario` en el dominio): solo el
+  administrador, **nunca a sí mismo** (quedaría sin quién lo reactive), y no
+  con **órdenes abiertas** ni como **técnico fijo de visitas recurrentes**:
+  primero se reasigna. `POST /usuarios/:id/desactivar` y `/reactivar`, con
+  auditoría. Al desactivar, **el servicio de acceso revoca sus sesiones**
+  después de confirmar la transacción: el refresh ya no se le concede y su
+  token de acceso muere en ≤15 minutos (no se consulta la base en cada
+  petición; aceptado).
+- **Flota**: `POST /flota/{clientes|sedes|vehiculos}/:id/desactivar`
+  (administrador y coordinador), con las reglas de la 1.5: sin órdenes
+  abiertas, de abajo hacia arriba. Los códigos `TIENE_*` responden 409.
+- **App**: "Desactivar" / "Volver a activar" en Usuarios y "Deshabilitar …"
+  por cliente, sede y vehículo en la flota. **Segundo toque** para
+  confirmar, y el motivo del servidor a la vista si no se puede. En línea:
+  quien sabe si hay órdenes abiertas en otros teléfonos es el servidor.
+- **Lo deshabilitado sigue viajando en la descarga**, con `activo`: las
+  órdenes viejas necesitan el nombre. **Migración 13** agrega `activo` en
+  cliente, sede y vehículo del celular; los selectores (orden nueva, flota)
+  solo ofrecen lo activo. Sin la marca (servidor anterior) todo es activo.
+
+## Auditoría (5.4)
+
+Dominio `auditoria/vista.ts`; `GET /auditoria`; app `src/admin/PantallaAuditoria.tsx`,
+ruta `auditoria`, en "Más" del administrador.
+
+- **Solo el administrador.** La auditoría muestra también al coordinador;
+  que quien exporta lea cómo quedó su rastro le permitiría ajustarse a él.
+  (La política de RLS deja leer a toda la empresa: el límite está en la
+  ruta.)
+- **Días de Colombia** (`rangoDeDiasColombia`): `creadoEn` está en UTC y el
+  filtro anterior comparaba contra el día pelado, así que lo de después de
+  las 7 p. m. caía en el día siguiente. El `hasta` incluye el día entero. La
+  hora se muestra también en Colombia (`fechaHoraEnColombia`). Cierra el
+  pendiente anotado en "Hora de Colombia".
+- **Quién**: el nombre guardado o el del usuario; sin usuario es **Sistema**
+  (cierres tácitos, recurrentes). Lo hecho en sesión de soporte lleva la
+  marca "Soporte".
+- **Paginada por instante** (`antes`), de a 50: los registros nuevos no
+  corren la lista mientras se lee. Filtros de período y de acción; tocar un
+  registro muestra el detalle completo (filtros, folios, IP).
+- Una acción inventada en la consulta es **422**, no 500 (robustez).
+
+## Despliegue: guía y alta de empresa (2026-10-06)
+
+`DESPLEGAR.md` (raíz): base → fotos → servidor → primera empresa → app, cada
+paso con su comprobación. Lo que falta son **cuentas del usuario** (servidor,
+PostgreSQL, dominio con HTTPS, R2, Expo).
+
+**No había forma limpia de crear una empresa en producción**: la única era
+la semilla, que trae clientes inventados y usuarios con contraseña conocida.
+`src/herramientas/crearEmpresa.ts` + `crear-empresa.ts` (línea de comandos,
+lee un JSON):
+
+- Empresa, primera sede, **los servicios del catálogo** (sin ellos toda
+  medición con servicios se rechaza) y el administrador. Nada más; el resto
+  lo hace el administrador desde la app.
+- **En una transacción**: un fallo a mitad no deja una empresa a medias
+  (prueba con un disparador que falla).
+- **El administrador nace sin contraseña utilizable** y recibe un código de
+  activación, emitido por el servicio de acceso (el único que guarda su
+  huella) y mostrado una sola vez. Nadie conoce su contraseña, tampoco quien
+  corrió el script.
+- Corre con el dueño (todavía no hay empresa para el contexto de RLS) y deja
+  constancia en la auditoría.
+
+## Revisión de lo creado en campo (2026-10-06)
+
+**Decisión del usuario:** la revisa **el administrador** de la empresa.
+Dominio `catalogo/revision.ts`; rutas `GET /catalogo/revision`,
+`POST /catalogo/{marcas|disenos}/:id/aprobar` y `/:id/unificar`; app
+`src/admin/PantallaRevisionCatalogo.tsx`, ruta `revision-catalogo`, en "Más"
+del administrador.
+
+- **"Es correcta"**: queda como propia de la empresa.
+- **"Es la misma que…"**: cada pendiente viene con las vigentes más
+  parecidas (distancia de edición), propias o globales, nunca de otra
+  empresa. Antes de unificar, la pantalla dice qué va a pasar.
+- **Unificar no reescribe mediciones.** La duplicada queda como **alias**
+  (`reemplazadaPorId` / `reemplazadoPorId`, migración
+  `20261006180000_catalogo_unificado`), se deshabilita y deja de ofrecerse.
+  **El informe agrupa por la correcta**; el PDF de una orden sigue mostrando
+  lo que se escribió. Reescribir cambiaría documentos cerrados y firmados.
+- Un alias nunca apunta a otro alias ni a una deshabilitada (dominio y
+  CHECK): la agrupación es de un solo salto.
+- Al unificar una marca, **sus diseños con el mismo nombre normalizado** que
+  uno de la correcta se unifican con él. Los demás quedan bajo la marca
+  alias y salen de la bandeja; el informe ya los agrupa bajo la marca
+  correcta.
+- Una medición capturada sin señal con la marca ya unificada **se sigue
+  aceptando** (el servidor solo exige que exista): no queda apartada.
+- Volver global sigue siendo de la plataforma (`puedePromoverAGlobal`), no
+  de una empresa.
+
 ## Punto de retoma (2026-10-05)
 
-**Estado:** el usuario prueba la app en el teléfono con Expo Go (SDK 52). Siguen PDF (6.3), vista de auditoría (5.4) y guía de despliegue.
+**Estado:** el usuario prueba la app en el teléfono con Expo Go (SDK 52). La guía de despliegue (`DESPLEGAR.md`) está lista; falta que el usuario cree las cuentas.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 921/921, mobile 882 + recorrido 439.
+**Verificado:** `npm run verify` con base: raíz 950/950, mobile 895 + recorrido 459.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):
@@ -3219,7 +3315,6 @@ No decidir por cuenta propia. Preguntar cuando toque el tema.
 - Suplantación del superadmin (motivo, ticket, vencimiento): decidido
   construirla antes de una segunda empresa o de dar soporte real.
 - Alcance del coordinador: ¿toda la empresa o solo sus sedes?
-- Quién aprueba las marcas creadas en campo antes de volverlas globales
 - Si se bloquea exportar órdenes sin cerrar (el cliente ya no las ve en su
   informe; la oficina y el técnico sí)
 - Cómo se cuenta la alineación al facturar (hoy se marca por llanta, pero se

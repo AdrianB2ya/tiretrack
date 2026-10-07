@@ -28,8 +28,10 @@ describe("navegación de la oficina", () => {
     const coordinador = opcionesMas("coordinador").map((o) => o.clave);
     expect(coordinador).toEqual(["nueva-orden", "programaciones", "flota", "alertas", "informe", "cuenta"]);
     const admin = opcionesMas("administrador").map((o) => o.clave);
-    expect(admin).toEqual(expect.arrayContaining(["usuarios", "sedes", "plantillas"]));
+    expect(admin).toEqual(expect.arrayContaining(["usuarios", "sedes", "plantillas", "auditoria", "revision-catalogo"]));
     expect(coordinador).not.toContain("usuarios");
+    expect(coordinador).not.toContain("auditoria");
+    expect(coordinador).not.toContain("revision-catalogo");
     // El técnico registra clientes y sedes, crea la imprevista y ve el
     // informe de sus órdenes (decisión del usuario); no administra. El
     // cliente ve el informe de su flota y su cuenta.

@@ -178,7 +178,12 @@ const USUARIO_COMPLETO = {
 /** Código que el doble de acceso emite y acepta. */
 export const CODIGO_FALSO = "K7M2-X9QP";
 
+export const sesionesRevocadas: string[] = [];
+
 export const authFalso: ServicioAuthHttp = {
+  revocarSesionesDe: async (usuarioId) => {
+    sesionesRevocadas.push(usuarioId);
+  },
   // El servicio real se prueba contra la base en auth.test; aquí basta con
   // que las rutas traduzcan bien cada resultado.
   crearCodigoActivacion: async () => ({ codigo: CODIGO_FALSO, expiraEn: new Date("2026-09-24T10:00:00Z") }),

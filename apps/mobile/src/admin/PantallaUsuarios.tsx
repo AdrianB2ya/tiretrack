@@ -22,6 +22,8 @@ export interface FuentesUsuarios {
   clientes(): Promise<{ id: string; nombre: string }[]>;
   crear(f: FormUsuario): Promise<Resultado<{ codigo: string; expiraEn: string }>>;
   nuevoCodigo(usuarioId: string): Promise<Resultado<{ codigo: string; expiraEn: string }>>;
+  /** Desactivar (deja de trabajar en la empresa) o volver a activar. Nada se borra. */
+  cambiarActivo(usuarioId: string, activo: boolean): Promise<Resultado<unknown>>;
   compartir(mensaje: string): void;
 }
 
@@ -31,6 +33,8 @@ export function PantallaUsuarios({ fuentes }: { fuentes: FuentesUsuarios }) {
   const [modo, setModo] = useState<Modo>({ tipo: "lista" });
   const [lista, setLista] = useState<UsuarioListado[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Desactivar pide un segundo toque: deja a alguien sin poder entrar.
+  const [confirmando, setConfirmando] = useState<string | null>(null);
 
   const recargar = useCallback(async () => {
     const r = await fuentes.usuarios();
@@ -107,6 +111,27 @@ export function PantallaUsuarios({ fuentes }: { fuentes: FuentesUsuarios }) {
             }
           >
             {u.sinActivar ? "Enviar un código nuevo" : "Código para recuperar la cuenta"}
+          </Boton>
+          {confirmando === u.id ? (
+            <Aviso
+              tono="advertencia"
+              titulo={`¿Desactivar a ${u.nombre}?`}
+              detalle="No podrá volver a entrar; en minutos su sesión deja de servir. Lo que hizo se conserva, y se puede volver a activar."
+            />
+          ) : null}
+          <Boton
+            tipo={u.activo && confirmando === u.id ? "peligro" : "fantasma"}
+            testID={`activo-${u.id}`}
+            onPress={() => {
+              if (u.activo && confirmando !== u.id) return setConfirmando(u.id);
+              setConfirmando(null);
+              void fuentes.cambiarActivo(u.id, !u.activo).then((r) => {
+                if (r.ok) void recargar();
+                else setError(r.mensaje);
+              });
+            }}
+          >
+            {!u.activo ? "Volver a activar" : confirmando === u.id ? "Sí, desactivar" : "Desactivar"}
           </Boton>
         </Tarjeta>
       ))}

@@ -40,6 +40,7 @@ describe.skipIf(!disponible)("catálogo", () => {
         "creadaEnCampo" boolean NOT NULL DEFAULT false,
         activa boolean NOT NULL DEFAULT true,
         "desactivadoEn" timestamptz,
+        "reemplazadaPorId" text REFERENCES "Marca"(id),
         UNIQUE ("empresaId", nombre)
       );
 
@@ -53,6 +54,7 @@ describe.skipIf(!disponible)("catálogo", () => {
         "creadaEnCampo" boolean NOT NULL DEFAULT false,
         activo boolean NOT NULL DEFAULT true,
         "desactivadoEn" timestamptz,
+        "reemplazadoPorId" text REFERENCES "Diseno"(id),
         UNIQUE ("marcaId", nombre)
       );
 
@@ -272,6 +274,48 @@ describe.skipIf(!disponible)("catálogo", () => {
       await servicio.marcarRevisada(ADMIN_A, "marca", creada.valor.marca.id);
       const p = await servicio.pendientesDeRevision(ADMIN_A);
       expect(p.marcas.map((m) => m.id)).not.toContain(creada.valor.marca.id);
+    });
+
+    it("la bandeja ofrece las parecidas primero: Michelim junto a Michelin", async () => {
+      const creada = await servicio.crearMarca(TECNICO_A, { nombre: "Michelim", forzar: true });
+      if (!creada.ok) throw new Error("debió crearse");
+      const r = await servicio.revision(ADMIN_A);
+      if (!r.ok) throw new Error();
+      const pendiente = r.valor.marcas.find((m) => m.nombre === "Michelim");
+      expect(pendiente?.candidatas[0]?.nombre).toBe("Michelin");
+      // No se ofrece unificar con la de otra empresa.
+      expect(pendiente?.candidatas.map((c) => c.id)).not.toContain("m-b");
+      expect((await servicio.revision(TECNICO_A)).ok).toBe(false);
+    });
+
+    it("unificar deja la duplicada como alias, sin tocar las mediciones, y arrastra sus diseños iguales", async () => {
+      const marca = await servicio.crearMarca(TECNICO_A, { nombre: "Michelim", forzar: true });
+      if (!marca.ok) throw new Error();
+      const id = marca.valor.marca.id;
+      const diseno = await servicio.crearDiseno(TECNICO_A, { marcaId: id, nombre: "xzy 3", tipoEje: "direccional" });
+      if (!diseno.ok) throw new Error(JSON.stringify(diseno));
+      await db.query(`INSERT INTO "LlantaRegistro" (id, "marcaId") VALUES ('lr-typo', $1)`, [id]);
+
+      const r = await servicio.unificar(ADMIN_A, "marca", id, "m-glob");
+      expect(r).toEqual({ ok: true, valor: { disenosUnificados: 1 } });
+
+      const m = await db.query(`SELECT activa, "reemplazadaPorId" FROM "Marca" WHERE id = $1`, [id]);
+      expect(m.rows[0]).toEqual({ activa: false, reemplazadaPorId: "m-glob" });
+      // La medición conserva lo que se escribió: el documento no cambia.
+      expect((await db.query(`SELECT "marcaId" FROM "LlantaRegistro" WHERE id = 'lr-typo'`)).rows[0].marcaId).toBe(id);
+      const d = await db.query(`SELECT "reemplazadoPorId" FROM "Diseno" WHERE "marcaId" = $1`, [id]);
+      expect(d.rows[0].reemplazadoPorId).toBe("d-glob");
+      // Ya no se ofrece, ni queda pendiente.
+      expect((await servicio.marcasVisibles(TECNICO_A)).map((x) => x.id)).not.toContain(id);
+      expect((await servicio.pendientesDeRevision(ADMIN_A)).marcas.map((x) => x.id)).not.toContain(id);
+      // Unificar otra vez no.
+      expect((await servicio.unificar(ADMIN_A, "marca", id, "m-glob")).ok).toBe(false);
+    });
+
+    it("no se unifica una global ni hacia la marca de otra empresa", async () => {
+      expect((await servicio.unificar(ADMIN_A, "marca", "m-glob", "m-a")).ok).toBe(false);
+      const r = await servicio.unificar(ADMIN_A, "marca", "m-a", "m-b");
+      expect(r.ok ? null : r.veredicto.codigo).toBe("NO_EXISTE");
     });
 
     it("solo el superadmin promueve una marca a global", async () => {

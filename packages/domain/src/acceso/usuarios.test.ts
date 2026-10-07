@@ -3,6 +3,7 @@ import {
   expiracionActivacion,
   generarCodigoActivacion,
   normalizarCodigoActivacion,
+  puedeDesactivarUsuario,
   puedeAsignarRol,
   puedeGestionarUsuarios,
   rolesAsignables,
@@ -39,5 +40,19 @@ describe("código de activación", () => {
   it("vence a las 72 horas", () => {
     const ahora = new Date("2026-10-05T12:00:00Z");
     expect(expiracionActivacion(ahora).toISOString()).toBe("2026-10-08T12:00:00.000Z");
+  });
+});
+
+describe("desactivar usuarios", () => {
+  const libre = { ordenesAbiertas: 0, programacionesActivas: 0 };
+  it("solo el administrador, y nunca a sí mismo", () => {
+    expect(puedeDesactivarUsuario("administrador", false, libre).permitido).toBe(true);
+    expect(puedeDesactivarUsuario("coordinador", false, libre).codigo).toBe("SIN_PERMISO");
+    expect(puedeDesactivarUsuario("administrador", true, libre).codigo).toBe("UNO_MISMO");
+  });
+
+  it("con trabajo abierto no: primero se reasigna", () => {
+    expect(puedeDesactivarUsuario("administrador", false, { ordenesAbiertas: 2, programacionesActivas: 0 }).mensaje).toBe("Tiene 2 órdenes abiertas: reasígnalas primero");
+    expect(puedeDesactivarUsuario("administrador", false, { ordenesAbiertas: 0, programacionesActivas: 1 }).codigo).toBe("TIENE_PROGRAMACIONES");
   });
 });

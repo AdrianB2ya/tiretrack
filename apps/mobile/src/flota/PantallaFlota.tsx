@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import type { Rol } from "@tiretrack/domain";
+import { puedeGestionarFlota, type Rol } from "@tiretrack/domain";
 import { Aviso, Boton, Campo, Tarjeta, Vacio } from "../diseno/componentes";
 import { colores, conOpacidad, espacio, radio, tactil, texto } from "../diseno/tokens";
 import {
@@ -40,10 +40,21 @@ export interface AccionesFlota {
   }): Promise<string>;
 }
 
+/**
+ * Deshabilitar (nada se borra). En línea: el servidor es quien sabe si hay
+ * órdenes abiertas en otros teléfonos, y la persona espera saber por qué no.
+ * Al terminar, quien llama sincroniza para que la lista lo refleje.
+ */
+export type Deshabilitar = (
+  que: "cliente" | "sede" | "vehiculo",
+  id: string,
+) => Promise<{ ok: true } | { ok: false; mensaje: string }>;
+
 export interface PantallaFlotaProps {
   rol: Rol;
   fuentes: FuentesFlota;
   acciones: AccionesFlota;
+  deshabilitar?: Deshabilitar;
 }
 
 type Modo =
@@ -53,7 +64,7 @@ type Modo =
   | { tipo: "nueva_sede"; cliente: Cliente }
   | { tipo: "nuevo_vehiculo"; cliente: Cliente; sede: Sede };
 
-export function PantallaFlota({ rol, fuentes, acciones }: PantallaFlotaProps) {
+export function PantallaFlota({ rol, fuentes, acciones, deshabilitar }: PantallaFlotaProps) {
   const [modo, setModo] = useState<Modo>({ tipo: "lista" });
   const [clientes, setClientes] = useState<Cliente[] | null>(null);
 
@@ -109,6 +120,19 @@ export function PantallaFlota({ rol, fuentes, acciones }: PantallaFlotaProps) {
         onVolver={() => setModo({ tipo: "lista" })}
         onNuevaSede={() => setModo({ tipo: "nueva_sede", cliente: modo.cliente })}
         onNuevoVehiculo={(sede) => setModo({ tipo: "nuevo_vehiculo", cliente: modo.cliente, sede })}
+        {...(deshabilitar && puedeGestionarFlota(rol)
+          ? {
+              deshabilitar: async (que, id) => {
+                const r = await deshabilitar(que, id);
+                // El cliente deshabilitado ya no está en la lista: se vuelve a ella.
+                if (r.ok && que === "cliente") {
+                  await recargar();
+                  setModo({ tipo: "lista" });
+                }
+                return r;
+              },
+            }
+          : {})}
       />
     );
   }
@@ -132,18 +156,26 @@ export function PantallaFlota({ rol, fuentes, acciones }: PantallaFlotaProps) {
 }
 
 function DetalleCliente({
-  cliente, rol, fuentes, onVolver, onNuevaSede, onNuevoVehiculo,
+  cliente, rol, fuentes, onVolver, onNuevaSede, onNuevoVehiculo, deshabilitar,
 }: {
   cliente: Cliente; rol: Rol; fuentes: FuentesFlota;
   onVolver: () => void; onNuevaSede: () => void; onNuevoVehiculo: (s: Sede) => void;
+  deshabilitar?: Deshabilitar;
 }) {
   const [sedes, setSedes] = useState<(Sede & { vehiculos: Vehiculo[] })[] | null>(null);
-  useEffect(() => {
-    void (async () => {
-      const lista = await fuentes.sedesDeCliente(cliente.id);
-      setSedes(await Promise.all(lista.map(async (s) => ({ ...s, vehiculos: await fuentes.vehiculos(s.id) }))));
-    })();
+  const cargar = useCallback(async () => {
+    const lista = await fuentes.sedesDeCliente(cliente.id);
+    setSedes(await Promise.all(lista.map(async (s) => ({ ...s, vehiculos: await fuentes.vehiculos(s.id) }))));
   }, [fuentes, cliente.id]);
+  useEffect(() => {
+    void cargar();
+  }, [cargar]);
+
+  const quitar = (que: "cliente" | "sede" | "vehiculo", id: string) => async () => {
+    const r = await (deshabilitar as Deshabilitar)(que, id);
+    if (r.ok && que !== "cliente") await cargar();
+    return r;
+  };
 
   return (
     <ScrollView style={estilos.pantalla} contentContainerStyle={estilos.contenido}>
@@ -160,22 +192,80 @@ function DetalleCliente({
           <Text style={estilos.nombre}>{s.nombre}</Text>
           {s.vehiculos.length === 0 ? <Text style={estilos.detalle}>Sin vehículos</Text> : null}
           {s.vehiculos.map((v) => (
-            <Text key={v.id} style={estilos.vehiculo}>
-              {v.codigo}
-              {v.placa ? ` · ${v.placa}` : ""} — {v.nombre}
-            </Text>
+            <View key={v.id}>
+              <Text style={estilos.vehiculo}>
+                {v.codigo}
+                {v.placa ? ` · ${v.placa}` : ""} — {v.nombre}
+              </Text>
+              {deshabilitar ? (
+                <BotonDeshabilitar testID={`deshabilitar-vehiculo-${v.id}`} que={`el vehículo ${v.codigo}`} onConfirmar={quitar("vehiculo", v.id)} />
+              ) : null}
+            </View>
           ))}
           {puedeCrearVehiculo(rol) ? (
             <Boton tipo="fantasma" testID={`nuevo-vehiculo-${s.id}`} onPress={() => onNuevoVehiculo(s)}>
               + Vehículo en esta sede
             </Boton>
           ) : null}
+          {deshabilitar ? (
+            <BotonDeshabilitar testID={`deshabilitar-sede-${s.id}`} que={`la sede ${s.nombre}`} onConfirmar={quitar("sede", s.id)} />
+          ) : null}
         </View>
       ))}
+      {deshabilitar ? (
+        <BotonDeshabilitar testID="deshabilitar-cliente" que={`el cliente ${cliente.nombre}`} onConfirmar={quitar("cliente", cliente.id)} />
+      ) : null}
       <Boton ancho tipo="fantasma" onPress={onVolver}>
         Volver a clientes
       </Boton>
     </ScrollView>
+  );
+}
+
+/**
+ * Pide un segundo toque y dice el motivo si no se puede (órdenes abiertas,
+ * sedes o vehículos activos): un botón que no hace nada termina en una
+ * llamada a soporte.
+ */
+function BotonDeshabilitar({ que, testID, onConfirmar }: {
+  que: string;
+  testID: string;
+  onConfirmar: () => Promise<{ ok: true } | { ok: false; mensaje: string }>;
+}) {
+  const [confirmando, setConfirmando] = useState(false);
+  const [trabajando, setTrabajando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <View style={{ gap: espacio.xs }}>
+      {confirmando ? (
+        <Aviso
+          tono="advertencia"
+          titulo={`¿Deshabilitar ${que}?`}
+          detalle="No se borra: las órdenes viejas lo conservan. Deja de ofrecerse para órdenes nuevas."
+        />
+      ) : null}
+      <Boton
+        tipo={confirmando ? "peligro" : "fantasma"}
+        testID={testID}
+        cargando={trabajando}
+        onPress={() => {
+          if (!confirmando) return setConfirmando(true);
+          setTrabajando(true);
+          setError(null);
+          void onConfirmar()
+            .then((r) => {
+              if (!r.ok) setError(r.mensaje);
+            })
+            .finally(() => {
+              setTrabajando(false);
+              setConfirmando(false);
+            });
+        }}
+      >
+        {confirmando ? "Sí, deshabilitar" : `Deshabilitar ${que}`}
+      </Boton>
+      {error ? <Aviso tono="advertencia" titulo="No se deshabilitó" detalle={error} /> : null}
+    </View>
   );
 }
 

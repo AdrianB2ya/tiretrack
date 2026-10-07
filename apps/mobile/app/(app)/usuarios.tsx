@@ -34,6 +34,7 @@ export default function RutaUsuarios() {
           ...(f.rol === "cliente" && f.clienteId ? { clienteId: f.clienteId } : {}),
         }),
       nuevoCodigo: (id) => llamar<{ codigo: string; expiraEn: string }>("POST", `/usuarios/${id}/codigo`, {}),
+      cambiarActivo: (id, activo) => llamar("POST", `/usuarios/${id}/${activo ? "reactivar" : "desactivar"}`, {}),
       // La hoja de compartir del sistema: WhatsApp, SMS, lo que tenga.
       compartir: (mensaje) => void Share.share({ message: mensaje }).catch(() => undefined),
     };

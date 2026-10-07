@@ -11,6 +11,7 @@ import {
   type Rol,
   type Veredicto,
   fechaEnColombia,
+  rangoDeDiasColombia,
 } from "@tiretrack/domain";
 
 /**
@@ -100,7 +101,8 @@ export class ServicioInforme {
     const params: unknown[] = [];
     const add = (sql: string, valor: unknown) => {
       params.push(valor);
-      cond.push(sql.replace("?", `$${params.length}`));
+      const n = params.length;
+      cond.push(sql.replace("?", () => `$${n}`));
     };
 
     // El cliente ve en el informe lo mismo que en su portal: lo que espera su
@@ -155,12 +157,15 @@ export class ServicioInforme {
            ARRAY[]::text[]
          ) AS servicios,
          lr."numCalor", lr.serial, lr.dot,
-         m.nombre AS marca, d.nombre AS diseno,
+         -- Una marca o un diseño unificado en la revisión se informa con el
+         -- nombre del correcto: es lo que permite analizar por marca. Las
+         -- mediciones no se reescriben (el PDF muestra lo que se escribió).
+         coalesce(mc.nombre, m.nombre) AS marca, coalesce(dc.nombre, d.nombre) AS diseno,
          lr.medida, lr."estadoLlanta",
          lr."psiEncontrada", lr."psiCalibrado", lr.profundidad, lr."noIdentificada",
          lr."desPosicionOrigen" AS "desPosicion", lr."desNumCalor", lr."desSerial", lr."desDot",
          lr."desMedida", lr."desProfundidad",
-         dm.nombre AS "desMarca", dd.nombre AS "desDiseno",
+         coalesce(dmc.nombre, dm.nombre) AS "desMarca", coalesce(ddc.nombre, dd.nombre) AS "desDiseno",
          lr."desDestino", lr."desDetalle"
        FROM "OrdenServicio" o
        JOIN "LlantaRegistro" lr ON lr."ordenId" = o.id
@@ -169,6 +174,10 @@ export class ServicioInforme {
        LEFT JOIN "Diseno" d  ON d.id = lr."disenoId"
        LEFT JOIN "Marca" dm  ON dm.id = lr."desMarcaId"
        LEFT JOIN "Diseno" dd ON dd.id = lr."desDisenoId"
+       LEFT JOIN "Marca" mc   ON mc.id = m."reemplazadaPorId"
+       LEFT JOIN "Diseno" dc  ON dc.id = d."reemplazadoPorId"
+       LEFT JOIN "Marca" dmc  ON dmc.id = dm."reemplazadaPorId"
+       LEFT JOIN "Diseno" ddc ON ddc.id = dd."reemplazadoPorId"
        ${where}
        ORDER BY o.fecha DESC, o.folio DESC NULLS LAST, lr.posicion`,
       params,
@@ -297,34 +306,46 @@ export class ServicioInforme {
     );
   }
 
+  /**
+   * Lo más reciente primero, de a `POR_PAGINA`. Las fechas son días de
+   * Colombia (`creadoEn` está en UTC: comparado contra el día pelado, lo de
+   * después de las 7 p. m. caía en el día siguiente). `antes` pagina por
+   * instante, no por desplazamiento: los registros nuevos no corren la lista.
+   */
   async listarAuditoria(
     _ctx: Contexto,
-    filtro: { usuarioId?: string; accion?: string; desde?: string } = {},
+    filtro: { usuarioId?: string; accion?: string; desde?: string; hasta?: string; antes?: string } = {},
   ) {
     const cond: string[] = [];
     const params: unknown[] = [];
-    if (filtro.usuarioId) {
-      params.push(filtro.usuarioId);
-      cond.push(`"usuarioId" = $${params.length}`);
-    }
-    if (filtro.accion) {
-      params.push(filtro.accion);
-      cond.push(`accion = $${params.length}::"AccionAuditoria"`);
-    }
-    if (filtro.desde) {
-      params.push(filtro.desde);
-      cond.push(`"creadoEn" >= $${params.length}::date`);
-    }
+    const agregar = (sql: string, valor: unknown) => {
+      params.push(valor);
+      const n = params.length;
+      cond.push(sql.replace("?", () => `$${n}`));
+    };
+    if (filtro.usuarioId) agregar(`a."usuarioId" = ?`, filtro.usuarioId);
+    if (filtro.accion) agregar(`a.accion = ?::"AccionAuditoria"`, filtro.accion);
+    const rango = rangoDeDiasColombia(filtro.desde, filtro.hasta);
+    if (rango.desde) agregar(`a."creadoEn" >= ?::timestamptz`, rango.desde);
+    if (rango.hasta) agregar(`a."creadoEn" < ?::timestamptz`, rango.hasta);
+    if (filtro.antes) agregar(`a."creadoEn" < ?::timestamptz`, filtro.antes);
     const where = cond.length > 0 ? `WHERE ${cond.join(" AND ")}` : "";
 
+    // El nombre se guarda solo en algunas acciones: el resto se resuelve con
+    // el usuario. Sin usuario es "Sistema" (cierres tácitos, recurrentes).
     const r = await this.db.query(
-      `SELECT id, "usuarioId", "usuarioNombre", rol, accion::text AS accion, detalle, ip, "creadoEn"
-         FROM "Auditoria" ${where} ORDER BY "creadoEn" DESC LIMIT 200`,
+      `SELECT a.id, a."usuarioId", coalesce(a."usuarioNombre", u.nombre) AS "usuarioNombre", a.rol,
+              a.accion::text AS accion, a.detalle, a.ip, a."viaSuplantacion", a."creadoEn"
+         FROM "Auditoria" a LEFT JOIN "Usuario" u ON u.id = a."usuarioId"
+         ${where} ORDER BY a."creadoEn" DESC LIMIT ${POR_PAGINA_AUDITORIA + 1}`,
       params,
     );
     return r.rows;
   }
 }
+
+/** Cuántos registros por página; se pide uno más para saber si hay otra. */
+export const POR_PAGINA_AUDITORIA = 50;
 
 const aNumero = (v: unknown): number | null =>
   v === null || v === undefined ? null : typeof v === "number" ? v : Number(v);

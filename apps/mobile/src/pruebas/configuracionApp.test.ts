@@ -69,7 +69,7 @@ describe("pantallas construidas y conectadas", () => {
       "PantallaEnvio", "PantallaIngreso", "BandejaRevision", "ListaOrdenes", "FotosDe",
       "FormularioNuevaOrden", "PantallaFlota", "PortalCliente", "DecisionCliente", "PantallaActivacion",
       "PantallaUsuarios", "PantallaSedes", "PantallaPlantillas", "PantallaInforme", "PantallaProgramaciones",
-      "Evidencia", "Recomendaciones", "BotonPdf", "AlertasLlantas",
+      "Evidencia", "Recomendaciones", "BotonPdf", "AlertasLlantas", "PantallaAuditoria", "PantallaRevisionCatalogo",
     ];
     const codigo = rutas();
     expect(pantallas.filter((p) => !new RegExp(`<${p}\\b`).test(codigo))).toEqual([]);

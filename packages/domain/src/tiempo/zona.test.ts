@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fechaEnColombia } from "./zona";
+import { fechaEnColombia, fechaHoraEnColombia } from "./zona";
 
 describe("fecha en Colombia", () => {
   it("después de las 7 p. m. sigue siendo el mismo día, aunque en UTC ya sea mañana", () => {
@@ -24,5 +24,11 @@ describe("fecha en Colombia", () => {
   it("sin horario de verano: el mismo desfase en junio que en diciembre", () => {
     expect(fechaEnColombia(new Date("2026-06-15T04:00:00Z"))).toBe("2026-06-14");
     expect(fechaEnColombia(new Date("2026-12-15T04:00:00Z"))).toBe("2026-12-14");
+  });
+});
+
+describe("hora para mostrar", () => {
+  it("un instante de la noche en UTC es la tarde del mismo día en Colombia", () => {
+    expect(fechaHoraEnColombia("2026-10-07T02:15:00Z")).toBe("2026-10-06 21:15");
   });
 });

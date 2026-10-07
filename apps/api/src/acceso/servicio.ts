@@ -495,6 +495,15 @@ export class ServicioAuth {
     return codigoTotpValido(codigo, secreto);
   }
 
+  /**
+   * Al desactivar a alguien: sus sesiones dejan de renovarse en el acto. El
+   * token de acceso que tenga vive hasta 15 minutos (no se consulta la base
+   * en cada petición); la renovación ya no se le concede.
+   */
+  async revocarSesionesDe(usuarioId: string): Promise<void> {
+    await this.repo.revocarSesionesDeUsuario(usuarioId, this.reloj());
+  }
+
   necesita2fa(rol: string, activo: boolean): boolean {
     return requiereDobleFactor(rol, activo);
   }

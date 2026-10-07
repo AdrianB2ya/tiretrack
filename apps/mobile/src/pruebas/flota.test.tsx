@@ -140,3 +140,34 @@ describe("volver de registrar un cliente a la orden nueva", () => {
     expect(await screen.findByText("Transportes Ciénaga")).toBeTruthy();
   });
 });
+
+describe("deshabilitar flota", () => {
+  it("el técnico no lo ve; el coordinador sí, con segundo toque, y si no se puede dice por qué", async () => {
+    const deshabilitar = vi.fn().mockResolvedValue({ ok: false, mensaje: "No se puede deshabilitar: hay 1 orden(es) sin cerrar" });
+    const { unmount } = render(<PantallaFlota rol="tecnico" fuentes={fuentes()} acciones={acciones()} deshabilitar={deshabilitar} />);
+    fireEvent.click(await screen.findByText("Transportes Reyna"));
+    await screen.findByText(/CA-12/);
+    expect(screen.queryByTestId("deshabilitar-vehiculo-v-1")).toBeNull();
+    unmount();
+
+    render(<PantallaFlota rol="coordinador" fuentes={fuentes()} acciones={acciones()} deshabilitar={deshabilitar} />);
+    fireEvent.click(await screen.findByText("Transportes Reyna"));
+    fireEvent.click(await screen.findByTestId("deshabilitar-vehiculo-v-1"));
+    expect(deshabilitar).not.toHaveBeenCalled();
+    expect(screen.getByText("¿Deshabilitar el vehículo CA-12?")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("deshabilitar-vehiculo-v-1"));
+    await waitFor(() => expect(deshabilitar).toHaveBeenCalledWith("vehiculo", "v-1"));
+    expect(await screen.findByText(/sin cerrar/)).toBeTruthy();
+  });
+
+  it("al deshabilitar el cliente vuelve a la lista recargada", async () => {
+    let quedan = [{ id: "c-1", nombre: "Transportes Reyna", nit: "800112334" }];
+    const deshabilitar = vi.fn().mockImplementation(async () => { quedan = []; return { ok: true }; });
+    render(<PantallaFlota rol="administrador" fuentes={fuentes({ clientes: async () => quedan })} acciones={acciones()} deshabilitar={deshabilitar} />);
+    fireEvent.click(await screen.findByText("Transportes Reyna"));
+    fireEvent.click(await screen.findByTestId("deshabilitar-cliente"));
+    fireEvent.click(screen.getByTestId("deshabilitar-cliente"));
+    await waitFor(() => expect(deshabilitar).toHaveBeenCalledWith("cliente", "c-1"));
+    await waitFor(() => expect(screen.queryByText("Transportes Reyna")).toBeNull());
+  });
+});

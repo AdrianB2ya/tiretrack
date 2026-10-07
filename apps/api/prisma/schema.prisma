@@ -396,6 +396,11 @@ model Marca {
   activa        Boolean   @default(true)
   creadoEn      DateTime  @default(now())
   desactivadoEn DateTime?
+  /// Duplicada unificada por el administrador: alias de esta. Las mediciones
+  /// conservan lo que se escribió; los informes agrupan por la correcta.
+  reemplazadaPorId String?
+  reemplazadaPor   Marca?  @relation("MarcaUnificada", fields: [reemplazadaPorId], references: [id])
+  unificadas       Marca[] @relation("MarcaUnificada")
 
   disenos Diseno[]
 
@@ -416,6 +421,10 @@ model Diseno {
   activo        Boolean   @default(true)
   creadoEn      DateTime  @default(now())
   desactivadoEn DateTime?
+  /// Igual que en Marca: alias del diseño correcto.
+  reemplazadoPorId String?
+  reemplazadoPor   Diseno?  @relation("DisenoUnificado", fields: [reemplazadoPorId], references: [id])
+  unificados       Diseno[] @relation("DisenoUnificado")
 
   medidas DisenoMedida[]
 

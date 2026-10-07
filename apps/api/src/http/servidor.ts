@@ -13,6 +13,7 @@ import {
   zCrearOrden,
   zActivarCuenta,
   zCambiarTecnicoProgramacion,
+  zConsultaAuditoria,
   zCrearProgramacion,
   zCrearRecomendacion,
   zResolverRecomendacion,
@@ -40,7 +41,7 @@ const zVersionConfiguracion = z.object({ ejes: z.array(zEjeDefinicion).min(1), c
 
 /** Consulta de la descarga: `desde` es la marca `hasta` que entregó el servidor. */
 const zConsultaDescarga = z.object({ desde: zInstante.optional() });
-import { fechaEnColombia, puedeAprobar, ROLES, type Rol, type Veredicto } from "@tiretrack/domain";
+import { fechaEnColombia, puedeAprobar, puedeVerAuditoria, ROLES, type Rol, type Veredicto } from "@tiretrack/domain";
 import type { Claims, ResultadoActivacion, ResultadoLogin } from "../acceso/servicio";
 import { ServicioUsuarios } from "../usuarios/servicio";
 import { ServicioProgramaciones } from "../programaciones/servicio";
@@ -55,7 +56,7 @@ import { ServicioDescarga } from "../descarga/servicio";
 import { ServicioCatalogo } from "../catalogo/servicio";
 import { ServicioFlota } from "../flota/servicio";
 import { RepositorioFlotaPg } from "../flota/repositorio";
-import { ServicioInforme } from "../informe/servicio";
+import { POR_PAGINA_AUDITORIA, ServicioInforme } from "../informe/servicio";
 import { RepositorioCatalogoPg } from "../catalogo/repositorio";
 import type { Almacenamiento } from "../fotos/almacenamiento";
 
@@ -91,6 +92,7 @@ export interface ServicioAuthHttp {
     email: string; codigo: string; password: string; empresaId?: string; codigo2fa?: string; ip?: string;
   }): Promise<ResultadoActivacion>;
   crearCodigoActivacion(usuarioId: string, ip?: string): Promise<{ codigo: string; expiraEn: Date } | null>;
+  revocarSesionesDe(usuarioId: string): Promise<void>;
 }
 
 export interface Contexto {
@@ -157,6 +159,17 @@ const ESTADO_POR_CODIGO: Record<string, number> = {
   PROGRAMACION_DUPLICADA: 409,
   // Otra visita ya la marcó hecha o descartada mientras este celular no veía.
   YA_RESUELTA: 409,
+  // Trabajo abierto: primero se reasigna o se cierra.
+  TIENE_ORDENES_ABIERTAS: 409,
+  TIENE_HIJOS_ACTIVOS: 409,
+  TIENE_PROGRAMACIONES: 409,
+  UNO_MISMO: 409,
+  // Revisión del catálogo.
+  MISMA_ENTRADA: 409,
+  NO_PROPIA: 409,
+  YA_UNIFICADA: 409,
+  DESTINO_INACTIVO: 409,
+  OTRA_MARCA: 409,
   YA_EXISTE: 409,
   // El técnico o el vehículo cambiaron de estado: no es un dato mal escrito.
   TECNICO_NO_DISPONIBLE: 409,
@@ -214,6 +227,7 @@ function filtroInforme(req: FastifyRequest):
 }
 
 const zTrazabilidad = z.object({ serial: zTextoCorto });
+const zUnificarCatalogo = z.object({ destinoId: zId });
 
 // ── Autenticación ───────────────────────────────────────────────────────────
 
@@ -816,6 +830,74 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
       return { status: 201, cuerpo: r.valor };
     }));
 
+    // ── Revisión de lo creado en campo (la hace el administrador) ──
+    // En línea: la persona compara y decide en pantalla.
+
+    app.get("/catalogo/revision", consulta(async (s, ctx) => {
+      const r = await s.catalogo.revision(ctx);
+      return r.ok ? { status: 200, cuerpo: r.valor } : rechazo(r.veredicto);
+    }));
+
+    for (const [ruta, tipo] of [["marcas", "marca"], ["disenos", "diseno"]] as const) {
+      app.post(`/catalogo/${ruta}/:id/aprobar`, administracion(async (s, ctx, req) => {
+        const id = zId.safeParse(params(req).id);
+        if (!id.success) return { status: 404, cuerpo: { error: { codigo: "NO_EXISTE", mensaje: "No existe" } } };
+        const r = await s.catalogo.marcarRevisada(ctx, tipo, id.data);
+        if (!r.ok) return rechazo(r.veredicto);
+        await s.informe.registrarAuditoria(ctx, "actualizar", { entidad: tipo, id: id.data, revision: "aprobada" });
+        return { status: 200, cuerpo: {} };
+      }));
+
+      app.post(`/catalogo/${ruta}/:id/unificar`, administracion(async (s, ctx, req) => {
+        const id = zId.safeParse(params(req).id);
+        if (!id.success) return { status: 404, cuerpo: { error: { codigo: "NO_EXISTE", mensaje: "No existe" } } };
+        const p = zUnificarCatalogo.safeParse(req.body ?? {});
+        if (!p.success) return datosInvalidos(p.error.issues);
+        const r = await s.catalogo.unificar(ctx, tipo, id.data, p.data.destinoId);
+        if (!r.ok) return rechazo(r.veredicto);
+        await s.informe.registrarAuditoria(ctx, "actualizar", {
+          entidad: tipo, id: id.data, revision: "unificada", destinoId: p.data.destinoId,
+          disenosUnificados: r.valor.disenosUnificados,
+        });
+        return { status: 200, cuerpo: r.valor };
+      }));
+    }
+
+    // ── Deshabilitar (nada se borra) ──
+    // En línea: es gestión, la persona espera saber si se pudo y por qué no.
+
+    for (const [ruta, metodo] of [
+      ["/flota/clientes/:id/desactivar", "desactivarCliente"],
+      ["/flota/sedes/:id/desactivar", "desactivarSedeCliente"],
+      ["/flota/vehiculos/:id/desactivar", "desactivarVehiculo"],
+    ] as const) {
+      app.post(ruta, administracion(async (s, ctx, req) => {
+        const id = zId.safeParse(params(req).id);
+        if (!id.success) return { status: 404, cuerpo: { error: { codigo: "NO_EXISTE", mensaje: "No existe" } } };
+        const r = await s.flota[metodo](ctx, id.data);
+        return r.ok ? { status: 200, cuerpo: {} } : rechazo(r.veredicto);
+      }));
+    }
+
+    app.post("/usuarios/:id/desactivar", async (req, reply) => {
+      const id = zId.safeParse(params(req).id);
+      if (!id.success) return reply.status(404).send({ error: { codigo: "NO_EXISTE", mensaje: "El usuario no existe" } });
+      const r = await comoAdministracion(req, async (s, ctx) => {
+        const x = await s.usuarios.desactivar(ctx, id.data);
+        return x.ok ? { status: 200, cuerpo: {} } : rechazo(x.veredicto);
+      });
+      // Ya confirmado: sus sesiones dejan de renovarse en el acto.
+      if (r.status === 200) await op.auth.revocarSesionesDe(id.data);
+      return reply.status(r.status).send(r.cuerpo);
+    });
+
+    app.post("/usuarios/:id/reactivar", administracion(async (s, ctx, req) => {
+      const id = zId.safeParse(params(req).id);
+      if (!id.success) return { status: 404, cuerpo: { error: { codigo: "NO_EXISTE", mensaje: "El usuario no existe" } } };
+      const r = await s.usuarios.reactivar(ctx, id.data);
+      return r.ok ? { status: 200, cuerpo: {} } : rechazo(r.veredicto);
+    }));
+
     // ── Informe ──
 
     /**
@@ -868,6 +950,26 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
       const filtro = filtroInforme(req);
       if (!filtro.ok) return filtro.r;
       return { status: 200, cuerpo: await s.informe.vistaPrevia(ctx, sinIndefinidos(filtro.q)) };
+    }));
+
+    /**
+     * Auditoría (5.4): solo el administrador. De a una página, lo más
+     * reciente primero; `siguiente` es el cursor para ver más.
+     */
+    app.get("/auditoria", consulta(async (s, ctx, req) => {
+      if (!puedeVerAuditoria(ctx.rol)) {
+        return { status: 403, cuerpo: { error: { codigo: "SIN_PERMISO", mensaje: "La auditoría la consulta el administrador" } } };
+      }
+      const p = zConsultaAuditoria.safeParse(req.query ?? {});
+      if (!p.success) return datosInvalidos(p.error.issues);
+      const filas = await s.informe.listarAuditoria(ctx, sinIndefinidos(p.data));
+      const hayMas = filas.length > POR_PAGINA_AUDITORIA;
+      const pagina = filas.slice(0, POR_PAGINA_AUDITORIA);
+      const ultimo = pagina[pagina.length - 1] as { creadoEn: Date } | undefined;
+      return {
+        status: 200,
+        cuerpo: { registros: pagina, siguiente: hayMas && ultimo ? new Date(ultimo.creadoEn).toISOString() : null },
+      };
     }));
 
     /** Recorrido de una llanta por su serial: dónde estuvo y cuánto se gastó. */

@@ -3,7 +3,7 @@ import pg from "pg";
 import { nuevoId } from "@tiretrack/domain";
 import { zRespuestaLogin } from "@tiretrack/contracts";
 import { hayBaseDeDatos, poolAislado } from "./base";
-import { crearEsquemaCompleto, sembrar, SEMILLA, authFalso, CODIGO_FALSO } from "./esquemas";
+import { crearEsquemaCompleto, sembrar, SEMILLA, authFalso, CODIGO_FALSO, sesionesRevocadas } from "./esquemas";
 import { construirServidor, enTransaccion, PREFIJO_API } from "../http/servidor";
 import { ServicioDocumento } from "../informe/documento";
 import type { Claims } from "../acceso/servicio";
@@ -498,6 +498,101 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
       await pool.query(`UPDATE "OrdenServicio" SET estado = 'cerrada' WHERE id = $1`, [ORDEN]);
       expect((await alertas("tok-coordinador")).json()).toEqual([]);
       expect((await alertas("tok-tecnico")).statusCode).toBe(403);
+    });
+  });
+
+  describe("auditoría (5.4)", () => {
+    const ver = (consulta: string, token = "tok-admin") =>
+      app.inject({ method: "GET", url: `${PREFIJO_API}/auditoria${consulta}`, headers: { authorization: `Bearer ${token}` } });
+    const registrar = (creadoEn: string, accion = "exportar_informe", usuarioId: string | null = SEMILLA.coordinador) =>
+      pool.query(
+        `INSERT INTO "Auditoria" (id,"empresaId","usuarioId",rol,accion,detalle,"creadoEn") VALUES ($1,$2,$3,'coordinador',$4::"AccionAuditoria",'{}',$5)`,
+        [nuevoId(), SEMILLA.empresa, usuarioId, accion, creadoEn],
+      );
+
+    it("solo el administrador la consulta", async () => {
+      expect((await ver("", "tok-coordinador")).statusCode).toBe(403);
+      expect((await ver("", "tok-tecnico")).statusCode).toBe(403);
+    });
+
+    it("el día es el de Colombia: lo de las 9 p. m. cuenta para ese día, no para el siguiente", async () => {
+      await registrar("2026-10-06T23:30:00Z"); // 6:30 p. m. del 6
+      await registrar("2026-10-07T02:00:00Z"); // 9:00 p. m. del 6
+      await registrar("2026-10-07T06:00:00Z"); // 1:00 a. m. del 7
+      const r6 = await ver("?desde=2026-10-06&hasta=2026-10-06");
+      if (r6.statusCode !== 200) throw new Error(r6.body);
+      const del6 = r6.json();
+      expect(del6.registros).toHaveLength(2);
+      expect((await ver("?desde=2026-10-07&hasta=2026-10-07")).json().registros).toHaveLength(1);
+    });
+
+    it("dice quién fue con su nombre, y lo automático es de nadie (Sistema)", async () => {
+      await registrar("2026-10-06T15:00:00Z");
+      await registrar("2026-10-06T16:00:00Z", "cambiar_estado", null);
+      const r = (await ver("")).json().registros;
+      expect(r[0]).toMatchObject({ accion: "cambiar_estado", usuarioNombre: null });
+      expect(r[1]).toMatchObject({ usuarioNombre: "Jorge Ramírez" });
+    });
+
+    it("pagina por instante: 55 registros salen en 50 y 5", async () => {
+      for (let i = 0; i < 55; i++) await registrar(new Date(Date.UTC(2026, 9, 6, 12, i)).toISOString());
+      const primera = (await ver("")).json();
+      expect(primera.registros).toHaveLength(50);
+      const segunda = (await ver(`?antes=${encodeURIComponent(primera.siguiente)}`)).json();
+      expect(segunda.registros).toHaveLength(5);
+      expect(segunda.siguiente).toBeNull();
+    });
+
+    it("filtra por acción, y una acción inventada es un dato inválido, no un 500", async () => {
+      await registrar("2026-10-06T15:00:00Z", "exportar_informe");
+      await registrar("2026-10-06T15:01:00Z", "deshabilitar");
+      expect((await ver("?accion=deshabilitar")).json().registros).toHaveLength(1);
+      expect((await ver("?accion=borrar_todo")).statusCode).toBe(422);
+    });
+  });
+
+  describe("deshabilitar (nada se borra)", () => {
+    const desactivar = (ruta: string, token = "tok-admin") => pedir({ ruta, token, clave: null });
+
+    it("un usuario sin trabajo abierto se desactiva, sus sesiones se revocan y queda en la auditoría", async () => {
+      sesionesRevocadas.length = 0;
+      const r = await desactivar(`/usuarios/${SEMILLA.otroTecnico}/desactivar`);
+      expect(r.statusCode).toBe(200);
+      expect((await pool.query(`SELECT activo FROM "Usuario" WHERE id = $1`, [SEMILLA.otroTecnico])).rows[0].activo).toBe(false);
+      expect(sesionesRevocadas).toEqual([SEMILLA.otroTecnico]);
+      const a = await pool.query(`SELECT accion, detalle FROM "Auditoria" ORDER BY "creadoEn" DESC LIMIT 1`);
+      expect(a.rows[0]).toMatchObject({ accion: "deshabilitar", detalle: { usuarioId: SEMILLA.otroTecnico } });
+
+      expect((await desactivar(`/usuarios/${SEMILLA.otroTecnico}/reactivar`)).statusCode).toBe(200);
+      expect((await pool.query(`SELECT activo FROM "Usuario" WHERE id = $1`, [SEMILLA.otroTecnico])).rows[0].activo).toBe(true);
+    });
+
+    it("con órdenes abiertas no: primero se reasigna; y las sesiones no se tocan", async () => {
+      sesionesRevocadas.length = 0;
+      const r = await desactivar(`/usuarios/${SEMILLA.tecnico}/desactivar`);
+      expect(r.statusCode).toBe(409);
+      expect(r.json().error.codigo).toBe("TIENE_ORDENES_ABIERTAS");
+      expect(sesionesRevocadas).toEqual([]);
+    });
+
+    it("solo el administrador desactiva usuarios", async () => {
+      expect((await desactivar(`/usuarios/${SEMILLA.otroTecnico}/desactivar`, "tok-coordinador")).statusCode).toBe(403);
+    });
+
+    it("con una orden abierta no se deshabilita ni el vehículo ni su cliente", async () => {
+      expect((await desactivar(`/flota/vehiculos/${SEMILLA.vehiculo}/desactivar`, "tok-coordinador")).json().error.codigo).toBe("TIENE_ORDENES_ABIERTAS");
+      expect((await desactivar(`/flota/clientes/${SEMILLA.cliente}/desactivar`, "tok-coordinador")).json().error.codigo).toBe("TIENE_ORDENES_ABIERTAS");
+    });
+
+    it("de abajo hacia arriba sí: vehículo → sede → cliente", async () => {
+      await pool.query(`UPDATE "OrdenServicio" SET estado = 'cerrada' WHERE id = $1`, [ORDEN]);
+      // Con sus sedes activas, el cliente todavía no.
+      expect((await desactivar(`/flota/clientes/${SEMILLA.cliente}/desactivar`, "tok-coordinador")).json().error.codigo).toBe("TIENE_HIJOS_ACTIVOS");
+      expect((await desactivar(`/flota/vehiculos/${SEMILLA.vehiculo}/desactivar`, "tok-coordinador")).statusCode).toBe(200);
+      expect((await desactivar(`/flota/sedes/${SEMILLA.sedeCliente}/desactivar`, "tok-coordinador")).statusCode).toBe(200);
+      expect((await desactivar(`/flota/clientes/${SEMILLA.cliente}/desactivar`, "tok-coordinador")).statusCode).toBe(200);
+      // El técnico opera, no gestiona.
+      expect((await desactivar(`/flota/clientes/${SEMILLA.cliente}/desactivar`, "tok-tecnico")).statusCode).toBe(403);
     });
   });
 

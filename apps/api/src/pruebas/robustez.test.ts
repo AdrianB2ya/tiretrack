@@ -172,6 +172,10 @@ describe.skipIf(!disponible)("robustez: ninguna entrada mala da 500", () => {
       await probar("GET", `/flota/sedes/${e}/vehiculos`, { entrada: id });
       await probar("POST", `/fotos/${e}/confirmar`, { cuerpo: {}, entrada: id });
       await probar("POST", `/programaciones/${e}/desactivar`, { cuerpo: {}, token: "tok-coordinador", entrada: id });
+      await probar("POST", `/catalogo/marcas/${e}/aprobar`, { cuerpo: {}, token: "tok-admin", entrada: id });
+      await probar("POST", `/catalogo/disenos/${e}/unificar`, { cuerpo: { destinoId: id }, token: "tok-admin", entrada: id });
+      await probar("POST", `/usuarios/${e}/desactivar`, { cuerpo: {}, token: "tok-admin", entrada: id });
+      await probar("POST", `/flota/vehiculos/${e}/desactivar`, { cuerpo: {}, token: "tok-coordinador", entrada: id });
       await probar("POST", `/programaciones/${e}/tecnico`, { cuerpo: { tecnicoId: SEMILLA.tecnico }, token: "tok-coordinador", entrada: id });
     }
   }, 120_000);
@@ -183,6 +187,7 @@ describe.skipIf(!disponible)("robustez: ninguna entrada mala da 500", () => {
       await probar("GET", `/informe/resumen?${q}`, { token: "tok-coordinador", entrada: q });
       await probar("GET", `/informe/trazabilidad?${q}`, { token: "tok-coordinador", entrada: q });
       await probar("GET", `/flota/clientes?${q}`, { entrada: q });
+      await probar("GET", `/auditoria?${q}`, { token: "tok-admin", entrada: q });
     }
   }, 120_000);
 

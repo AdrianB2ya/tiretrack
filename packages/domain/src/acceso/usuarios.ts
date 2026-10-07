@@ -55,3 +55,37 @@ export function generarCodigoActivacion(azar: (n: number) => number = (n) => Mat
 export function normalizarCodigoActivacion(codigo: string): string {
   return codigo.toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
+
+/** Lo que se necesita saber para decidir si alguien se puede desactivar. */
+export interface UsoDeUsuario {
+  /** Órdenes sin cerrar asignadas a esa persona. */
+  readonly ordenesAbiertas: number;
+  /** Visitas recurrentes activas con esa persona como técnico fijo. */
+  readonly programacionesActivas: number;
+}
+
+/**
+ * Desactivar a alguien (deja de trabajar en la empresa). Nada se borra.
+ *
+ * Como el resto del sistema, no se deshabilita algo con trabajo abierto: sus
+ * órdenes quedarían en la lista de nadie, y sus visitas recurrentes dejarían
+ * de generarse. Primero se reasignan.
+ */
+export function puedeDesactivarUsuario(quien: Rol, esUnoMismo: boolean, uso: UsoDeUsuario): Veredicto {
+  if (!puedeGestionarUsuarios(quien)) return negar("SIN_PERMISO", "Solo el administrador desactiva usuarios");
+  // Quedaría fuera sin nadie que lo pueda volver a activar.
+  if (esUnoMismo) return negar("UNO_MISMO", "No puedes desactivar tu propia cuenta");
+  if (uso.ordenesAbiertas > 0) {
+    return negar(
+      "TIENE_ORDENES_ABIERTAS",
+      `Tiene ${uso.ordenesAbiertas} ${uso.ordenesAbiertas === 1 ? "orden abierta" : "órdenes abiertas"}: reasígnalas primero`,
+    );
+  }
+  if (uso.programacionesActivas > 0) {
+    return negar(
+      "TIENE_PROGRAMACIONES",
+      `Es el técnico de ${uso.programacionesActivas} ${uso.programacionesActivas === 1 ? "visita recurrente" : "visitas recurrentes"}: cambia el técnico primero`,
+    );
+  }
+  return PERMITIDO;
+}
