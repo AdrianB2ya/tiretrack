@@ -1,5 +1,9 @@
 # CLAUDE.md
 
+> **Idioma: responde siempre en español**, en cada mensaje, por corto que
+> sea (también al guiar un despliegue o soporte paso a paso). El usuario lo
+> ha pedido muchas veces.
+
 Contexto permanente del proyecto. **Léelo completo antes de tocar código.**
 Aquí está el porqué de las decisiones, que es lo que se pierde entre sesiones.
 
