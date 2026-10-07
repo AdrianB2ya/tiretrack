@@ -87,6 +87,10 @@ export interface AccionesDatos {
   recomendacionesDe(ordenId: string, vehiculoId: string): Promise<RecomendacionLocal[]>;
   crearRecomendacion(r: Parameters<RepositorioLocal["crearRecomendacion"]>[0]): Promise<void>;
   resolverRecomendacion(id: string, estado: "ejecutada" | "descartada", ordenId: string): Promise<void>;
+  /** La cola, una por una: para ver qué falta por enviar y qué rechazó el servidor. */
+  cambiosSinEnviar(): ReturnType<RepositorioLocal["cambiosSinEnviar"]>;
+  reintentarCambio(id: string): Promise<void>;
+  descartarCambio(id: string): Promise<void>;
   /** Lo que el formulario de orden nueva lee de la base del celular. */
   fuentesOrden: FuentesNuevaOrden;
   /** Guarda la orden nueva y la encola; si hay señal, sale enseguida. */
@@ -323,6 +327,23 @@ export function ProveedorDatos({
     [repo, refrescar],
   );
 
+  const cambiosSinEnviar = useCallback<AccionesDatos["cambiosSinEnviar"]>(() => repo.cambiosSinEnviar(), [repo]);
+  const reintentarCambio = useCallback<AccionesDatos["reintentarCambio"]>(
+    async (id) => {
+      await repo.reintentarRechazada(id);
+      // Vuelve a la cola: se intenta enseguida, no en la vuelta del minuto.
+      await sincronizar();
+    },
+    [repo, sincronizar],
+  );
+  const descartarCambio = useCallback<AccionesDatos["descartarCambio"]>(
+    async (id) => {
+      await repo.descartarRechazada(id);
+      await refrescar();
+    },
+    [repo, refrescar],
+  );
+
   const actualizarDatosOrden = useCallback<AccionesDatos["actualizarDatosOrden"]>(
     async (ordenId, datos) => {
       await repo.actualizarDatosOrden(ordenId, datos);
@@ -527,6 +548,9 @@ export function ProveedorDatos({
       resolverRecomendacion,
       posicionesPlantilla,
       accionesFlota,
+      cambiosSinEnviar,
+      reintentarCambio,
+      descartarCambio,
     }),
     [
       cargando, ordenes, pendientesDeEnviar, sincronizando, ultimaSincronizacion, errorDescarga,
@@ -534,6 +558,7 @@ export function ProveedorDatos({
       firmar, cambiarEstado, catalogoPara, bandejaRevision, tecnicosDeSede,
       reasignar, medicionAnterior, fotosDe, fotosSinSubir, adjuntarFoto, fuentesOrden, crearOrden,
       fuentesFlota, recomendacionesDe, crearRecomendacion, resolverRecomendacion, posicionesPlantilla, accionesFlota,
+      cambiosSinEnviar, reintentarCambio, descartarCambio,
     ],
   );
 

@@ -977,3 +977,24 @@ describe("una orden programada se inicia al capturar", () => {
     expect(await tipos()).toEqual(["cambiar_estado:en_proceso", "cambiar_estado:en_revision"]);
   });
 });
+
+describe("cambios sin enviar, uno por uno", () => {
+  it("lista pendientes y rechazados con el folio de su orden; solo un rechazado se descarta", async () => {
+    await repo.guardarOrden({ ...ordenBase, encolar: false });
+    await repo.guardarMedicion({ ordenId: "ord-1", posicion: 3, profundidad: 9, capturadoPorId: "u-tec1" });
+    await repo.cambiarEstado("ord-1", "en_revision");
+    const [medicion, envio] = await repo.cambiosSinEnviar();
+    expect(medicion).toMatchObject({ tipo: "guardar_medicion", motivoRechazo: null });
+    await repo.apartarOperacion(envio!.id, "FIRMA_DESACTUALIZADA: la orden cambió después de firmar");
+
+    // Una pendiente no se descarta: todavía puede llegar.
+    await repo.descartarRechazada(medicion!.id);
+    expect(await repo.cambiosSinEnviar()).toHaveLength(2);
+
+    expect((await repo.cambiosSinEnviar())[1]?.motivoRechazo).toMatch(/FIRMA_DESACTUALIZADA/);
+    await repo.descartarRechazada(envio!.id);
+    expect((await repo.cambiosSinEnviar()).map((c) => c.tipo)).toEqual(["guardar_medicion"]);
+    // Lo guardado en el celular queda.
+    expect(await repo.medicionesDe("ord-1")).toHaveLength(1);
+  });
+});

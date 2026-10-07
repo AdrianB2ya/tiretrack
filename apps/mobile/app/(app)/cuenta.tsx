@@ -7,7 +7,7 @@ import { useDatos } from "../../src/app/ProveedorDatos";
 export default function RutaCuenta() {
   const router = useRouter();
   const { usuario, cerrar } = useSesion();
-  const { sincronizar, sincronizando } = useDatos();
+  const { sincronizar, sincronizando, cambiosSinEnviar, reintentarCambio, descartarCambio } = useDatos();
 
   // Recién cerrada la sesión, la pantalla aún se dibuja una vez sin usuario.
   if (!usuario) return null;
@@ -20,6 +20,7 @@ export default function RutaCuenta() {
       sincronizando={sincronizando}
       // replace: volver atrás no debe regresar a una pantalla con sesión.
       onCerrada={() => router.replace("/ingresar" as never)}
+      cambios={{ listar: cambiosSinEnviar, reintentar: reintentarCambio, descartar: descartarCambio }}
     />
   );
 }

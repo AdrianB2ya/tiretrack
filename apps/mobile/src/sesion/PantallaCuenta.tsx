@@ -4,6 +4,8 @@ import type { Rol } from "@tiretrack/domain";
 import { Aviso, Boton, Tarjeta } from "../diseno/componentes";
 import { colores, espacio, texto } from "../diseno/tokens";
 import type { Resultado, TrabajoPendiente, UsuarioSesion } from "./servicio";
+import { CambiosSinEnviar } from "./CambiosSinEnviar";
+import type { CambioSinEnviar } from "./cambios";
 
 /**
  * Cuenta: quién está dentro y cómo salir.
@@ -33,6 +35,12 @@ export interface PantallaCuentaProps {
   sincronizando: boolean;
   /** La sesión ya se cerró: llevar a la pantalla de ingreso. */
   onCerrada: () => void;
+  /** La cola, uno por uno. Opcional: sin ella la pantalla funciona como antes. */
+  cambios?: {
+    listar(): Promise<CambioSinEnviar[]>;
+    reintentar(id: string): Promise<void>;
+    descartar(id: string): Promise<void>;
+  };
 }
 
 export function PantallaCuenta({
@@ -41,6 +49,7 @@ export function PantallaCuenta({
   onSincronizar,
   sincronizando,
   onCerrada,
+  cambios,
 }: PantallaCuentaProps) {
   const [cerrando, setCerrando] = useState(false);
   const [pendiente, setPendiente] = useState<string | null>(null);
@@ -74,6 +83,8 @@ export function PantallaCuenta({
         <Text style={estilos.detalle}>{usuario.email}</Text>
         <Text style={estilos.detalle}>{ETIQUETA_ROL[usuario.rol] ?? usuario.rol}</Text>
       </Tarjeta>
+
+      {cambios ? <CambiosSinEnviar fuentes={cambios} version={`${sincronizando}-${pendiente}`} /> : null}
 
       {pendiente ? (
         <View style={estilos.bloque}>

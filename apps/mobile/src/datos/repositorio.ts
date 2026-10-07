@@ -1760,6 +1760,40 @@ export class RepositorioLocal {
     }));
   }
 
+  /**
+   * Toda la cola, pendientes y rechazadas, con el folio de su orden: lo que
+   * la persona necesita para decidir qué hacer con cada una.
+   */
+  async cambiosSinEnviar(): Promise<{
+    id: string; tipo: TipoOperacion; datos: unknown; orden: string | null;
+    intentos: number; ultimoError: string | null; motivoRechazo: string | null;
+  }[]> {
+    const filas = await this.db.consultar<Record<string, unknown>>(
+      `SELECT op.id, op.tipo, op.datos, op.intentos, op.ultimo_error, op.motivo_rechazo,
+              coalesce(o.folio, o.codigo_referencia) AS orden
+         FROM operacion op LEFT JOIN orden o ON o.id = op.orden_id
+        ORDER BY op.creada_en, op.rowid`,
+    );
+    return filas.map((f) => ({
+      id: String(f["id"]),
+      tipo: String(f["tipo"]) as TipoOperacion,
+      datos: JSON.parse(String(f["datos"])),
+      orden: (f["orden"] as string) ?? null,
+      intentos: Number(f["intentos"]),
+      ultimoError: (f["ultimo_error"] as string) ?? null,
+      motivoRechazo: (f["motivo_rechazo"] as string) ?? null,
+    }));
+  }
+
+  /**
+   * Quita de la cola una operación RECHAZADA, por decisión de una persona. Lo
+   * guardado en el celular queda; solo deja de intentarse enviar. Una
+   * pendiente no se descarta: todavía puede llegar.
+   */
+  async descartarRechazada(id: string): Promise<void> {
+    await this.db.ejecutar(`DELETE FROM operacion WHERE id = ? AND rechazada_en IS NOT NULL`, [id]);
+  }
+
   /** Devuelve una rechazada a la cola, tras corregir lo que la hacía fallar. */
   async reintentarRechazada(id: string): Promise<void> {
     await this.db.ejecutar(

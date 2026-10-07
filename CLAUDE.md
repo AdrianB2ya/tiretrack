@@ -3303,6 +3303,21 @@ la pasaba a `en_proceso`, y la máquina de estados no admite el salto directo.
   mismo milisegundo. SQLite hoy las devuelve en orden igual, así que la
   prueba no distingue el desempate; va como garantía, no por un fallo visto.
 
+## Cambios sin enviar, uno por uno (2026-10-07)
+
+Al cerrar sesión la app decía "hay 2 cambios sin enviar" y no había dónde
+ver cuáles ni por qué. Los rechazados por el servidor se apartan con su
+motivo y no salen sincronizando (5.0): esperan a que una persona decida, pero
+**ninguna pantalla los mostraba**; el repositorio ya sabía listarlos y
+reintentarlos.
+
+- En **Mi cuenta**, la lista: qué es cada cambio en palabras del técnico
+  ("Medición de la posición 3 · OS-FUN-000004"), si espera su turno o fue
+  rechazado, y el motivo del servidor.
+- Un rechazado se puede **reintentar** (vuelve a la cola y se envía en el
+  acto) o **descartar** (segundo toque; deja de intentarse, lo guardado en el
+  celular queda). Un pendiente no se descarta: todavía puede llegar.
+
 ## Punto de retoma (2026-10-05)
 
 **Estado:** el usuario prueba la app en el teléfono con Expo Go (SDK 52). La guía de despliegue (`DESPLEGAR.md`) está lista; falta que el usuario cree las cuentas.
