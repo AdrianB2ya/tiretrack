@@ -80,12 +80,18 @@ export async function arrancar(config: Config): Promise<Servicios> {
   // Puede atender: se comprueban las DOS conexiones, porque con la de acceso
   // caída nadie podría ingresar aunque todo lo demás funcione.
   app.get("/listo", async (_req, reply) => {
-    try {
-      await Promise.all([pool.query("SELECT 1"), poolAuth.query("SELECT 1")]);
-      return { estado: "listo" };
-    } catch {
-      return reply.status(503).send({ estado: "sin_base_de_datos" });
-    }
+    // Cada conexión por separado, y el motivo al registro: en el primer
+    // despliegue un 503 sin explicación no dejaba saber cuál fallaba ni por
+    // qué. El mensaje de pg no incluye la clave; la respuesta HTTP sigue sin
+    // detalles, que no son para quien pregunta desde afuera.
+    const [app_, acceso] = await Promise.allSettled([pool.query("SELECT 1"), poolAuth.query("SELECT 1")]);
+    const fallas = [
+      app_.status === "rejected" ? `aplicación (DATABASE_URL): ${motivo(app_.reason)}` : null,
+      acceso.status === "rejected" ? `acceso (DATABASE_URL_AUTH): ${motivo(acceso.reason)}` : null,
+    ].filter((x): x is string => x !== null);
+    if (fallas.length === 0) return { estado: "listo" };
+    app.log.error({ fallas }, "La base de datos no responde");
+    return reply.status(503).send({ estado: "sin_base_de_datos" });
   });
 
   await app.listen({ port: config.PORT, host: "0.0.0.0" });
@@ -142,4 +148,10 @@ export async function principal(): Promise<void> {
 // Solo arranca si se ejecuta directamente, no al importarlo en una prueba.
 if (process.argv[1]?.endsWith("server.ts") || process.argv[1]?.endsWith("server.js")) {
   void principal();
+}
+
+/** El motivo de un fallo de conexión, sin datos de la URL. */
+function motivo(e: unknown): string {
+  const err = e as { code?: string; message?: string };
+  return [err.code, err.message].filter(Boolean).join(" ").replace(/postgres(ql)?:\/\/\S+/g, "postgresql://***");
 }
