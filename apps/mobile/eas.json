@@ -6,7 +6,7 @@
       "distribution": "internal",
       "channel": "campo",
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://10.0.2.2:4000/api/v1"
+        "EXPO_PUBLIC_API_URL": "https://tiretrack-api.onrender.com/api/v1"
       }
     },
     "pruebas": {

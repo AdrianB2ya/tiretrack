@@ -11,21 +11,30 @@
       "package": "app.tiretrack.campo",
       "versionCode": 1,
       "permissions": [
-        "CAMERA",
-        "INTERNET",
-        "ACCESS_NETWORK_STATE"
+        "android.permission.CAMERA",
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE"
       ],
       "adaptiveIcon": {
         "backgroundColor": "#1A1D23"
-      }
+      },
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
-      ["expo-router", { "root": "./app" }],
+      [
+        "expo-router",
+        {
+          "root": "./app"
+        }
+      ],
       [
         "expo-image-picker",
         {
           "cameraPermission": "TireTrack usa la cámara para registrar el estado de las llantas en la orden de servicio.",
-          "photosPermission": "TireTrack accede a tus fotos solo si eliges una imagen ya tomada para adjuntarla a una orden."
+          "photosPermission": "TireTrack accede a tus fotos solo si eliges una imagen ya tomada para adjuntarla a una orden.",
+          "microphonePermission": false
         }
       ],
       "expo-secure-store",
@@ -44,7 +53,21 @@
       }
     },
     "updates": {
-      "enabled": false
+      "enabled": false,
+      "url": "https://u.expo.dev/4ce8f57b-b359-4236-b082-6219e722a1b8"
+    },
+    "extra": {
+      "router": {
+        "origin": false,
+        "root": "./app"
+      },
+      "eas": {
+        "projectId": "4ce8f57b-b359-4236-b082-6219e722a1b8"
+      }
+    },
+    "owner": "adrianb2ya",
+    "runtimeVersion": {
+      "policy": "appVersion"
     }
   }
 }
