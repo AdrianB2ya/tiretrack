@@ -3329,6 +3329,12 @@ hasta que lo pida**; se agregan aquí a medida que aparecen.
 2. **Número de calor:** falta el campo en la **llanta montada** y en la
    **llanta desmontada** del editor de posición.
 3. **Profundidad (profundímetro):** no deja escribir el **punto decimal**.
+4. **Logo y nombre nuevos** (esperando el diseño). Al aplicarlos: ícono
+   1024², ícono adaptable de Android (primer plano con zona segura ~66% +
+   fondo), monocromo, splash sobre el fondo oscuro, logo horizontal para el
+   ingreso. **Cambiar solo el nombre visible**: el paquete
+   `app.tiretrack.campo` no se toca (cambiarlo vuelve otra app: no instala
+   encima, los probadores pierden lo no enviado, y la tienda no la actualiza).
 
 ## Punto de retoma (2026-10-05)
 
