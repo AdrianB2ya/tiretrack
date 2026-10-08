@@ -3332,9 +3332,13 @@ hasta que lo pida**; se agregan aquí a medida que aparecen.
 4. **Logo y nombre nuevos** (esperando el diseño). Al aplicarlos: ícono
    1024², ícono adaptable de Android (primer plano con zona segura ~66% +
    fondo), monocromo, splash sobre el fondo oscuro, logo horizontal para el
-   ingreso. **Cambiar solo el nombre visible**: el paquete
-   `app.tiretrack.campo` no se toca (cambiarlo vuelve otra app: no instala
-   encima, los probadores pierden lo no enviado, y la tienda no la actualiza).
+   ingreso. **El usuario decidió cambiar también el identificador**
+   (`app.tiretrack.campo`): las pruebas son con datos ficticios y es el
+   momento barato, antes de uso real o de la tienda (allí ya no se puede).
+   Hacerlo en la misma compilación que nombre y logo: los probadores
+   desinstalan una sola vez (antes, revisar en Mi cuenta que no quede nada
+   sin enviar). EAS genera llave de firma nueva para el paquete nuevo. Formato
+   `com.<dominio>.<app>`, minúsculas, definitivo.
 
 ## Punto de retoma (2026-10-05)
 
