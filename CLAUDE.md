@@ -3318,6 +3318,18 @@ reintentarlos.
   acto) o **descartar** (segundo toque; deja de intentarse, lo guardado en el
   celular queda). Un pendiente no se descarta: todavía puede llegar.
 
+## Pendientes de las pruebas en campo (anotados, sin desarrollar)
+
+Lista que el usuario va dictando mientras prueba el APK. **No desarrollar
+hasta que lo pida**; se agregan aquí a medida que aparecen.
+
+1. **Usuario de rol cliente:** al crearlo, pedir solo los datos que aplican
+   al cliente y mostrar solo **ese cliente y sus sedes**, no las sedes de la
+   empresa prestadora.
+2. **Número de calor:** falta el campo en la **llanta montada** y en la
+   **llanta desmontada** del editor de posición.
+3. **Profundidad (profundímetro):** no deja escribir el **punto decimal**.
+
 ## Punto de retoma (2026-10-05)
 
 **Estado:** el usuario prueba la app en el teléfono con Expo Go (SDK 52). La guía de despliegue (`DESPLEGAR.md`) está lista; falta que el usuario cree las cuentas.
