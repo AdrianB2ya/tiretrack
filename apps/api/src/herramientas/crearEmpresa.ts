@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import type pg from "pg";
 import { z } from "zod";
 import { CATALOGO_SERVICIOS, nuevoId } from "@tiretrack/domain";
-import { zCrearSede, zCrearUsuario } from "@tiretrack/contracts";
+import { zCrearSede, zUsuarioBase } from "@tiretrack/contracts";
 
 /**
  * Alta de una empresa en producción: la empresa, su primera sede, los
@@ -26,7 +26,7 @@ export const zAltaEmpresa = z.object({
   empresa: z.object({ nombre: z.string().trim().min(2).max(120), nit: z.string().trim().min(5).max(20) }),
   sede: zCrearSede.pick({ nombre: true, codigo: true }).extend({ ciudad: z.string().trim().max(80).optional() }),
   // Las mismas reglas que un usuario creado desde la app (sin sus refinamientos de rol).
-  administrador: zCrearUsuario.innerType().innerType().pick({ nombre: true, cedula: true, email: true, telefono: true }),
+  administrador: zUsuarioBase.pick({ nombre: true, cedula: true, email: true, telefono: true }),
 });
 export type AltaEmpresa = z.infer<typeof zAltaEmpresa>;
 

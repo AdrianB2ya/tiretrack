@@ -22,6 +22,7 @@ export default function RutaUsuarios() {
       usuarios: () => llamar<UsuarioListado[]>("GET", "/usuarios"),
       sedes: () => llamar("GET", "/sedes"),
       clientes: () => fuentesFlota.clientes(),
+      sedesDeCliente: (clienteId) => fuentesFlota.sedesDeCliente(clienteId),
       crear: (f) =>
         llamar<{ codigo: string; expiraEn: string }>("POST", "/usuarios", {
           id: nuevoId(),
@@ -30,7 +31,8 @@ export default function RutaUsuarios() {
           email: f.email.trim().toLowerCase(),
           ...(f.telefono.trim() ? { telefono: f.telefono.trim() } : {}),
           rol: f.rol,
-          sedes: f.sedes,
+          // Un usuario cliente no lleva sedes de la empresa.
+          sedes: f.rol === "cliente" ? [] : f.sedes,
           ...(f.rol === "cliente" && f.clienteId ? { clienteId: f.clienteId } : {}),
         }),
       nuevoCodigo: (id) => llamar<{ codigo: string; expiraEn: string }>("POST", `/usuarios/${id}/codigo`, {}),

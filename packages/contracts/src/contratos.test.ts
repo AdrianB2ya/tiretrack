@@ -301,10 +301,12 @@ describe("catálogo", () => {
       cedula: "77221004",
       email: "l@r.com",
       rol: "cliente" as const,
-      sedes: [ID2],
+      sedes: [] as string[],
     };
     expect(zCrearUsuario.safeParse(base).success).toBe(false);
     expect(zCrearUsuario.safeParse({ ...base, clienteId: ID3 }).success).toBe(true);
+    // No lleva sedes de la empresa: ve las órdenes de su cliente.
+    expect(zCrearUsuario.safeParse({ ...base, clienteId: ID3, sedes: [ID2] }).success).toBe(false);
   });
 
   it("el vehículo cuelga de la sede del cliente, no del cliente", () => {

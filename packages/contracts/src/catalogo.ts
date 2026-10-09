@@ -80,22 +80,37 @@ export const zCrearSede = z.object({
   departamento: zTextoCorto.optional(),
 });
 
-export const zCrearUsuario = z.object({
+/** Los campos de un usuario, sin las reglas que los cruzan (para reutilizar partes). */
+export const zUsuarioBase = z.object({
   id: zId,
   nombre: zTextoCorto,
   cedula: z.string().trim().min(5).max(20),
   email: z.string().trim().toLowerCase().email(),
   telefono: z.string().trim().max(20).optional(),
   rol: z.enum(["administrador", "coordinador", "tecnico", "cliente"]),
-  /** Un usuario rota entre sedes: la relación es de muchos a muchos. */
-  sedes: z.array(zId).min(1, "Asigna al menos una sede"),
+  /**
+   * Sedes de la EMPRESA en las que trabaja (un usuario rota entre sedes).
+   * Un usuario cliente no lleva: ve las órdenes de su cliente, en todas sus
+   * sedes, y las sedes de la empresa prestadora no le dicen nada.
+   */
+  sedes: z.array(zId).default([]),
   sedePrincipal: zId.optional(),
   /** Obligatorio cuando el rol es cliente. */
   clienteId: zId.optional(),
-})
+});
+
+export const zCrearUsuario = zUsuarioBase
   .refine((d) => d.rol !== "cliente" || !!d.clienteId, {
     message: "Un usuario cliente debe estar vinculado a su cliente",
     path: ["clienteId"],
+  })
+  .refine((d) => d.rol === "cliente" || d.sedes.length > 0, {
+    message: "Asigna al menos una sede",
+    path: ["sedes"],
+  })
+  .refine((d) => d.rol !== "cliente" || d.sedes.length === 0, {
+    message: "Un usuario cliente no se asigna a sedes de la empresa",
+    path: ["sedes"],
   })
   .refine((d) => !d.sedePrincipal || d.sedes.includes(d.sedePrincipal), {
     message: "La sede principal debe estar entre las asignadas",

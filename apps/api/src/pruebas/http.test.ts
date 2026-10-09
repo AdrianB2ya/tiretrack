@@ -237,6 +237,16 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
       expect(guardadas.rows[0].n).toBe(0);
     });
 
+    it("un usuario cliente se crea con su cliente y sin sedes de la empresa", async () => {
+      const u = nuevo({ rol: "cliente", sedes: [], clienteId: SEMILLA.cliente, email: "luis@reyna.com" });
+      const r = await enviar("POST", "/usuarios", "tok-admin", u);
+      expect(r.statusCode).toBe(201);
+      const s = await pool.query(`SELECT count(*)::int AS n FROM "UsuarioSede" WHERE "usuarioId" = $1`, [u.id]);
+      expect(s.rows[0].n).toBe(0);
+      const c = await pool.query(`SELECT "clienteId" FROM "Usuario" WHERE id = $1`, [u.id]);
+      expect(c.rows[0].clienteId).toBe(SEMILLA.cliente);
+    });
+
     it("el usuario nace con sus sedes y sin contraseña utilizable", async () => {
       const u = nuevo();
       await enviar("POST", "/usuarios", "tok-admin", u);

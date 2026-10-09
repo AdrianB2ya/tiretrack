@@ -20,6 +20,8 @@ export interface FuentesUsuarios {
   usuarios(): Promise<Resultado<UsuarioListado[]>>;
   sedes(): Promise<Resultado<{ id: string; nombre: string; codigo: string }[]>>;
   clientes(): Promise<{ id: string; nombre: string }[]>;
+  /** Sedes del cliente, para confirmar que es el correcto al crear un usuario cliente. */
+  sedesDeCliente?(clienteId: string): Promise<{ id: string; nombre: string }[]>;
   crear(f: FormUsuario): Promise<Resultado<{ codigo: string; expiraEn: string }>>;
   nuevoCodigo(usuarioId: string): Promise<Resultado<{ codigo: string; expiraEn: string }>>;
   /** Desactivar (deja de trabajar en la empresa) o volver a activar. Nada se borra. */
@@ -146,6 +148,11 @@ function FormNuevo({ fuentes, onCancelar, onCreado }: {
 }) {
   const [f, setF] = useState<FormUsuario>({ nombre: "", cedula: "", email: "", telefono: "", rol: "tecnico", sedes: [], clienteId: null });
   const [sedes, setSedes] = useState<{ id: string; nombre: string; codigo: string }[]>([]);
+  const [sedesCliente, setSedesCliente] = useState<{ id: string; nombre: string }[]>([]);
+  useEffect(() => {
+    if (!f.clienteId || !fuentes.sedesDeCliente) return setSedesCliente([]);
+    void fuentes.sedesDeCliente(f.clienteId).then(setSedesCliente);
+  }, [fuentes, f.clienteId]);
   const [clientes, setClientes] = useState<{ id: string; nombre: string }[]>([]);
   const [intentado, setIntentado] = useState(false);
   const [guardando, setGuardando] = useState(false);
@@ -176,25 +183,41 @@ function FormNuevo({ fuentes, onCancelar, onCreado }: {
         <Text style={estilos.etiqueta}>Rol</Text>
         <View style={estilos.enLinea}>
           {(Object.keys(ETIQUETA_ROL_ASIGNABLE) as (keyof typeof ETIQUETA_ROL_ASIGNABLE)[]).map((r) => (
-            <Opcion key={r} activa={f.rol === r} etiqueta={ETIQUETA_ROL_ASIGNABLE[r]} onPress={() => setF({ ...f, rol: r })} />
+            <Opcion
+              key={r}
+              activa={f.rol === r}
+              etiqueta={ETIQUETA_ROL_ASIGNABLE[r]}
+              // Cambiar entre cliente y personal de la empresa limpia lo que ya no aplica.
+              onPress={() => setF({ ...f, rol: r, ...(r === "cliente" ? { sedes: [] } : { clienteId: null }) })}
+            />
           ))}
         </View>
 
-        <Text style={estilos.etiqueta}>Sedes en las que trabaja</Text>
-        {sedes.map((s) => (
-          <Opcion key={s.id} activa={f.sedes.includes(s.id)} etiqueta={`${s.nombre} (${s.codigo})`} onPress={() => alternar(s.id)} casilla />
-        ))}
-        {intentado && p.find((x) => x.campo === "sedes") ? <Text style={estilos.error}>Elige al menos una sede</Text> : null}
-
         {f.rol === "cliente" ? (
           <>
+            {/* Un usuario cliente no trabaja en sedes de la empresa: ve las órdenes de SU cliente. */}
             <Text style={estilos.etiqueta}>Cliente al que pertenece</Text>
             {clientes.map((c) => (
               <Opcion key={c.id} activa={f.clienteId === c.id} etiqueta={c.nombre} onPress={() => setF({ ...f, clienteId: c.id })} />
             ))}
             {intentado && p.find((x) => x.campo === "clienteId") ? <Text style={estilos.error}>Elige el cliente</Text> : null}
+            {f.clienteId && sedesCliente.length > 0 ? (
+              <Aviso
+                tono="info"
+                titulo="Verá las órdenes de este cliente"
+                detalle={`Sedes: ${sedesCliente.map((s) => s.nombre).join(", ")}.`}
+              />
+            ) : null}
           </>
-        ) : null}
+        ) : (
+          <>
+            <Text style={estilos.etiqueta}>Sedes en las que trabaja</Text>
+            {sedes.map((s) => (
+              <Opcion key={s.id} activa={f.sedes.includes(s.id)} etiqueta={`${s.nombre} (${s.codigo})`} onPress={() => alternar(s.id)} casilla />
+            ))}
+            {intentado && p.find((x) => x.campo === "sedes") ? <Text style={estilos.error}>Elige al menos una sede</Text> : null}
+          </>
+        )}
 
         {error ? <Aviso tono="peligro" titulo="No se creó" detalle={error} /> : null}
         <Boton

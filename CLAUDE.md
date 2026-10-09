@@ -3323,9 +3323,12 @@ reintentarlos.
 Lista que el usuario va dictando mientras prueba el APK. **No desarrollar
 hasta que lo pida**; se agregan aquí a medida que aparecen.
 
-1. **Usuario de rol cliente:** al crearlo, pedir solo los datos que aplican
-   al cliente y mostrar solo **ese cliente y sus sedes**, no las sedes de la
-   empresa prestadora.
+1. **Hecho (2026-10-09).** **Usuario de rol cliente:** al crearlo se elige
+   su cliente y se muestran las sedes de ese cliente para confirmar; ya no se
+   piden sedes de la empresa prestadora (no servían: el cliente ve su
+   `clienteId` por RLS). El contrato exige sedes solo al personal de la
+   empresa y las prohíbe al cliente. `zUsuarioBase` expone los campos sin
+   las reglas cruzadas (lo usa crear-empresa).
 2. **Hecho (2026-10-09).** **Número de calor:** el dato ya se guardaba,
    viajaba y salía en el CSV (columna CALOR), pero el editor no tenía dónde
    escribirlo. Ahora hay campo en la llanta montada y en la desmontada.
@@ -3435,7 +3438,7 @@ Pendiente 5 de las pruebas en campo.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 967/967, mobile 915 + recorrido 459.
+**Verificado:** `npm run verify` con base: raíz 968/968, mobile 919 + recorrido 459.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

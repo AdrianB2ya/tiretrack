@@ -16,7 +16,13 @@ describe("reglas", () => {
 
   it("sin sede o un cliente sin su cliente no pasan", () => {
     expect(revisarUsuario({ ...base, sedes: [] }).map((p) => p.campo)).toContain("sedes");
-    expect(revisarUsuario({ ...base, rol: "cliente" }).map((p) => p.campo)).toContain("clienteId");
+    expect(revisarUsuario({ ...base, rol: "cliente", sedes: [] }).map((p) => p.campo)).toContain("clienteId");
+  });
+
+  it("un usuario cliente no lleva sedes de la empresa: solo su cliente", () => {
+    const CLI = "00000000-0000-4000-8000-0000000000c1";
+    expect(revisarUsuario({ ...base, rol: "cliente", sedes: [], clienteId: CLI })).toEqual([]);
+    expect(revisarUsuario({ ...base, rol: "cliente", sedes: [SEDE], clienteId: CLI }).map((p) => p.campo)).toContain("sedes");
   });
 
   it("el código de sede solo letras y números, 2 a 6", () => {
@@ -89,6 +95,25 @@ describe("pantalla de usuarios", () => {
     expect((await screen.findByTestId("codigo-activacion")).textContent).toBe("K7M2-X9QP");
     fireEvent.click(screen.getByTestId("compartir"));
     expect(f.compartir).toHaveBeenCalledWith(expect.stringContaining("K7M2-X9QP"));
+  });
+
+  it("para un usuario cliente pide su cliente, no sedes de la empresa, y muestra las sedes del cliente", async () => {
+    const f = fuentes({
+      clientes: vi.fn().mockResolvedValue([{ id: "00000000-0000-4000-8000-0000000000c1", nombre: "Transportes Reyna" }]),
+      sedesDeCliente: vi.fn().mockResolvedValue([{ id: "sc-1", nombre: "Planta Fundación" }, { id: "sc-2", nombre: "Patio Valledupar" }]),
+    });
+    render(<PantallaUsuarios fuentes={f} />);
+    fireEvent.click(await screen.findByTestId("nuevo-usuario"));
+    escribir("Nombre completo", "Luis Reyna");
+    escribir("Cédula", "77221004");
+    escribir("Correo", "luis@transportesreyna.com");
+    fireEvent.click(screen.getByLabelText("Cliente (portal)"));
+    expect(screen.queryByLabelText("Fundación (FUN)")).toBeNull();
+    fireEvent.click(await screen.findByLabelText("Transportes Reyna"));
+    expect(await screen.findByText("Sedes: Planta Fundación, Patio Valledupar.")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("crear-usuario"));
+    expect(await screen.findByTestId("codigo-activacion")).toBeTruthy();
+    expect(f.crear).toHaveBeenCalledWith(expect.objectContaining({ rol: "cliente", sedes: [], clienteId: "00000000-0000-4000-8000-0000000000c1" }));
   });
 
   it("sin sede no crea", async () => {
