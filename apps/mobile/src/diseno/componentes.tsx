@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -160,6 +160,47 @@ export function Campo({ etiqueta, ayuda, error, requerido, style, ...props }: Ca
  */
 export function CampoNumerico(props: CampoProps) {
   return <Campo keyboardType="decimal-pad" {...props} />;
+}
+
+/** Texto → número, con coma o punto. Vacío o inválido: null. */
+export function leerDecimal(texto: string): number | null {
+  const limpio = texto.replace(",", ".").trim();
+  if (limpio === "" || limpio === ".") return null;
+  const n = Number(limpio);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Número con decimales que conserva lo que se escribe.
+ *
+ * Antes el campo guardaba el número y lo volvía a escribir: al teclear "8."
+ * quedaba 8 y el punto desaparecía antes de poder poner el decimal. Aquí el
+ * texto vive en el campo mientras se escribe; afuera solo sale el número. Si
+ * el número cambia desde afuera (copiar de una hermana, abrir otra posición),
+ * el texto se actualiza.
+ */
+export function CampoDecimal({ valor, onCambio, ...props }: Omit<CampoProps, "value" | "onChangeText"> & {
+  valor: number | null;
+  onCambio: (n: number | null) => void;
+}) {
+  const [texto, setTexto] = useState(valor === null ? "" : String(valor).replace(".", ","));
+  useEffect(() => {
+    if (leerDecimal(texto) !== valor) setTexto(valor === null ? "" : String(valor).replace(".", ","));
+    // Solo cuando cambia el número de afuera; el texto propio no se pisa.
+  }, [valor]);
+  return (
+    <Campo
+      keyboardType="decimal-pad"
+      {...props}
+      value={texto}
+      onChangeText={(t) => {
+        // Solo cifras y un separador: el teclado de algunos teléfonos trae guion o espacio.
+        const t2 = t.replace(/[^0-9.,]/g, "");
+        setTexto(t2);
+        onCambio(leerDecimal(t2));
+      }}
+    />
+  );
 }
 
 // ── Tarjeta ─────────────────────────────────────────────────────────────────

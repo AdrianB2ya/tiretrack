@@ -52,6 +52,13 @@ describe("documento de la orden", () => {
     expect(d.filas[1]).toEqual(["2", "Michelin XZE 295/80R22.5", "MX2", "3624", "9,5 mm", "105 / 110", "Calibración, Montaje", "VIEJA-2 · 2,5 mm · Reencauche"]);
   });
 
+  it("con las tres medidas, la celda las muestra y debajo la mínima", () => {
+    const p = { ...base.posiciones[0]!, profundidad: 8.5, profundidades: { exterior: 9.5, centro: 9, interior: 8.5 } };
+    const d = armarDocumentoOrden({ ...base, posiciones: [p] });
+    expect(d.columnas[4]).toBe("Prof. ext · cen · int");
+    expect(d.filas[0]?.[4]).toBe("9,5 · 9 · 8,5\nmín 8,5 mm");
+  });
+
   it("la cabecera identifica a todos, y las recomendaciones dicen su prioridad", () => {
     const d = armarDocumentoOrden(base);
     expect(d.cabecera).toContainEqual(["Cliente", "Transportes Reyna · NIT 800123456"]);

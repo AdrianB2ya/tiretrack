@@ -63,6 +63,8 @@ export class ServicioDocumento {
       `SELECT lr.posicion, m.nombre AS marca, d.nombre AS diseno, lr.medida, lr.serial, lr.dot, lr.profundidad,
               lr."psiEncontrada", lr."psiCalibrado", lr."noIdentificada",
               lr."desSerial", lr."desProfundidad", lr."desDestino",
+              lr."profExterior", lr."profCentro", lr."profInterior",
+              lr."desProfExterior", lr."desProfCentro", lr."desProfInterior",
               coalesce((SELECT array_agg(s.codigo ORDER BY s.codigo) FROM "LlantaServicio" ls
                          JOIN "Servicio" s ON s.id = ls."servicioId" WHERE ls."llantaRegistroId" = lr.id), ARRAY[]::text[]) AS servicios
          FROM "LlantaRegistro" lr
@@ -91,10 +93,14 @@ export class ServicioDocumento {
       posiciones: pos.rows.map((p) => ({
         posicion: Number(p["posicion"]), marca: t(p["marca"]), diseno: t(p["diseno"]), medida: t(p["medida"]),
         serial: t(p["serial"]), dot: t(p["dot"]), profundidad: n(p["profundidad"]),
+        profundidades: { exterior: n(p["profExterior"]), centro: n(p["profCentro"]), interior: n(p["profInterior"]) },
         psiEncontrada: n(p["psiEncontrada"]), psiCalibrado: n(p["psiCalibrado"]),
         noIdentificada: Boolean(p["noIdentificada"]), servicios: (p["servicios"] as string[]) ?? [],
         desmontada: p["desSerial"] || p["desProfundidad"] !== null || p["desDestino"]
-          ? { serial: t(p["desSerial"]), profundidad: n(p["desProfundidad"]), destino: t(p["desDestino"]) }
+          ? {
+              serial: t(p["desSerial"]), profundidad: n(p["desProfundidad"]), destino: t(p["desDestino"]),
+              profundidades: { exterior: n(p["desProfExterior"]), centro: n(p["desProfCentro"]), interior: n(p["desProfInterior"]) },
+            }
           : null,
       })),
       recomendaciones: recs.rows.map((x) => ({ texto: String(x["texto"]), prioridad: String(x["prioridad"]), posicion: n(x["posicion"]) })),
@@ -170,7 +176,8 @@ function dibujarOrden(pdf: PDFKit.PDFDocument, doc: Documento, generadoEn: strin
     pdf.moveDown(0.8);
 
     // Tabla de posiciones.
-    const anchos = [28, 120, 62, 34, 40, 58, 92, 81];
+    // Suman 515 (A4 menos márgenes). Profundidad más ancha: lleva tres medidas.
+    const anchos = [28, 105, 62, 34, 76, 56, 80, 74];
     const fila = (celdas: readonly string[], negrita: boolean) => {
       pdf.font(negrita ? "Helvetica-Bold" : "Helvetica").fontSize(8);
       const alto = Math.max(...celdas.map((c, i) => pdf.heightOfString(c || " ", { width: (anchos[i] ?? 40) - 4 }))) + 4;

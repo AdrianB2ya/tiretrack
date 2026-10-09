@@ -181,6 +181,8 @@ export class ServicioInforme {
          coalesce(mc.nombre, m.nombre) AS marca, coalesce(dc.nombre, d.nombre) AS diseno,
          lr.medida, lr."estadoLlanta",
          lr."psiEncontrada", lr."psiCalibrado", lr.profundidad, lr."noIdentificada",
+         lr."profExterior", lr."profCentro", lr."profInterior",
+         lr."desProfExterior", lr."desProfCentro", lr."desProfInterior",
          lr."desPosicionOrigen" AS "desPosicion", lr."desNumCalor", lr."desSerial", lr."desDot",
          lr."desMedida", lr."desProfundidad",
          coalesce(dmc.nombre, dm.nombre) AS "desMarca", coalesce(ddc.nombre, dd.nombre) AS "desDiseno",
@@ -209,6 +211,12 @@ export class ServicioInforme {
       psiCalibrado: aNumero(fila.psiCalibrado),
       profundidad: aNumero(fila.profundidad),
       desProfundidad: aNumero(fila.desProfundidad),
+      profExterior: aNumero(fila.profExterior),
+      profCentro: aNumero(fila.profCentro),
+      profInterior: aNumero(fila.profInterior),
+      desProfExterior: aNumero(fila.desProfExterior),
+      desProfCentro: aNumero(fila.desProfCentro),
+      desProfInterior: aNumero(fila.desProfInterior),
     }));
   }
 

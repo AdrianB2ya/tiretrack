@@ -453,9 +453,17 @@ describe("mediciones descargadas", () => {
   });
 
   it("la llanta desmontada llega con la medición: corregir la orden no la borra", async () => {
-    const desmontada = { posicionOrigen: 3, marcaId: null, disenoId: null, medida: null, numCalor: null, serial: "VIEJA-3", dot: "1520", profundidad: 2.5, destino: "Reencauche", detalle: null };
-    await descargador.descargar(servidorCon(unPaquete({ mediciones: [{ ...completa, desmontada }] })));
-    expect((await repo.medicionesDe("ord-1"))[0]?.desmontada).toEqual(desmontada);
+    const desmontada = {
+      posicionOrigen: 3, marcaId: null, disenoId: null, medida: null, numCalor: null, serial: "VIEJA-3", dot: "1520",
+      profundidad: 2.5, profundidades: { exterior: 3, centro: 2.5, interior: 2.8 }, destino: "Reencauche", detalle: null,
+    };
+    await descargador.descargar(servidorCon(unPaquete({
+      mediciones: [{ ...completa, profundidades: { exterior: 9, centro: 8.5, interior: 8 }, desmontada }],
+    })));
+    const [m] = await repo.medicionesDe("ord-1");
+    expect(m?.desmontada).toEqual(desmontada);
+    // Las tres medidas viajan: sin ellas, corregir una posición las borraría.
+    expect(m?.profundidades).toEqual({ exterior: 9, centro: 8.5, interior: 8 });
   });
 
   it("de un servidor anterior, sin los campos nuevos, se guarda lo que venga", async () => {

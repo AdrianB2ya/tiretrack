@@ -49,7 +49,11 @@ export interface FilaCruda {
   readonly estadoLlanta: string | null;
   readonly psiEncontrada: number | null;
   readonly psiCalibrado: number | null;
+  /** La mínima de las tres: la de la llanta. */
   readonly profundidad: number | null;
+  readonly profExterior?: number | null;
+  readonly profCentro?: number | null;
+  readonly profInterior?: number | null;
   readonly noIdentificada: boolean;
 
   readonly desPosicion: number | null;
@@ -58,6 +62,9 @@ export interface FilaCruda {
   readonly desDot: string | null;
   readonly desMedida: string | null;
   readonly desProfundidad: number | null;
+  readonly desProfExterior?: number | null;
+  readonly desProfCentro?: number | null;
+  readonly desProfInterior?: number | null;
   readonly desMarca: string | null;
   readonly desDiseno: string | null;
   readonly desDestino: string | null;
@@ -70,10 +77,13 @@ export const BLOQUES = {
   intervenida: [
     "CALOR", "SERIAL", "DOT", "FABRICACIÓN", "VENCIMIENTO",
     "MARCA", "DISEÑO", "DIMENSIÓN", "ESTADO LLANTA",
-    "PSI ENCONTRADO", "PSI CALIBRADO", "PROF",
+    "PSI ENCONTRADO", "PSI CALIBRADO",
+    // Tres puntos de la banda y la mínima, que es la de la llanta.
+    "PROF EXT", "PROF CENTRO", "PROF INT", "PROF MÍN",
   ],
   desmontada: [
-    "POS", "CALOR", "SERIAL", "DOT", "DIMENSION", "PROF",
+    "POS", "CALOR", "SERIAL", "DOT", "DIMENSION",
+    "PROF EXT", "PROF CENTRO", "PROF INT", "PROF MÍN",
     "MARCA", "DISEÑO", "DESTINO", "DETALLE",
   ],
 } as const;
@@ -134,6 +144,9 @@ export function aCeldas(f: FilaCruda): string[] {
     texto(f.estadoLlanta),
     texto(f.psiEncontrada),
     texto(f.psiCalibrado),
+    texto(f.profExterior),
+    texto(f.profCentro),
+    texto(f.profInterior),
     texto(f.profundidad),
 
     texto(f.desPosicion),
@@ -141,6 +154,9 @@ export function aCeldas(f: FilaCruda): string[] {
     texto(f.desSerial),
     texto(f.desDot),
     texto(f.desMedida),
+    texto(f.desProfExterior),
+    texto(f.desProfCentro),
+    texto(f.desProfInterior),
     texto(f.desProfundidad),
     texto(f.desMarca),
     texto(f.desDiseno),

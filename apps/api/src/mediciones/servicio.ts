@@ -1,6 +1,7 @@
 import { zMedicionLlanta, type MedicionLlanta } from "@tiretrack/contracts";
 import {
   definicionDeServicio,
+  profundidadDeReferencia,
   puedeEditarMediciones,
   type EstadoOrden,
   type Rol,
@@ -154,6 +155,12 @@ export class RepositorioMedicionesPg implements RepositorioMediciones {
     ahora: Date;
   }): Promise<void> {
     const d = m.datos;
+    // Con las tres medidas, la profundidad de la llanta es la mínima y la
+    // calcula el servidor. Sin ellas (versión anterior de la app), la única
+    // que mandó.
+    const prof = d.profundidades ? profundidadDeReferencia(d.profundidades) : d.profundidad ?? null;
+    const des = d.desmontada;
+    const desProf = des?.profundidades ? profundidadDeReferencia(des.profundidades) : des?.profundidad ?? null;
     await this.db.query(
       `INSERT INTO "LlantaRegistro" (
          id, "ordenId", "configuracionEjeId", posicion,
@@ -162,9 +169,11 @@ export class RepositorioMedicionesPg implements RepositorioMediciones {
          "noIdentificada", "motivoNoIdentificada",
          "capturadoPorId", "capturadoEn", "actualizadoEn",
          "desPosicionOrigen", "desMarcaId", "desDisenoId", "desMedida", "desNumCalor",
-         "desSerial", "desDot", "desProfundidad", "desDestino", "desDetalle")
+         "desSerial", "desDot", "desProfundidad", "desDestino", "desDetalle",
+         "profExterior", "profCentro", "profInterior",
+         "desProfExterior", "desProfCentro", "desProfInterior")
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$19,
-               $20,$21,$22,$23,$24,$25,$26,$27,$28,$29)
+               $20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35)
        ON CONFLICT (id) DO UPDATE SET
          "marcaId" = EXCLUDED."marcaId", "disenoId" = EXCLUDED."disenoId",
          medida = EXCLUDED.medida, "numCalor" = EXCLUDED."numCalor",
@@ -179,13 +188,17 @@ export class RepositorioMedicionesPg implements RepositorioMediciones {
          "desNumCalor" = EXCLUDED."desNumCalor", "desSerial" = EXCLUDED."desSerial",
          "desDot" = EXCLUDED."desDot", "desProfundidad" = EXCLUDED."desProfundidad",
          "desDestino" = EXCLUDED."desDestino", "desDetalle" = EXCLUDED."desDetalle",
+         "profExterior" = EXCLUDED."profExterior", "profCentro" = EXCLUDED."profCentro",
+         "profInterior" = EXCLUDED."profInterior",
+         "desProfExterior" = EXCLUDED."desProfExterior", "desProfCentro" = EXCLUDED."desProfCentro",
+         "desProfInterior" = EXCLUDED."desProfInterior",
          "actualizadoEn" = EXCLUDED."actualizadoEn",
          version = "LlantaRegistro".version + 1`,
       [
         m.id, m.ordenId, m.configuracionEjeId, d.posicion,
         d.marcaId ?? null, d.disenoId ?? null, d.medida ?? null, d.numCalor ?? null,
         d.serial ?? null, d.dot ?? null, d.estadoLlanta ?? null,
-        d.psiEncontrada ?? null, d.psiCalibrado ?? null, d.profundidad ?? null,
+        d.psiEncontrada ?? null, d.psiCalibrado ?? null, prof,
         d.observaciones ?? null, d.noIdentificada ?? false, d.motivoNoIdentificada ?? null,
         m.capturadoPorId, m.ahora,
         // La llanta que SALE. El contrato la aceptaba desde la 0.3, pero aquí
@@ -194,8 +207,10 @@ export class RepositorioMedicionesPg implements RepositorioMediciones {
         d.desmontada?.posicionOrigen ?? null, d.desmontada?.marcaId ?? null,
         d.desmontada?.disenoId ?? null, d.desmontada?.medida ?? null,
         d.desmontada?.numCalor ?? null, d.desmontada?.serial ?? null,
-        d.desmontada?.dot ?? null, d.desmontada?.profundidad ?? null,
+        d.desmontada?.dot ?? null, desProf,
         d.desmontada?.destino ?? null, d.desmontada?.detalle ?? null,
+        d.profundidades?.exterior ?? null, d.profundidades?.centro ?? null, d.profundidades?.interior ?? null,
+        des?.profundidades?.exterior ?? null, des?.profundidades?.centro ?? null, des?.profundidades?.interior ?? null,
       ],
     );
   }

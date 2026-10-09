@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
-import { Aviso, Boton, Campo, CampoNumerico, Insignia, Opcion as OpcionElegible } from "../diseno/componentes";
-import { DESTINOS_LLANTA } from "@tiretrack/domain";
+import { Aviso, Boton, Campo, CampoDecimal, Insignia, Opcion as OpcionElegible } from "../diseno/componentes";
+import { DESTINOS_LLANTA, ETIQUETA_PUNTO_PROFUNDIDAD, PUNTOS_PROFUNDIDAD } from "@tiretrack/domain";
 import { colores, conOpacidad, espacio, radio, tactil, texto } from "../diseno/tokens";
 import type { Casilla } from "./diagrama";
 import {
@@ -14,7 +14,10 @@ import {
   revisar,
   tieneContenido,
   SERVICIO_MONTAJE,
+  campoMedida,
   desmontadaDesde,
+  profundidadDelBorrador,
+  type TresMedidas,
   type AvisoCampo,
   type BorradorMedicion,
   type DesmontadaBorrador,
@@ -97,7 +100,7 @@ export function EditorPosicion({
 
   const medidaElegida = catalogo.medidas.find((m) => m.medida === borrador.medida);
   const desgaste = desgasteRespectoAFabrica(
-    borrador.profundidad,
+    profundidadDelBorrador(borrador),
     medidaElegida?.profundidadOriginal ?? null,
   );
 
@@ -207,34 +210,43 @@ export function EditorPosicion({
       <Bloque titulo="Medición">
         <View style={estilos.filaDoble}>
           <View style={{ flex: 1 }}>
-            <CampoNumerico
+            <CampoDecimal
               etiqueta="PSI encontrada"
-              value={aTexto(borrador.psiEncontrada)}
-              onChangeText={(v) => cambiar("psiEncontrada", aNumero(v))}
+              valor={borrador.psiEncontrada}
+              onCambio={(n) => cambiar("psiEncontrada", n)}
               placeholder="105"
               {...avisoProps(avisos, "psiEncontrada")}
             />
           </View>
           <View style={{ flex: 1 }}>
-            <CampoNumerico
+            <CampoDecimal
               etiqueta="PSI calibrada"
-              value={aTexto(borrador.psiCalibrado)}
-              onChangeText={(v) => cambiar("psiCalibrado", aNumero(v))}
+              valor={borrador.psiCalibrado}
+              onCambio={(n) => cambiar("psiCalibrado", n)}
               {...avisoProps(avisos, "psiCalibrado")}
             />
           </View>
         </View>
 
-        <CampoNumerico
-          etiqueta="Profundidad (mm)"
-          value={aTexto(borrador.profundidad)}
-          onChangeText={(v) => cambiar("profundidad", aNumero(v))}
-          placeholder="9.5"
-          {...(casilla.profundidadMinima !== null
-            ? { ayuda: `Mínimo del eje: ${casilla.profundidadMinima} mm` }
-            : {})}
-          {...avisoProps(avisos, "profundidad")}
+        <TresProfundidades
+          titulo="Profundidad (mm)"
+          medidas={borrador.profundidades}
+          onCambio={(p) => cambiar("profundidades", p)}
+          avisos={avisos}
+          desmontada={false}
+          ayuda={[
+            casilla.profundidadMinima !== null ? `Mínimo del eje: ${casilla.profundidadMinima} mm` : null,
+            // Una medición anterior a las tres medidas: se conserva si no se mide de nuevo.
+            profundidadDelBorrador({ ...borrador, profundidad: null }) === null && borrador.profundidad !== null
+              ? `Medida anterior en un solo punto: ${String(borrador.profundidad).replace(".", ",")} mm`
+              : null,
+          ].filter(Boolean).join(" · ")}
         />
+        {avisoProps(avisos, "profundidad").error || avisoProps(avisos, "profundidad").ayuda ? (
+          <Text style={estilos.avisoProfundidad}>
+            {avisoProps(avisos, "profundidad").error ?? avisoProps(avisos, "profundidad").ayuda}
+          </Text>
+        ) : null}
 
         {/* El desgaste se calcula solo: ver "50% gastada" al lado del número
             le dice al técnico si vale la pena rotarla o ya no. */}
@@ -403,11 +415,13 @@ function BloqueDesmontada({ d, avisos, traida, onCambiar }: {
           />
         </View>
       </View>
-      <CampoNumerico
-        etiqueta="Profundidad al retirarla (mm)"
-        value={aTexto(d.profundidad)}
-        onChangeText={(v) => poner("profundidad", aNumero(v))}
-        {...avisoProps(avisos, "desProfundidad")}
+      <TresProfundidades
+        titulo="Profundidad al retirarla (mm)"
+        medidas={d.profundidades}
+        onCambio={(p) => poner("profundidades", p)}
+        avisos={avisos}
+        desmontada
+        ayuda={avisoProps(avisos, "desProfundidad").ayuda ?? ""}
       />
       <Text style={estilos.etiquetaGrupo}>A dónde va</Text>
       <View style={estilos.chips}>
@@ -597,16 +611,45 @@ function avisoProps(avisos: readonly AvisoCampo[], campo: string) {
   return otro ? { ayuda: otro.mensaje } : {};
 }
 
-const aTexto = (n: number | null): string => (n === null ? "" : String(n));
-
-function aNumero(v: string): number | null {
-  const limpio = v.replace(",", ".").trim();
-  if (limpio === "") return null;
-  const n = Number(limpio);
-  return Number.isFinite(n) ? n : null;
+/**
+ * Las tres medidas lado a lado, en el orden en que se recorre la banda con el
+ * profundímetro: exterior, centro, interior.
+ */
+function TresProfundidades({ titulo, medidas, onCambio, avisos, desmontada, ayuda }: {
+  titulo: string;
+  medidas: TresMedidas;
+  onCambio: (m: TresMedidas) => void;
+  avisos: readonly AvisoCampo[];
+  desmontada: boolean;
+  ayuda: string;
+}) {
+  return (
+    <View style={estilos.tresProfundidades}>
+      <Text style={estilos.etiquetaGrupo}>{titulo}</Text>
+      <View style={estilos.filaDoble}>
+        {PUNTOS_PROFUNDIDAD.map((punto) => (
+          <View key={punto} style={{ flex: 1 }}>
+            <CampoDecimal
+              etiqueta={ETIQUETA_PUNTO_PROFUNDIDAD[punto]}
+              valor={medidas[punto]}
+              onCambio={(n) => onCambio({ ...medidas, [punto]: n })}
+              placeholder="9,5"
+              testID={`${desmontada ? "des-" : ""}prof-${punto}`}
+              {...avisoProps(avisos, campoMedida(punto, desmontada))}
+            />
+          </View>
+        ))}
+      </View>
+      {ayuda ? <Text style={estilos.ayudaProfundidad}>{ayuda}</Text> : null}
+    </View>
+  );
 }
 
+
 const estilos = StyleSheet.create({
+  tresProfundidades: { gap: espacio.xs },
+  ayudaProfundidad: { ...texto.ayuda, color: colores.textoTenue },
+  avisoProfundidad: { ...texto.ayuda, color: colores.advertencia },
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: espacio.lg, gap: espacio.lg, paddingBottom: espacio.xxl },
   cabecera: { flexDirection: "row", alignItems: "center", gap: espacio.lg },

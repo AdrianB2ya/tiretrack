@@ -41,6 +41,17 @@ export const MOTIVOS_NO_IDENTIFICADA = [
 ] as const;
 export const zMotivoNoIdentificada = z.enum(MOTIVOS_NO_IDENTIFICADA);
 
+/**
+ * Profundidad en tres puntos de la banda. Basta una. La profundidad de la
+ * llanta (la mínima) la calcula el servidor: no se le cree al celular.
+ */
+export const zTresProfundidades = z.object({
+  exterior: zProfundidad.optional(),
+  centro: zProfundidad.optional(),
+  interior: zProfundidad.optional(),
+});
+export type TresProfundidadesContrato = z.infer<typeof zTresProfundidades>;
+
 /** Datos de la llanta que SALE de la posición. */
 export const zLlantaDesmontada = z.object({
   posicionOrigen: zPosicion.optional(),
@@ -50,7 +61,9 @@ export const zLlantaDesmontada = z.object({
   numCalor: zTextoCorto.optional(),
   serial: zTextoCorto.optional(),
   dot: zDot.optional(),
+  /** Versión anterior de la app: una sola medida. */
   profundidad: zProfundidad.optional(),
+  profundidades: zTresProfundidades.optional(),
   destino: zDestinoLlanta.optional(),
   detalle: zTextoLargo.optional(),
 });
@@ -73,7 +86,9 @@ const camposMedicion = {
 
   psiEncontrada: zPresion.optional(),
   psiCalibrado: zPresion.optional(),
+  /** Versión anterior de la app: una sola medida. Con `profundidades`, se ignora. */
   profundidad: zProfundidad.optional(),
+  profundidades: zTresProfundidades.optional(),
 
   servicios: z.array(zServicioLlanta).default([]),
   observaciones: zTextoLargo.optional(),

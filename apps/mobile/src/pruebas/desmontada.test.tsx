@@ -74,12 +74,19 @@ describe("en el teléfono", () => {
     await migrar(db);
     const repo = new RepositorioLocal(db);
     await repo.guardarOrden({ id: "ord-1", sedeId: "s", clienteId: "c", sedeClienteId: "sc", vehiculoId: "v", tecnicoId: "u", configuracionEjeId: "cfg", tipo: "preventivo", estado: "en_proceso", fecha: "2026-10-06", encolar: false });
-    const desmontada = { posicionOrigen: 3, marcaId: null, disenoId: null, medida: null, numCalor: null, serial: "VIEJA-3", dot: "1520", profundidad: 2.5, destino: "Desecho", detalle: "Corte" };
+    const desmontada = {
+      posicionOrigen: 3, marcaId: null, disenoId: null, medida: null, numCalor: null, serial: "VIEJA-3", dot: "1520",
+      profundidad: null, profundidades: { exterior: 3, centro: 2.5, interior: null }, destino: "Desecho", detalle: "Corte",
+    };
     await repo.guardarMedicion({ ordenId: "ord-1", posicion: 3, serial: "NUEVA", capturadoPorId: "u", desmontada });
-    expect((await repo.medicionesDe("ord-1"))[0]?.desmontada).toEqual(desmontada);
-    // Lo que se encola es la forma del contrato, con la desmontada.
+    // La profundidad de la desmontada es la mínima de sus medidas.
+    expect((await repo.medicionesDe("ord-1"))[0]?.desmontada).toEqual({ ...desmontada, profundidad: 2.5 });
+    // Lo que se encola es la forma del contrato: las medidas tomadas, sin nulls ni la mínima.
     const [op] = await repo.operacionesPendientes();
-    expect((op?.datos as { desmontada?: unknown }).desmontada).toMatchObject({ serial: "VIEJA-3", destino: "Desecho" });
+    const enviada = (op?.datos as { desmontada?: Record<string, unknown> }).desmontada;
+    expect(enviada).toMatchObject({ serial: "VIEJA-3", destino: "Desecho", profundidades: { exterior: 3, centro: 2.5 } });
+    expect(enviada).not.toHaveProperty("profundidad");
+    expect(enviada?.["profundidades"]).not.toHaveProperty("interior");
 
     await repo.guardarMedicion({ ordenId: "ord-1", posicion: 3, serial: "NUEVA", capturadoPorId: "u" });
     expect((await repo.medicionesDe("ord-1"))[0]?.desmontada).toBeNull();

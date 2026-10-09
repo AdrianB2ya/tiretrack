@@ -1,4 +1,10 @@
-import { CATALOGO_SERVICIOS, nuevoId } from "@tiretrack/domain";
+import {
+  CATALOGO_SERVICIOS,
+  nuevoId,
+  PUNTOS_PROFUNDIDAD,
+  profundidadDeReferencia,
+  type TresProfundidades,
+} from "@tiretrack/domain";
 import type { Conexion } from "./base";
 import { type Desmontada, firmaAContrato, fotoAContrato, medicionAContrato, ordenAContrato } from "./contrato";
 
@@ -60,7 +66,10 @@ export interface MedicionLocal {
   readonly estadoLlanta: string | null;
   readonly psiEncontrada: number | null;
   readonly psiCalibrado: number | null;
+  /** La mínima de las tres medidas (o la única, en mediciones anteriores). */
   readonly profundidad: number | null;
+  /** Exterior, centro, interior. Ausentes en mediciones anteriores a las tres. */
+  readonly profundidades?: TresProfundidades;
   readonly observaciones: string | null;
   readonly noIdentificada: boolean;
   /** Código del motivo: sin él, una llanta no identificada no pasa el contrato. */
@@ -125,6 +134,7 @@ export interface MedicionDescargada {
   readonly medida: string | null;
   readonly serial: string | null;
   readonly profundidad: number | null;
+  readonly profundidades?: TresProfundidades | null;
   readonly numCalor?: string | null;
   readonly dot?: string | null;
   readonly estadoLlanta?: string | null;
@@ -140,13 +150,40 @@ export interface MedicionDescargada {
 
 /** Columnas de la llanta desmontada, en el orden de `valoresDesmontada`. */
 const COLUMNAS_DESMONTADA =
-  "des_posicion, des_marca_id, des_diseno_id, des_medida, des_num_calor, des_serial, des_dot, des_profundidad, des_destino, des_detalle";
+  "des_posicion, des_marca_id, des_diseno_id, des_medida, des_num_calor, des_serial, des_dot, des_profundidad, des_destino, des_detalle, " +
+  "des_prof_exterior, des_prof_centro, des_prof_interior";
+
+/** Columnas de las tres medidas de la llanta montada, en el orden de `valoresTres`. */
+const COLUMNAS_TRES = "prof_exterior, prof_centro, prof_interior";
+
+function valoresTres(p: TresProfundidades | null | undefined): (number | null)[] {
+  return PUNTOS_PROFUNDIDAD.map((k) => (typeof p?.[k] === "number" ? (p[k] as number) : null));
+}
+
+/** Con las tres medidas, la profundidad es la mínima; sin ellas, la única que hubo. */
+function profundidadDe(unica: number | null | undefined, tres: TresProfundidades | null | undefined): number | null {
+  return profundidadDeReferencia(tres) ?? unica ?? null;
+}
 
 function valoresDesmontada(d: Desmontada | null): (string | number | null)[] {
   return d
-    ? [d.posicionOrigen, d.marcaId, d.disenoId, d.medida, d.numCalor, d.serial, d.dot, d.profundidad, d.destino, d.detalle]
-    : [null, null, null, null, null, null, null, null, null, null];
+    ? [d.posicionOrigen, d.marcaId, d.disenoId, d.medida, d.numCalor, d.serial, d.dot,
+        profundidadDe(d.profundidad, d.profundidades), d.destino, d.detalle, ...valoresTres(d.profundidades)]
+    : [null, null, null, null, null, null, null, null, null, null, null, null, null];
 }
+
+const numeroONulo = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
+
+function tresDe(f: Record<string, unknown>, prefijo: "" | "des_"): TresProfundidades {
+  return {
+    exterior: numeroONulo(f[`${prefijo}prof_exterior`]),
+    centro: numeroONulo(f[`${prefijo}prof_centro`]),
+    interior: numeroONulo(f[`${prefijo}prof_interior`]),
+  };
+}
+
+/** Marcadores "?" para una lista de columnas: contarlos a mano ya falló antes. */
+const marcadores = (n: number) => Array.from({ length: n }, () => "?").join(",");
 
 /** Una fila sin ningún dato de desmontada es "no se cambió la llanta". */
 function aDesmontada(f: Record<string, unknown>): Desmontada | null {
@@ -163,7 +200,10 @@ function aDesmontada(f: Record<string, unknown>): Desmontada | null {
     destino: v("des_destino") as string | null,
     detalle: v("des_detalle") as string | null,
   };
-  return Object.values(d).some((x) => x !== null) ? d : null;
+  const profundidades = tresDe(f, "des_");
+  // El objeto de las tres nunca es null: se mira lo que trae.
+  const hayAlgo = Object.values(d).some((x) => x !== null) || Object.values(profundidades).some((x) => x !== null);
+  return hayAlgo ? { ...d, profundidades } : null;
 }
 
 /** Lo que se encontró y no se ejecutó en una visita. */
@@ -460,6 +500,7 @@ export class RepositorioLocal {
     psiEncontrada?: number | null;
     psiCalibrado?: number | null;
     profundidad?: number | null;
+    profundidades?: TresProfundidades | null;
     observaciones?: string | null;
     noIdentificada?: boolean;
     motivoNoId?: string | null;
@@ -481,19 +522,20 @@ export class RepositorioLocal {
 
     return this.enTransaccion(async () => {
       await this.iniciarSiProgramada(m.ordenId);
+      const valores = [
+        id, m.ordenId, m.posicion, m.marcaId ?? null, m.disenoId ?? null, m.medida ?? null,
+        m.numCalor ?? null, m.serial ?? null, m.dot ?? null, m.estadoLlanta ?? null,
+        m.psiEncontrada ?? null, m.psiCalibrado ?? null, profundidadDe(m.profundidad, m.profundidades),
+        m.observaciones ?? null, aInt(m.noIdentificada ?? false), m.motivoNoId ?? null,
+        m.capturadoPorId, this.ahora(), ...valoresTres(m.profundidades), ...valoresDesmontada(m.desmontada ?? null),
+      ];
       await this.db.ejecutar(
         `INSERT OR REPLACE INTO medicion
            (id, orden_id, posicion, marca_id, diseno_id, medida, num_calor, serial, dot,
             estado_llanta, psi_encontrada, psi_calibrado, profundidad, observaciones,
-            no_identificada, motivo_no_id, capturado_por_id, actualizada_en, ${COLUMNAS_DESMONTADA})
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-        [
-          id, m.ordenId, m.posicion, m.marcaId ?? null, m.disenoId ?? null, m.medida ?? null,
-          m.numCalor ?? null, m.serial ?? null, m.dot ?? null, m.estadoLlanta ?? null,
-          m.psiEncontrada ?? null, m.psiCalibrado ?? null, m.profundidad ?? null,
-          m.observaciones ?? null, aInt(m.noIdentificada ?? false), m.motivoNoId ?? null,
-          m.capturadoPorId, this.ahora(), ...valoresDesmontada(m.desmontada ?? null),
-        ],
+            no_identificada, motivo_no_id, capturado_por_id, actualizada_en, ${COLUMNAS_TRES}, ${COLUMNAS_DESMONTADA})
+         VALUES (${marcadores(valores.length)})`,
+        valores,
       );
 
       await this.db.ejecutar(`DELETE FROM medicion_servicio WHERE medicion_id = ?`, [id]);
@@ -527,7 +569,7 @@ export class RepositorioLocal {
       // reabrir una posición y guardarla otra vez, se enviaban vacíos.
       `SELECT id, orden_id, posicion, marca_id, diseno_id, medida, num_calor, serial, dot,
               estado_llanta, psi_encontrada, psi_calibrado, profundidad, observaciones,
-              no_identificada, motivo_no_id, ${COLUMNAS_DESMONTADA}
+              no_identificada, motivo_no_id, ${COLUMNAS_TRES}, ${COLUMNAS_DESMONTADA}
          FROM medicion WHERE orden_id = ? ORDER BY posicion`,
       [ordenId],
     );
@@ -561,6 +603,7 @@ export class RepositorioLocal {
       psiEncontrada: f["psi_encontrada"] === null ? null : Number(f["psi_encontrada"]),
       psiCalibrado: f["psi_calibrado"] === null ? null : Number(f["psi_calibrado"]),
       profundidad: f["profundidad"] === null ? null : Number(f["profundidad"]),
+      profundidades: tresDe(f, ""),
       observaciones: (f["observaciones"] as string) ?? null,
       noIdentificada: aBool(f["no_identificada"]),
       motivoNoId: (f["motivo_no_id"] as string) ?? null,
@@ -1378,14 +1421,22 @@ export class RepositorioLocal {
         // reenviaría vacío y borraría en el servidor lo que no se tocó. Un
         // servidor anterior no manda los campos nuevos: quedan vacíos, como
         // antes.
+        const valoresDescarga = [
+          m.id, m.ordenId, m.posicion, m.marcaId, m.disenoId, m.medida, m.numCalor ?? null,
+          m.serial, m.dot ?? null, m.estadoLlanta ?? null, m.psiEncontrada ?? null,
+          m.psiCalibrado ?? null, m.profundidad, m.observaciones ?? null,
+          aInt(m.noIdentificada ?? false), m.motivoNoIdentificada ?? null,
+          m.capturadoPorId ?? "", this.ahora(),
+          ...valoresTres(m.profundidades), ...valoresDesmontada(m.desmontada ?? null),
+        ];
         await this.db.ejecutar(
           `INSERT INTO medicion
              (id, orden_id, posicion, marca_id, diseno_id, medida, num_calor, serial, dot,
               estado_llanta, psi_encontrada, psi_calibrado, profundidad, observaciones,
-              no_identificada, motivo_no_id, capturado_por_id, actualizada_en, ${COLUMNAS_DESMONTADA})
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+              no_identificada, motivo_no_id, capturado_por_id, actualizada_en, ${COLUMNAS_TRES}, ${COLUMNAS_DESMONTADA})
+           VALUES (${marcadores(valoresDescarga.length)})
            ON CONFLICT (id) DO UPDATE SET
-             ${COLUMNAS_DESMONTADA.split(", ").map((c) => `${c} = excluded.${c}`).join(", ")},
+             ${[...COLUMNAS_TRES.split(", "), ...COLUMNAS_DESMONTADA.split(", ")].map((c) => `${c} = excluded.${c}`).join(", ")},
              posicion = excluded.posicion, marca_id = excluded.marca_id, diseno_id = excluded.diseno_id,
              medida = excluded.medida, num_calor = excluded.num_calor, serial = excluded.serial,
              dot = excluded.dot, estado_llanta = excluded.estado_llanta,
@@ -1393,14 +1444,7 @@ export class RepositorioLocal {
              profundidad = excluded.profundidad, observaciones = excluded.observaciones,
              no_identificada = excluded.no_identificada, motivo_no_id = excluded.motivo_no_id,
              capturado_por_id = excluded.capturado_por_id, actualizada_en = excluded.actualizada_en`,
-          [
-            m.id, m.ordenId, m.posicion, m.marcaId, m.disenoId, m.medida, m.numCalor ?? null,
-            m.serial, m.dot ?? null, m.estadoLlanta ?? null, m.psiEncontrada ?? null,
-            m.psiCalibrado ?? null, m.profundidad, m.observaciones ?? null,
-            aInt(m.noIdentificada ?? false), m.motivoNoIdentificada ?? null,
-            m.capturadoPorId ?? "", this.ahora(),
-            ...valoresDesmontada(m.desmontada ?? null),
-          ],
+          valoresDescarga,
         );
         if (m.servicios) {
           await this.db.ejecutar(`DELETE FROM medicion_servicio WHERE medicion_id = ?`, [m.id]);

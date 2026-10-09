@@ -1,3 +1,4 @@
+import { describirProfundidades, type TresProfundidades } from "../llanta/profundidades";
 import { CATALOGO_SERVICIOS } from "../tipos";
 import { ETIQUETA_PRIORIDAD_RECOMENDACION, type PrioridadRecomendacion } from "../orden/recomendaciones";
 
@@ -23,13 +24,18 @@ export interface PosicionDocumento {
   readonly medida: string | null;
   readonly serial: string | null;
   readonly dot: string | null;
+  /** La mínima de las tres. */
   readonly profundidad: number | null;
+  /** Exterior, centro, interior; ausente en órdenes anteriores a las tres medidas. */
+  readonly profundidades?: TresProfundidades | null;
   readonly psiEncontrada: number | null;
   readonly psiCalibrado: number | null;
   readonly noIdentificada: boolean;
   /** Códigos del catálogo fijo (`CALI`). */
   readonly servicios: readonly string[];
-  readonly desmontada: { serial: string | null; profundidad: number | null; destino: string | null } | null;
+  readonly desmontada: {
+    serial: string | null; profundidad: number | null; profundidades?: TresProfundidades | null; destino: string | null;
+  } | null;
 }
 
 export interface DatosDocumentoOrden {
@@ -121,18 +127,19 @@ export function armarDocumentoOrden(d: DatosDocumentoOrden): Documento {
       ["Kilometraje", o.kilometraje === null ? "Sin registrar" : o.kilometraje.toLocaleString("es-CO")],
       ["Técnico", d.tecnico.cedula ? `${d.tecnico.nombre} · CC ${d.tecnico.cedula}` : d.tecnico.nombre],
     ],
-    columnas: ["Pos.", "Llanta", "Serial", "DOT", "Prof.", "PSI enc./cal.", "Servicios", "Llanta que salió"],
+    columnas: ["Pos.", "Llanta", "Serial", "DOT", "Prof. ext · cen · int", "PSI enc./cal.", "Servicios", "Llanta que salió"],
     filas: [...d.posiciones].sort((a, b) => a.posicion - b.posicion).map((p) => [
       String(p.posicion),
       // El blanco parece un olvido; esto fue una decisión del técnico (1.8).
       p.noIdentificada ? "SIN IDENTIFICAR" : [p.marca, p.diseno, p.medida].filter(Boolean).join(" ") || "—",
       p.serial ?? "",
       p.dot ?? "",
-      num(p.profundidad, " mm"),
+      celdaProfundidad(p.profundidad, p.profundidades),
       p.psiEncontrada === null && p.psiCalibrado === null ? "" : `${num(p.psiEncontrada) || "—"} / ${num(p.psiCalibrado) || "—"}`,
       p.servicios.map((c) => NOMBRE_SERVICIO.get(c) ?? c).join(", "),
       p.desmontada
-        ? [p.desmontada.serial, num(p.desmontada.profundidad, " mm"), p.desmontada.destino].filter(Boolean).join(" · ")
+        ? [p.desmontada.serial, celdaProfundidad(p.desmontada.profundidad, p.desmontada.profundidades).replace("\n", " "), p.desmontada.destino]
+            .filter(Boolean).join(" · ")
         : "",
     ]),
     hallazgos: o.hallazgos,
@@ -164,3 +171,13 @@ export function nombreArchivoOrden(d: DatosDocumentoOrden): string {
  * eso está el CSV. Lo usan el servidor (rechaza) y la app (avisa antes).
  */
 export const MAX_ORDENES_PDF = 30;
+
+/**
+ * Las tres medidas y, debajo, la mínima (la de la llanta). Una orden anterior
+ * a las tres medidas muestra su única profundidad, como antes.
+ */
+function celdaProfundidad(minima: number | null, tres: TresProfundidades | null | undefined): string {
+  const detalle = describirProfundidades(tres);
+  if (!detalle) return minima === null ? "" : `${String(minima).replace(".", ",")} mm`;
+  return `${detalle}\nmín ${String(minima ?? "").replace(".", ",")} mm`;
+}

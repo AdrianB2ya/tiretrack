@@ -79,6 +79,18 @@ describe("lo que la app envía cumple el contrato del servidor", () => {
     expect(r.problemas).toEqual([]);
   });
 
+  it("las tres profundidades viajan sin nulls, y la mínima no (la calcula el servidor)", async () => {
+    await repo.guardarMedicion({
+      id: nuevoId(), ordenId: ORDEN, posicion: 7, serial: "MX1",
+      profundidades: { exterior: 9.5, centro: 9, interior: null },
+      capturadoPorId: "u-tec1",
+    });
+    const datos = (await ultimoEncolado()) as Record<string, unknown>;
+    expect(validar(datos).problemas).toEqual([]);
+    expect(datos["profundidades"]).toEqual({ exterior: 9.5, centro: 9 });
+    expect(datos).not.toHaveProperty("profundidad");
+  });
+
   it("una medición con casi todo vacío", async () => {
     // El caso más común en campo, y el que antes se rechazaba siempre:
     // SQLite y el formulario producen null, el contrato espera ausencia.

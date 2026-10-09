@@ -132,6 +132,8 @@ export interface MedicionDescargada {
   readonly psiEncontrada: number | null;
   readonly psiCalibrado: number | null;
   readonly profundidad: number | null;
+  /** Las tres medidas; sin ellas, corregir una posición las borraría. */
+  readonly profundidades: TresMedidas;
   readonly observaciones: string | null;
   readonly noIdentificada: boolean;
   readonly motivoNoIdentificada: string | null;
@@ -142,8 +144,15 @@ export interface MedicionDescargada {
   readonly desmontada: {
     posicionOrigen: number | null; marcaId: string | null; disenoId: string | null; medida: string | null;
     numCalor: string | null; serial: string | null; dot: string | null; profundidad: number | null;
+    profundidades: TresMedidas;
     destino: string | null; detalle: string | null;
   } | null;
+}
+
+export interface TresMedidas {
+  readonly exterior: number | null;
+  readonly centro: number | null;
+  readonly interior: number | null;
 }
 
 /** Columnas des* → objeto; null si no se cambió la llanta. */
@@ -157,7 +166,12 @@ function desmontadaDe(
     medida: txt(f["desMedida"]), numCalor: txt(f["desNumCalor"]), serial: txt(f["desSerial"]), dot: txt(f["desDot"]),
     profundidad: num(f["desProfundidad"]), destino: txt(f["desDestino"]), detalle: txt(f["desDetalle"]),
   };
-  return Object.values(d).some((v) => v !== null) ? d : null;
+  const profundidades = {
+    exterior: num(f["desProfExterior"]), centro: num(f["desProfCentro"]), interior: num(f["desProfInterior"]),
+  };
+  // El objeto de las tres medidas nunca es null: se mira lo que trae.
+  const hayAlgo = Object.values(d).some((v) => v !== null) || Object.values(profundidades).some((v) => v !== null);
+  return hayAlgo ? { ...d, profundidades } : null;
 }
 
 export interface Consultable {
@@ -300,6 +314,8 @@ export class ServicioDescarga {
               lr.observaciones, lr."noIdentificada", lr."motivoNoIdentificada", lr."capturadoPorId",
               lr."desPosicionOrigen", lr."desMarcaId", lr."desDisenoId", lr."desMedida", lr."desNumCalor",
               lr."desSerial", lr."desDot", lr."desProfundidad", lr."desDestino", lr."desDetalle",
+              lr."profExterior", lr."profCentro", lr."profInterior",
+              lr."desProfExterior", lr."desProfCentro", lr."desProfInterior",
               coalesce((SELECT array_agg(s.codigo ORDER BY s.codigo)
                           FROM "LlantaServicio" ls JOIN "Servicio" s ON s.id = ls."servicioId"
                          WHERE ls."llantaRegistroId" = lr.id), ARRAY[]::text[]) AS servicios
@@ -323,6 +339,7 @@ export class ServicioDescarga {
       psiEncontrada: num(f["psiEncontrada"]),
       psiCalibrado: num(f["psiCalibrado"]),
       profundidad: num(f["profundidad"]),
+      profundidades: { exterior: num(f["profExterior"]), centro: num(f["profCentro"]), interior: num(f["profInterior"]) },
       observaciones: txt(f["observaciones"]),
       noIdentificada: Boolean(f["noIdentificada"]),
       motivoNoIdentificada: txt(f["motivoNoIdentificada"]),

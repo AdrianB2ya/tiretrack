@@ -3328,7 +3328,7 @@ hasta que lo pida**; se agregan aquí a medida que aparecen.
    empresa prestadora.
 2. **Número de calor:** falta el campo en la **llanta montada** y en la
    **llanta desmontada** del editor de posición.
-3. **Profundidad (profundímetro):** no deja escribir el **punto decimal**.
+3. ~~**Profundidad (profundímetro):** no deja escribir el **punto decimal**.~~ Hecho (2026-10-09).
 4. **Logo y nombre nuevos** (esperando el diseño). Al aplicarlos: ícono
    1024², ícono adaptable de Android (primer plano con zona segura ~66% +
    fondo), monocromo, splash sobre el fondo oscuro, logo horizontal para el
@@ -3344,7 +3344,7 @@ hasta que lo pida**; se agregan aquí a medida que aparecen.
    `vehiculoId`, la pantalla no lo ofrecía) y **número de calor**, buscado
    en la llanta montada y en la desmontada, como el serial. "Filtro de calor"
    y "número de calor" son el mismo (confirmado).
-6. **Tres profundidades por llanta: exterior, centro, interior**
+6. **Hecho (2026-10-09).** **Tres profundidades por llanta: exterior, centro, interior**
    (decisiones del usuario, 2026-10-09):
    - Basta **al menos una**; si falta alguna, avisa pero no bloquea.
    - La **llanta desmontada también lleva las tres**.
@@ -3389,13 +3389,38 @@ hasta que lo pida**; se agregan aquí a medida que aparecen.
      repositorio y slug de EAS (cambiar el slug obliga a otro proyecto de EAS).
      Nadie lo ve y cambiarlo solo arriesga romper el despliegue.
 
+## Tres profundidades y punto decimal (2026-10-09)
+
+Pendientes 3 y 6 de las pruebas en campo. Decisiones del usuario: exterior,
+centro e interior; basta **una**; la **desmontada también lleva las tres**.
+
+- **Dominio** (`llanta/profundidades.ts`): la profundidad de la llanta es la
+  **mínima** de las medidas tomadas (`profundidadDeReferencia`); cero es una
+  medida, no una falta. Desgaste, alertas, informe y trazabilidad siguen
+  usando `profundidad`, ahora la mínima: no hubo que tocarlos.
+- **La mínima la calcula el servidor** a partir de `profundidades`; si llega
+  solo `profundidad` (versión anterior de la app), se guarda esa. Columnas
+  `profExterior/Centro/Interior` y `desProf…` (migración
+  `20261009120000_tres_profundidades`; en el celular, la 14).
+- **El celular envía solo las medidas tomadas**, sin nulls y sin la mínima.
+- **Editor**: tres campos (exterior, centro, interior) en la montada y en la
+  desmontada. Lo que falta se dice como información ("Sin medir: interior"),
+  sin bloquear ni pedir confirmar. El mínimo del eje se compara con la mínima.
+  Una medición anterior de un solo punto se conserva si no se mide de nuevo.
+- **PDF**: columna "Prof. ext · cen · int" con la mínima debajo. **CSV**:
+  PROF EXT, PROF CENTRO, PROF INT y PROF MÍN, en la montada y la desmontada.
+- **Punto decimal**: el campo guardaba el número y lo reescribía, así que
+  "8." volvía a "8" y el punto desaparecía. `CampoDecimal` conserva el texto
+  mientras se escribe y solo entrega el número. También lo usan los PSI.
+  Prueba: escribir "8." deja "8." en el campo.
+
 ## Punto de retoma (2026-10-05)
 
 **Estado:** el usuario prueba la app en el teléfono con Expo Go (SDK 52). La guía de despliegue (`DESPLEGAR.md`) está lista; falta que el usuario cree las cuentas.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 952/952, mobile 898 + recorrido 459.
+**Verificado:** `npm run verify` con base: raíz 965/965, mobile 915 + recorrido 459.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

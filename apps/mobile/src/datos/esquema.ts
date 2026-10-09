@@ -460,6 +460,20 @@ export const MIGRACIONES: readonly Migracion[] = [
       ALTER TABLE vehiculo ADD COLUMN activo INTEGER NOT NULL DEFAULT 1;
     `,
   },
+  {
+    version: 14,
+    nombre: "tres profundidades",
+    sql: `
+      -- Exterior, centro e interior, en la llanta montada y en la desmontada.
+      -- "profundidad" y "des_profundidad" quedan como la mínima de las tres.
+      ALTER TABLE medicion ADD COLUMN prof_exterior REAL;
+      ALTER TABLE medicion ADD COLUMN prof_centro REAL;
+      ALTER TABLE medicion ADD COLUMN prof_interior REAL;
+      ALTER TABLE medicion ADD COLUMN des_prof_exterior REAL;
+      ALTER TABLE medicion ADD COLUMN des_prof_centro REAL;
+      ALTER TABLE medicion ADD COLUMN des_prof_interior REAL;
+    `,
+  },
 ];
 
 export const VERSION_ESQUEMA = MIGRACIONES[MIGRACIONES.length - 1]?.version ?? 0;

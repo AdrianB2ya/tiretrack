@@ -679,7 +679,11 @@ model LlantaRegistro {
 
   psiEncontrada Decimal? @db.Decimal(6, 2)
   psiCalibrado  Decimal? @db.Decimal(6, 2)
+  /// La mínima de las tres medidas: la que usan desgaste, alertas e informe.
   profundidad   Decimal? @db.Decimal(5, 2)
+  profExterior  Decimal? @db.Decimal(5, 2)
+  profCentro    Decimal? @db.Decimal(5, 2)
+  profInterior  Decimal? @db.Decimal(5, 2)
 
   observaciones String?
 
@@ -700,6 +704,9 @@ model LlantaRegistro {
   desSerial         String?
   desDot            String?
   desProfundidad    Decimal? @db.Decimal(5, 2)
+  desProfExterior   Decimal? @db.Decimal(5, 2)
+  desProfCentro     Decimal? @db.Decimal(5, 2)
+  desProfInterior   Decimal? @db.Decimal(5, 2)
   desDestino        String?
   desDetalle        String?
 

@@ -104,7 +104,9 @@ export default function PantallaPosicion() {
         estadoLlanta: borrador.estadoLlanta,
         psiEncontrada: borrador.psiEncontrada,
         psiCalibrado: borrador.psiCalibrado,
+        // Sin medidas nuevas, se conserva la única de una medición anterior.
         profundidad: borrador.profundidad,
+        profundidades: borrador.profundidades,
         observaciones: borrador.observaciones,
         noIdentificada: borrador.noIdentificada,
         motivoNoId: borrador.motivoNoId,

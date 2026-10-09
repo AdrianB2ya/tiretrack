@@ -71,7 +71,9 @@ describe.skipIf(!disponible)("informe", () => {
         "noIdentificada" boolean NOT NULL DEFAULT false,
         "desPosicionOrigen" integer, "desNumCalor" text, "desSerial" text, "desDot" text,
         "desMedida" text, "desProfundidad" numeric(5,2),
-        "desMarcaId" text, "desDisenoId" text, "desDestino" text, "desDetalle" text
+        "desMarcaId" text, "desDisenoId" text, "desDestino" text, "desDetalle" text,
+        "profExterior" numeric(5,2), "profCentro" numeric(5,2), "profInterior" numeric(5,2),
+        "desProfExterior" numeric(5,2), "desProfCentro" numeric(5,2), "desProfInterior" numeric(5,2)
       );
 
       CREATE TABLE "LlantaServicio" (

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   borradorNuevo,
+  profundidadDelBorrador,
   borradorDesde,
   copiarDeHermana,
   revisar,
@@ -38,6 +39,11 @@ const casillaDireccional: Casilla = {
 
 function borrador(extra: Partial<BorradorMedicion> = {}): BorradorMedicion {
   return { ...borradorNuevo(casillaDireccional), ...extra };
+}
+
+/** Las tres medidas; las que no se dan quedan sin medir. */
+function medidas(m: Partial<Record<"exterior" | "centro" | "interior", number>>) {
+  return { exterior: null, centro: null, interior: null, ...m };
 }
 
 describe("borrador nuevo", () => {
@@ -180,21 +186,22 @@ describe("validación del DOT", () => {
 });
 
 describe("profundidad", () => {
-  it("una negativa es imposible", () => {
-    const avisos = revisar(borrador({ profundidad: -2 }), casillaDireccional, HOY);
-    expect(avisos.find((a) => a.campo === "profundidad")?.severidad).toBe("error");
+  it("una negativa es imposible, en el punto donde se escribió", () => {
+    const avisos = revisar(borrador({ profundidades: medidas({ centro: -2 }) }), casillaDireccional, HOY);
+    expect(avisos.find((a) => a.campo === "profCentro")?.severidad).toBe("error");
   });
 
   it("una enorme se advierte pero se permite", () => {
     // Probablemente sea un error de dedo, pero una llanta de cargador puede
     // tenerla. El técnico está frente a ella; la app no.
-    const avisos = revisar(borrador({ profundidad: 45, serial: "MX1" }), casillaDireccional, HOY);
-    expect(avisos.find((a) => a.campo === "profundidad")?.severidad).toBe("advertencia");
+    const avisos = revisar(borrador({ profundidades: medidas({ exterior: 45, centro: 45, interior: 45 }), serial: "MX1" }), casillaDireccional, HOY);
+    expect(avisos.find((a) => a.campo === "profExterior")?.severidad).toBe("advertencia");
     expect(puedeGuardar(avisos).permitido).toBe(true);
   });
 
-  it("bajo el mínimo del eje se advierte", () => {
-    const avisos = revisar(borrador({ profundidad: 2, serial: "MX1" }), casillaDireccional, HOY);
+  it("bajo el mínimo del eje se advierte: cuenta la mínima de las tres", () => {
+    // 9 y 8 están bien, pero el interior va en 2: la llanta se juzga por su punto más gastado.
+    const avisos = revisar(borrador({ profundidades: medidas({ exterior: 9, centro: 8, interior: 2 }), serial: "MX1" }), casillaDireccional, HOY);
     const aviso = avisos.find((a) => a.campo === "profundidad");
     expect(aviso?.severidad).toBe("advertencia");
     expect(aviso?.mensaje).toContain("3 mm");
@@ -202,8 +209,21 @@ describe("profundidad", () => {
 
   it("sin umbral configurado no se compara", () => {
     const sinUmbral = { ...casillaDireccional, profundidadMinima: null };
-    const avisos = revisar(borrador({ profundidad: 1, serial: "MX1" }), sinUmbral, HOY);
+    const avisos = revisar(borrador({ profundidades: medidas({ exterior: 1, centro: 1, interior: 1 }), serial: "MX1" }), sinUmbral, HOY);
     expect(avisos.filter((a) => a.campo === "profundidad")).toHaveLength(0);
+  });
+
+  it("basta una medida: lo que falta se dice, sin bloquear ni pedir confirmar", () => {
+    const avisos = revisar(borrador({ profundidades: medidas({ centro: 8 }), serial: "MX1" }), casillaDireccional, HOY);
+    const falta = avisos.find((a) => a.mensaje.startsWith("Sin medir"));
+    expect(falta).toMatchObject({ severidad: "informacion", mensaje: "Sin medir: exterior y interior" });
+    expect(puedeGuardar(avisos).permitido).toBe(true);
+    expect(advertenciasParaConfirmar(avisos)).toHaveLength(0);
+  });
+
+  it("una medición anterior, de un solo punto, se conserva si no se mide de nuevo", () => {
+    expect(profundidadDelBorrador(borrador({ profundidad: 7.5 }))).toBe(7.5);
+    expect(profundidadDelBorrador(borrador({ profundidad: 7.5, profundidades: medidas({ centro: 6 }) }))).toBe(6);
   });
 });
 
@@ -260,7 +280,7 @@ describe("parche", () => {
 describe("reglas para guardar", () => {
   it("solo los errores bloquean", () => {
     const soloAdvertencias = revisar(
-      borrador({ profundidad: 2, dot: "0819", serial: "MX1" }),
+      borrador({ profundidades: medidas({ exterior: 2, centro: 2, interior: 2 }), dot: "0819", serial: "MX1" }),
       casillaDireccional,
       HOY,
     );
@@ -270,7 +290,7 @@ describe("reglas para guardar", () => {
 
   it("el motivo del bloqueo enumera todos los errores", () => {
     const avisos = revisar(
-      borrador({ noIdentificada: true, dot: "xx", profundidad: -1 }),
+      borrador({ noIdentificada: true, dot: "xx", profundidades: medidas({ exterior: -1, centro: 5, interior: 5 }) }),
       casillaDireccional,
       HOY,
     );
@@ -282,7 +302,7 @@ describe("reglas para guardar", () => {
   it("las advertencias se separan para confirmarlas antes de guardar", () => {
     // Mostrarlas una vez atrapa el error de dedo sin estorbar cuando el dato
     // es correcto.
-    const avisos = revisar(borrador({ profundidad: 45, serial: "MX1" }), casillaDireccional, HOY);
+    const avisos = revisar(borrador({ profundidades: medidas({ exterior: 45, centro: 9, interior: 9 }), serial: "MX1" }), casillaDireccional, HOY);
     const confirmar = advertenciasParaConfirmar(avisos);
     expect(confirmar).toHaveLength(1);
     expect(confirmar[0]?.severidad).toBe("advertencia");
@@ -301,6 +321,7 @@ describe("borrador vacío", () => {
 
   it("cualquier dato capturado ya cuenta", () => {
     expect(tieneContenido(borrador({ profundidad: 9 }))).toBe(true);
+    expect(tieneContenido(borrador({ profundidades: medidas({ interior: 4 }) }))).toBe(true);
     expect(tieneContenido(borrador({ serial: "MX1" }))).toBe(true);
     expect(tieneContenido(borrador({ servicios: ["CALI"] }))).toBe(true);
   });

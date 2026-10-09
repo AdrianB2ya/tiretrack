@@ -1,4 +1,5 @@
 import type { AdjuntarFoto, CrearOrden, Firma, MedicionLlanta } from "@tiretrack/contracts";
+import { PUNTOS_PROFUNDIDAD, type TresProfundidades } from "@tiretrack/domain";
 
 /**
  * Traducción de lo local al contrato compartido.
@@ -30,6 +31,8 @@ export interface MedicionParaEnviar {
   readonly motivoNoId?: string | null;
   /** Códigos de servicio del catálogo fijo (`CALI`, `RETO`…). */
   readonly servicios?: readonly string[];
+  /** Exterior, centro, interior. La profundidad de la llanta la calcula el servidor. */
+  readonly profundidades?: TresProfundidades | null;
   /** La llanta que salió de la posición, si se cambió. */
   readonly desmontada?: Desmontada | null;
 }
@@ -44,8 +47,20 @@ export interface Desmontada {
   readonly serial: string | null;
   readonly dot: string | null;
   readonly profundidad: number | null;
+  readonly profundidades?: TresProfundidades | null;
   readonly destino: string | null;
   readonly detalle: string | null;
+}
+
+/** Solo las medidas tomadas: el contrato no admite `null`. Null si no hay ninguna. */
+function soloMedidas(p: TresProfundidades | null | undefined): Record<string, number> | null {
+  if (!p) return null;
+  const r: Record<string, number> = {};
+  for (const k of PUNTOS_PROFUNDIDAD) {
+    const v = p[k];
+    if (typeof v === "number" && Number.isFinite(v)) r[k] = v;
+  }
+  return Object.keys(r).length > 0 ? r : null;
 }
 
 /**
@@ -89,12 +104,25 @@ export function medicionAContrato(m: MedicionParaEnviar): MedicionLlanta {
   for (const [clave, valor] of opcionales) {
     if (valor !== null && valor !== undefined && valor !== "") salida[clave] = valor;
   }
+  // Con las tres medidas, la profundidad (la mínima) la calcula el servidor:
+  // no se manda una que pudiera no coincidir.
+  const tres = soloMedidas(m.profundidades);
+  if (tres) {
+    salida["profundidades"] = tres;
+    delete salida["profundidad"];
+  }
 
   // La desmontada viaja anidada y, como el resto, sin campos vacíos.
   if (m.desmontada) {
     const d: Record<string, unknown> = {};
     for (const [clave, valor] of Object.entries(m.desmontada)) {
+      if (clave === "profundidades") continue;
       if (valor !== null && valor !== undefined && valor !== "") d[clave] = valor;
+    }
+    const tresDes = soloMedidas(m.desmontada.profundidades);
+    if (tresDes) {
+      d["profundidades"] = tresDes;
+      delete d["profundidad"];
     }
     salida["desmontada"] = d;
   }

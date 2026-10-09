@@ -99,6 +99,30 @@ describe.skipIf(!disponible)("mediciones", () => {
       expect(f.rows[0].serial).toBe("MX1");
     });
 
+    it("con las tres medidas, la profundidad es la mínima y la calcula el servidor", async () => {
+      // Aunque el cuerpo traiga otra "profundidad", manda la de las tres medidas.
+      const r = await servicio.guardar(TEC1, ORDEN, medicion(1, {
+        profundidad: 50, profundidades: { exterior: 9.5, centro: 9, interior: 8.5 },
+        desmontada: { serial: "VIEJA", profundidades: { exterior: 3, interior: 2.5 } },
+      }));
+      expect(r.ok).toBe(true);
+      const f = await db.query(
+        `SELECT profundidad, "profExterior", "profCentro", "profInterior",
+                "desProfundidad", "desProfExterior", "desProfCentro", "desProfInterior" FROM "LlantaRegistro"`,
+      );
+      const x = f.rows[0];
+      expect([x.profundidad, x.profExterior, x.profCentro, x.profInterior].map(Number)).toEqual([8.5, 9.5, 9, 8.5]);
+      expect(Number(x.desProfundidad)).toBe(2.5);
+      expect(x.desProfCentro).toBeNull();
+    });
+
+    it("una versión anterior de la app, con una sola profundidad, sigue funcionando", async () => {
+      await servicio.guardar(TEC1, ORDEN, medicion(1, { profundidad: 7 }));
+      const f = await db.query(`SELECT profundidad, "profCentro" FROM "LlantaRegistro"`);
+      expect(Number(f.rows[0].profundidad)).toBe(7);
+      expect(f.rows[0].profCentro).toBeNull();
+    });
+
     it("el autor sale de la sesión, no del cuerpo", async () => {
       // Aunque el cuerpo intente decir otra cosa, el contrato no lo acepta
       // y el servicio usa la sesión.

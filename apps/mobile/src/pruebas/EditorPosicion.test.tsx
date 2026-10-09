@@ -160,8 +160,23 @@ describe("medición", () => {
   it("acepta coma decimal", () => {
     // El teclado del técnico tiene coma, no punto.
     const { onCambiar } = montar();
-    fireEvent.change(screen.getByLabelText("Profundidad (mm)"), { target: { value: "8,5" } });
-    expect((onCambiar.mock.calls[0]?.[0] as BorradorMedicion).profundidad).toBe(8.5);
+    fireEvent.change(screen.getByLabelText("Exterior"), { target: { value: "8,5" } });
+    expect((onCambiar.mock.calls[0]?.[0] as BorradorMedicion).profundidades.exterior).toBe(8.5);
+  });
+
+  it("deja escribir el punto: '8.' no se vuelve '8' antes de poner el decimal", () => {
+    // En el teléfono el punto desaparecía al teclearlo (pendiente de las pruebas en campo).
+    const { onCambiar } = montar();
+    const campo = screen.getByLabelText("Centro") as HTMLInputElement;
+    fireEvent.change(campo, { target: { value: "8." } });
+    expect(campo.value).toBe("8.");
+    fireEvent.change(campo, { target: { value: "8.5" } });
+    expect((onCambiar.mock.calls.at(-1)?.[0] as BorradorMedicion).profundidades.centro).toBe(8.5);
+  });
+
+  it("las tres medidas: exterior, centro e interior", () => {
+    montar();
+    for (const etiqueta of ["Exterior", "Centro", "Interior"]) expect(screen.getByLabelText(etiqueta)).toBeTruthy();
   });
 
   it("calcula el desgaste respecto a fábrica", () => {
@@ -234,7 +249,7 @@ describe("guardar", () => {
 
   it("una advertencia pide confirmar una sola vez", () => {
     // Interrumpir mientras escribe es peor: se muestran juntas al final.
-    const { onGuardar } = montar({ serial: "MX1", profundidad: 45 });
+    const { onGuardar } = montar({ serial: "MX1", profundidades: { exterior: 45, centro: 45, interior: 45 } });
 
     fireEvent.click(screen.getByTestId("guardar"));
     expect(onGuardar).not.toHaveBeenCalled();
@@ -251,7 +266,7 @@ describe("guardar", () => {
   });
 
   it("el botón dice qué va a pasar al confirmar", () => {
-    montar({ serial: "MX1", profundidad: 45 });
+    montar({ serial: "MX1", profundidades: { exterior: 45, centro: 45, interior: 45 } });
     fireEvent.click(screen.getByTestId("guardar"));
     expect(screen.getByText("Guardar de todos modos")).toBeTruthy();
   });

@@ -30,7 +30,13 @@ export interface BorradorMedicion {
   tipoParcheId: string | null;
   psiEncontrada: number | null;
   psiCalibrado: number | null;
+  /**
+   * Una sola profundidad: la de una medición anterior a las tres medidas. Se
+   * conserva si no se mide nada nuevo, para no borrarla al corregir.
+   */
   profundidad: number | null;
+  /** Exterior, centro, interior. */
+  profundidades: TresMedidas;
   observaciones: string | null;
   noIdentificada: boolean;
   motivoNoId: string | null;
@@ -53,6 +59,7 @@ export interface DesmontadaBorrador {
   serial: string | null;
   dot: string | null;
   profundidad: number | null;
+  profundidades: TresMedidas;
   destino: string | null;
   detalle: string | null;
   /** Fecha de la orden de donde se trajo la identidad, para decirlo en pantalla. */
@@ -74,6 +81,7 @@ export function desmontadaDesde(anterior: MedicionLocal | null, posicion: number
     serial: anterior?.serial ?? null,
     dot: anterior?.dot ?? null,
     profundidad: null,
+    profundidades: sinMedidas(),
     destino: null,
     detalle: null,
     traidaDe: anterior ? fechaAnterior : null,
@@ -93,6 +101,13 @@ export const SERVICIO_MONTAJE = "MONT";
  */
 export { MOTIVOS_NO_IDENTIFICADA } from "@tiretrack/contracts";
 export { ESTADOS_LLANTA } from "@tiretrack/domain";
+import {
+  ETIQUETA_PUNTO_PROFUNDIDAD,
+  PUNTOS_PROFUNDIDAD,
+  profundidadDeReferencia,
+  puntosSinMedir,
+  type PuntoProfundidad,
+} from "@tiretrack/domain";
 
 import type { MOTIVOS_NO_IDENTIFICADA as Motivos } from "@tiretrack/contracts";
 
@@ -123,6 +138,7 @@ export function borradorNuevo(casilla: Casilla): BorradorMedicion {
     // el técnico va a dejar la llanta en la gran mayoría de los casos.
     psiCalibrado: casilla.psiObjetivo,
     profundidad: null,
+    profundidades: sinMedidas(),
     observaciones: null,
     noIdentificada: false,
     motivoNoId: null,
@@ -146,12 +162,35 @@ export function borradorDesde(m: MedicionLocal): BorradorMedicion {
     psiEncontrada: m.psiEncontrada,
     psiCalibrado: m.psiCalibrado,
     profundidad: m.profundidad,
+    profundidades: { ...sinMedidas(), ...(m.profundidades ?? {}) },
     observaciones: m.observaciones,
     noIdentificada: m.noIdentificada,
     motivoNoId: m.motivoNoId as BorradorMedicion["motivoNoId"],
     servicios: [...m.servicios],
-    desmontada: m.desmontada ? { ...m.desmontada, traidaDe: null } : null,
+    desmontada: m.desmontada
+      ? { ...m.desmontada, profundidades: { ...sinMedidas(), ...(m.desmontada.profundidades ?? {}) }, traidaDe: null }
+      : null,
   };
+}
+
+export type TresMedidas = Record<PuntoProfundidad, number | null>;
+
+export function sinMedidas(): TresMedidas {
+  return { exterior: null, centro: null, interior: null };
+}
+
+/**
+ * La profundidad de la llanta: la mínima de las tres medidas. Sin ninguna,
+ * la única de una medición anterior (si la había).
+ */
+export function profundidadDelBorrador(b: { profundidad: number | null; profundidades: TresMedidas }): number | null {
+  return profundidadDeReferencia(b.profundidades) ?? b.profundidad;
+}
+
+/** Nombre del campo de aviso de cada medida: `profExterior`, `desProfCentro`… */
+export function campoMedida(punto: PuntoProfundidad, desmontada = false): string {
+  const p = punto.charAt(0).toUpperCase() + punto.slice(1);
+  return desmontada ? `desProf${p}` : `prof${p}`;
 }
 
 /**
@@ -232,24 +271,34 @@ export function revisar(
     }
   }
 
-  // ── Profundidad ──
-  if (b.profundidad !== null) {
-    if (b.profundidad < 0) {
-      avisos.push({ campo: "profundidad", severidad: "error", mensaje: "No puede ser negativa" });
-    } else if (b.profundidad > 30) {
+  // ── Profundidad: tres puntos de la banda ──
+  for (const punto of PUNTOS_PROFUNDIDAD) {
+    const v = b.profundidades[punto];
+    if (v === null) continue;
+    if (v < 0) {
+      avisos.push({ campo: campoMedida(punto), severidad: "error", mensaje: "No puede ser negativa" });
+    } else if (v > 30) {
       // Rara, pero una llanta de cargador puede tenerla. Se avisa.
-      avisos.push({
-        campo: "profundidad",
-        severidad: "advertencia",
-        mensaje: `${b.profundidad} mm es inusual. ¿Seguro?`,
-      });
-    } else if (casilla.profundidadMinima !== null && b.profundidad < casilla.profundidadMinima) {
-      avisos.push({
-        campo: "profundidad",
-        severidad: "advertencia",
-        mensaje: `Bajo el mínimo del eje (${casilla.profundidadMinima} mm)`,
-      });
+      avisos.push({ campo: campoMedida(punto), severidad: "advertencia", mensaje: `${v} mm es inusual. ¿Seguro?` });
     }
+  }
+  // La llanta se juzga por su punto más gastado: la mínima contra el mínimo del eje.
+  const minima = profundidadDelBorrador(b);
+  if (minima !== null && minima >= 0 && casilla.profundidadMinima !== null && minima < casilla.profundidadMinima) {
+    avisos.push({
+      campo: "profundidad",
+      severidad: "advertencia",
+      mensaje: `Bajo el mínimo del eje (${casilla.profundidadMinima} mm)`,
+    });
+  }
+  // Basta una medida (decisión del usuario): lo que falta se dice, no bloquea.
+  const faltan = puntosSinMedir(b.profundidades);
+  if (faltan.length > 0 && faltan.length < PUNTOS_PROFUNDIDAD.length) {
+    avisos.push({
+      campo: "profundidad",
+      severidad: "informacion",
+      mensaje: `Sin medir: ${faltan.map((p) => ETIQUETA_PUNTO_PROFUNDIDAD[p].toLowerCase()).join(" y ")}`,
+    });
   }
 
   // ── Presión ──
@@ -287,14 +336,17 @@ export function revisar(
     if (d.dot?.trim() && !leerDOT(d.dot, hoy)) {
       avisos.push({ campo: "desDot", severidad: "error", mensaje: "DOT de la desmontada inválido: son 4 dígitos, semana y año" });
     }
-    if (d.profundidad !== null && d.profundidad < 0) {
-      avisos.push({ campo: "desProfundidad", severidad: "error", mensaje: "La profundidad de la desmontada no puede ser negativa" });
+    for (const punto of PUNTOS_PROFUNDIDAD) {
+      const v = d.profundidades[punto];
+      if (v !== null && v < 0) {
+        avisos.push({ campo: campoMedida(punto, true), severidad: "error", mensaje: "La profundidad de la desmontada no puede ser negativa" });
+      }
     }
     // Se avisa, no se bloquea: a veces el destino se decide después.
     if (!d.destino) {
       avisos.push({ campo: "desDestino", severidad: "advertencia", mensaje: "Indica a dónde va la llanta desmontada" });
     }
-    if (d.profundidad === null) {
+    if (profundidadDelBorrador(d) === null) {
       avisos.push({ campo: "desProfundidad", severidad: "advertencia", mensaje: "Sin profundidad de la desmontada: es la que dice cuánto duró" });
     }
   }
@@ -324,7 +376,7 @@ export function tieneContenido(b: BorradorMedicion): boolean {
   return (
     b.noIdentificada ||
     b.serial !== null ||
-    b.profundidad !== null ||
+    profundidadDelBorrador(b) !== null ||
     b.psiEncontrada !== null ||
     b.marcaId !== null ||
     b.servicios.length > 0
