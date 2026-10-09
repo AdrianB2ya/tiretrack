@@ -275,7 +275,11 @@ export const zCambiarTecnicoProgramacion = z.object({ tecnicoId: zId });
 export const zFiltroInforme = z.object({
   clienteId: zId.optional(),
   vehiculoId: zId.optional(),
+  /** Placa o código del vehículo, escrito: busca por parte del texto. */
+  vehiculo: zTextoCorto.optional(),
   serial: zTextoCorto.optional(),
+  /** Número de calor: en la llanta montada y en la desmontada, como el serial. */
+  numCalor: zTextoCorto.optional(),
   servicio: zTextoCorto.optional(),
   estadoLlanta: zTextoCorto.optional(),
   desde: zFechaISO.optional(),

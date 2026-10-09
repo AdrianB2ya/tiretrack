@@ -16,12 +16,17 @@ export interface FiltroPantalla {
   readonly desde: string;
   readonly hasta: string;
   readonly serial: string;
+  /** Placa o código escrito. */
+  readonly vehiculo: string;
+  /** Vehículo elegido de la lista del cliente. */
+  readonly vehiculoId: string | null;
+  readonly numCalor: string;
   readonly servicio: string | null;
   readonly estadoLlanta: string | null;
 }
 
 export const FILTRO_VACIO: FiltroPantalla = {
-  clienteId: null, desde: "", hasta: "", serial: "", servicio: null, estadoLlanta: null,
+  clienteId: null, desde: "", hasta: "", serial: "", vehiculo: "", vehiculoId: null, numCalor: "", servicio: null, estadoLlanta: null,
 };
 
 /** Solo los servicios de la llanta: el lavado del vehículo no tiene fila en el informe. */
@@ -53,8 +58,10 @@ export function rangoRapido(cual: "hoy" | "7dias" | "mes" | "mesAnterior", hoy: 
  * Problemas del filtro, antes de gastar señal. La fecha se valida con el
  * mismo contrato del servidor —por componentes: `2026-02-31` no existe—.
  */
-export function revisarFiltro(f: FiltroPantalla): { campo: "desde" | "hasta" | "serial"; mensaje: string }[] {
-  const p: { campo: "desde" | "hasta" | "serial"; mensaje: string }[] = [];
+export function revisarFiltro(f: FiltroPantalla): { campo: "desde" | "hasta" | "serial" | "vehiculo" | "numCalor"; mensaje: string }[] {
+  const p: { campo: "desde" | "hasta" | "serial" | "vehiculo" | "numCalor"; mensaje: string }[] = [];
+  if (f.vehiculo.trim().length > 120) p.push({ campo: "vehiculo", mensaje: "Demasiado largo" });
+  if (f.numCalor.trim().length > 120) p.push({ campo: "numCalor", mensaje: "Demasiado largo" });
   for (const campo of ["desde", "hasta"] as const) {
     const v = f[campo].trim();
     if (v && !zFiltroInforme.shape[campo].safeParse(v).success) {
@@ -78,7 +85,10 @@ export function aConsulta(f: FiltroPantalla): string {
   if (f.clienteId) q.set("clienteId", f.clienteId);
   if (f.desde.trim()) q.set("desde", f.desde.trim());
   if (f.hasta.trim()) q.set("hasta", f.hasta.trim());
+  if (f.vehiculoId) q.set("vehiculoId", f.vehiculoId);
+  if (f.vehiculo.trim()) q.set("vehiculo", f.vehiculo.trim());
   if (f.serial.trim()) q.set("serial", f.serial.trim());
+  if (f.numCalor.trim()) q.set("numCalor", f.numCalor.trim());
   if (f.servicio) q.set("servicio", f.servicio);
   if (f.estadoLlanta) q.set("estadoLlanta", f.estadoLlanta);
   const s = q.toString();

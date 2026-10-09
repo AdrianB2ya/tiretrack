@@ -16,6 +16,11 @@ export default function RutaInforme() {
   const fuentes = useMemo<FuentesInforme>(
     () => ({
       clientes: () => fuentesFlota.clientes(),
+      vehiculosDe: async (clienteId) => {
+        const sedes = await fuentesFlota.sedesDeCliente(clienteId);
+        const listas = await Promise.all(sedes.map((s) => fuentesFlota.vehiculos(s.id)));
+        return listas.flat().map((v) => ({ id: v.id, codigo: v.codigo, placa: v.placa }));
+      },
       vistaPrevia: (q) => enLinea("GET", `/informe/resumen${q}`),
       trazabilidad: (serial) => enLinea("GET", `/informe/trazabilidad?serial=${encodeURIComponent(serial)}`),
       exportar: async (q) => {

@@ -3339,7 +3339,7 @@ hasta que lo pida**; se agregan aquí a medida que aparecen.
    desinstalan una sola vez (antes, revisar en Mi cuenta que no quede nada
    sin enviar). EAS genera llave de firma nueva para el paquete nuevo. Formato
    `com.<dominio>.<app>`, minúsculas, definitivo.
-5. **Filtros del informe:** vehículo o placa (un campo de búsqueda, y la
+5. **Hecho (2026-10-09).** **Filtros del informe:** vehículo o placa (un campo de búsqueda, y la
    lista de vehículos al elegir cliente; el servidor ya filtra por
    `vehiculoId`, la pantalla no lo ofrecía) y **número de calor**, buscado
    en la llanta montada y en la desmontada, como el serial. "Filtro de calor"
@@ -3414,13 +3414,27 @@ centro e interior; basta **una**; la **desmontada también lleva las tres**.
   mientras se escribe y solo entrega el número. También lo usan los PSI.
   Prueba: escribir "8." deja "8." en el campo.
 
+## Filtros del informe: vehículo, placa y número de calor (2026-10-09)
+
+Pendiente 5 de las pruebas en campo.
+
+- **Placa o código escrito** (`vehiculo`): busca por parte del texto en la
+  placa y el código **congelados en la orden** (o los del vehículo si la orden
+  no se ha aprobado), sin importar mayúsculas, espacios ni guiones: "sxk 482"
+  encuentra SXK482.
+- **Vehículo de la lista**: al elegir un cliente, sus vehículos aparecen para
+  tocar uno (`vehiculoId`, que el servidor ya aceptaba y la pantalla no
+  ofrecía). Elegir uno limpia la placa escrita y al revés.
+- **Número de calor**: en la llanta montada y en la desmontada, como el serial.
+- Los mismos filtros valen para la vista previa, el CSV y el PDF de órdenes.
+
 ## Punto de retoma (2026-10-05)
 
 **Estado:** el usuario prueba la app en el teléfono con Expo Go (SDK 52). La guía de despliegue (`DESPLEGAR.md`) está lista; falta que el usuario cree las cuentas.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 965/965, mobile 915 + recorrido 459.
+**Verificado:** `npm run verify` con base: raíz 967/967, mobile 915 + recorrido 459.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

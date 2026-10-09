@@ -200,6 +200,19 @@ describe.skipIf(!disponible)("informe", () => {
       expect(filas).toHaveLength(1);
     });
 
+    it("filtra por placa o código escrito, sin importar guiones, espacios ni mayúsculas", async () => {
+      // La orden 1 tiene congelado CA-12 / SXK482.
+      expect((await servicio.consultar(ADMIN, { vehiculo: "sxk 482" })).map((f) => f.posicion).sort()).toEqual([1, 5]);
+      expect((await servicio.consultar(ADMIN, { vehiculo: "ca12" })).length).toBe(2);
+      expect(await servicio.consultar(ADMIN, { vehiculo: "ZZZ999" })).toEqual([]);
+    });
+
+    it("filtra por número de calor, en la montada y en la desmontada", async () => {
+      expect((await servicio.consultar(ADMIN, { numCalor: "h22" })).map((f) => f.posicion)).toEqual([1]);
+      await db.query(`UPDATE "LlantaRegistro" SET "desNumCalor" = 'H9900' WHERE id = 'lr-2'`);
+      expect((await servicio.consultar(ADMIN, { numCalor: "H99" })).map((f) => f.posicion)).toEqual([5]);
+    });
+
     it("filtra por cliente", async () => {
       expect(await servicio.consultar(ADMIN, { clienteId: "cli-2" })).toHaveLength(1);
     });

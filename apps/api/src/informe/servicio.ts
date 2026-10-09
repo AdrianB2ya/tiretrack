@@ -34,8 +34,12 @@ export interface Contexto {
 export interface FiltroInforme {
   readonly clienteId?: string;
   readonly vehiculoId?: string;
+  /** Placa o código del vehículo; busca por parte del texto. */
+  readonly vehiculo?: string;
   /** Busca en el serial montado y en el desmontado. */
   readonly serial?: string;
+  /** Número de calor, montado o desmontado. */
+  readonly numCalor?: string;
   /** Código del servicio (`CALI`), no su nombre. */
   readonly servicio?: string;
   readonly estadoLlanta?: string;
@@ -142,6 +146,26 @@ export class ServicioInforme {
       cond.push(
         `(lower(coalesce(lr.serial,'')) LIKE $${params.length}
           OR lower(coalesce(lr."desSerial",'')) LIKE $${params.length})`,
+      );
+    }
+
+    // Placa o código: congelados en la orden al aprobar, o los del vehículo.
+    // Sin guiones ni espacios, porque "SXK 482" y "sxk-482" son la misma placa.
+    if (f.vehiculo) {
+      params.push(`%${f.vehiculo.toLowerCase().replace(/[\s-]/g, "")}%`);
+      const n = params.length;
+      cond.push(
+        `(regexp_replace(lower(coalesce(o."vehiculoPlaca", v.placa, '')), '[\\s-]', '', 'g') LIKE $${n}
+          OR regexp_replace(lower(coalesce(o."vehiculoCodigo", v.codigo, '')), '[\\s-]', '', 'g') LIKE $${n})`,
+      );
+    }
+
+    // Como el serial: montada o desmontada.
+    if (f.numCalor) {
+      params.push(`%${f.numCalor.toLowerCase()}%`);
+      cond.push(
+        `(lower(coalesce(lr."numCalor",'')) LIKE $${params.length}
+          OR lower(coalesce(lr."desNumCalor",'')) LIKE $${params.length})`,
       );
     }
 

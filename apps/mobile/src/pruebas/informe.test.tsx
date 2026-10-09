@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { zFiltroInforme } from "@tiretrack/contracts";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import {
   FILTRO_VACIO,
@@ -34,12 +35,17 @@ describe("reglas del informe", () => {
   });
 
   it("todos los filtros llegan con el nombre que espera el servidor", () => {
+    const VEH = "00000000-0000-4000-8000-0000000000b1";
     const q = new URLSearchParams(aConsulta({
       clienteId: CLIENTE, desde: "2026-09-01", hasta: "2026-09-30", serial: "X", servicio: "CALI", estadoLlanta: "Nueva",
+      vehiculo: " sxk482 ", vehiculoId: VEH, numCalor: "H22",
     }));
     expect(Object.fromEntries(q)).toEqual({
       clienteId: CLIENTE, desde: "2026-09-01", hasta: "2026-09-30", serial: "X", servicio: "CALI", estadoLlanta: "Nueva",
+      vehiculo: "sxk482", vehiculoId: VEH, numCalor: "H22",
     });
+    // Y el contrato del servidor las acepta.
+    expect(zFiltroInforme.safeParse({ ...Object.fromEntries(q) }).success).toBe(true);
   });
 
   it("una fecha que no existe se rechaza antes de gastar señal", () => {

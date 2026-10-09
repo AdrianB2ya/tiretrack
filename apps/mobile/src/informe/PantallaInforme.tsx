@@ -33,6 +33,8 @@ type Fallo = { ok: false; status: number; mensaje: string };
 
 export interface FuentesInforme {
   clientes(): Promise<{ id: string; nombre: string }[]>;
+  /** Los vehículos del cliente, para tocar uno en vez de escribir la placa. */
+  vehiculosDe?(clienteId: string): Promise<{ id: string; codigo: string; placa: string | null }[]>;
   vistaPrevia(consulta: string): Promise<{ ok: true; datos: VistaPrevia } | Fallo>;
   trazabilidad(serial: string): Promise<{ ok: true; datos: Trazabilidad } | Fallo>;
   exportar(consulta: string): Promise<{ ok: true; texto: string; nombre: string } | Fallo>;
@@ -67,6 +69,12 @@ export function PantallaInforme({ fuentes }: { fuentes: FuentesInforme }) {
   useEffect(() => {
     void fuentes.clientes().then(setClientes);
   }, [fuentes]);
+
+  const [vehiculos, setVehiculos] = useState<{ id: string; codigo: string; placa: string | null }[]>([]);
+  useEffect(() => {
+    if (!f.clienteId || !fuentes.vehiculosDe) return setVehiculos([]);
+    void fuentes.vehiculosDe(f.clienteId).then(setVehiculos);
+  }, [fuentes, f.clienteId]);
 
   const problemas = revisarFiltro(f);
   const error = (campo: string) => (intentado ? problemas.find((p) => p.campo === campo)?.mensaje : undefined);
@@ -175,9 +183,35 @@ export function PantallaInforme({ fuentes }: { fuentes: FuentesInforme }) {
       <View style={estilos.enLinea}>
         <Opcion etiqueta="Todos" activa={f.clienteId === null} onPress={() => cambiar({ clienteId: null })} />
         {clientes.map((c) => (
-          <Opcion key={c.id} etiqueta={c.nombre} activa={f.clienteId === c.id} onPress={() => cambiar({ clienteId: c.id })} />
+          <Opcion key={c.id} etiqueta={c.nombre} activa={f.clienteId === c.id} onPress={() => cambiar({ clienteId: c.id, vehiculoId: null })} />
         ))}
       </View>
+
+      {vehiculos.length > 0 ? (
+        <>
+          <Text style={estilos.etiqueta}>Vehículo</Text>
+          <View style={estilos.enLinea}>
+            <Opcion etiqueta="Todos" activa={f.vehiculoId === null} onPress={() => cambiar({ vehiculoId: null })} />
+            {vehiculos.map((v) => (
+              <Opcion
+                key={v.id}
+                etiqueta={v.placa ? `${v.codigo} · ${v.placa}` : v.codigo}
+                activa={f.vehiculoId === v.id}
+                testID={`vehiculo-${v.id}`}
+                onPress={() => cambiar({ vehiculoId: v.id, vehiculo: "" })}
+              />
+            ))}
+          </View>
+        </>
+      ) : null}
+      <Campo
+        etiqueta="Placa o código del vehículo"
+        ayuda="Basta una parte: SXK482, sxk 482 o CA-12"
+        value={f.vehiculo}
+        onChangeText={(v) => cambiar({ vehiculo: v, vehiculoId: null })}
+        autoCapitalize="characters"
+        error={error("vehiculo")}
+      />
 
       <Campo
         etiqueta="Serial de la llanta"
@@ -186,6 +220,14 @@ export function PantallaInforme({ fuentes }: { fuentes: FuentesInforme }) {
         onChangeText={(v) => cambiar({ serial: v })}
         autoCapitalize="characters"
         error={error("serial")}
+      />
+      <Campo
+        etiqueta="Número de calor"
+        ayuda="Busca en la llanta montada y en la desmontada"
+        value={f.numCalor}
+        onChangeText={(v) => cambiar({ numCalor: v })}
+        autoCapitalize="characters"
+        error={error("numCalor")}
       />
 
       <Text style={estilos.etiqueta}>Servicio</Text>
