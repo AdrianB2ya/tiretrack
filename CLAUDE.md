@@ -3359,7 +3359,24 @@ hasta que lo pida**; se agregan aquí a medida que aparecen.
    que tiene el usuario): logo de fondo negro dentro de la app, de fondo
    blanco en el PDF. Los colores de estado (verde, amarillo, rojo) se quedan
    aparte de la marca. Paleta en `src/diseno/tokens.ts` (un solo archivo) y
-   los colores del PDF. Falta que el usuario pase los archivos.
+   los colores del PDF.
+   **Logos analizados (2026-10-09)**, en `C:devlogos` (fuera del repo):
+   `logo1` fondo negro, `logo2` fondo blanco; JPG 1025×1025 sin
+   transparencia; llanta + "C" roja + "ASISTEC TIRE". Rojo de marca ≈
+   `#ED1C24` (el JPG da `#F01828` con ruido), negro y blanco.
+   - Sirven tal cual: splash (fondo negro), logo del ingreso (fondo negro),
+     encabezado del PDF (fondo blanco).
+   - **No sirven para el ícono**: el texto no se lee a 48 px, el contenido
+     ocupa el 73% del ancho (la zona segura de Android es ~66%) y el JPG no
+     tiene transparencia. **Pedido al diseñador:** solo el símbolo (llanta +
+     C) en PNG transparente 1024² o SVG; logo completo en PNG transparente
+     (oscuro y claro) o SVG; hex exacto del rojo. Mientras, ícono provisional.
+   - **Decisiones del usuario:** el rojo va **como acento** (logo,
+     encabezados, pestaña activa); los botones principales en blanco sobre
+     negro, como el logo; el rojo de "peligro" sigue inconfundible. Blanco
+     sobre `#ED1C24` da 4,4:1 (vale para letra grande en negrita, justo para
+     texto chico). **Nombre visible: "Asistectire".** Identificador nuevo:
+     por definir (propuesta `com.asistectire.app`).
 
 ## Punto de retoma (2026-10-05)
 
