@@ -3375,8 +3375,19 @@ hasta que lo pida**; se agregan aquí a medida que aparecen.
      encabezados, pestaña activa); los botones principales en blanco sobre
      negro, como el logo; el rojo de "peligro" sigue inconfundible. Blanco
      sobre `#ED1C24` da 4,4:1 (vale para letra grande en negrita, justo para
-     texto chico). **Nombre visible: "Asistectire".** Identificador nuevo:
-     por definir (propuesta `com.asistectire.app`).
+     texto chico). **Nombre visible: "Asistectire".**
+   - **Identificador: `com.asistectire.app`** y **"Asistectire" en todo lo
+     que ve el usuario** (decisión del usuario). Lugares a cambiar: nombre de
+     la app y textos de permisos de cámara/fotos (`app.json`), título del
+     ingreso, aviso de la autenticadora, mensaje de WhatsApp con el código,
+     aviso de permiso de cámara, pantalla del superadmin, pie y metadatos del
+     PDF, emisor de la app autenticadora (las cuentas ya registradas siguen
+     funcionando: solo cambia la etiqueta de las nuevas), esquema de enlaces
+     `tiretrack://` → `asistectire://`.
+   - **Lo interno no se renombra**: paquetes `@tiretrack/*`, roles
+     `tiretrack_app`/`tiretrack_auth`, nombres de base, servicio de Render,
+     repositorio y slug de EAS (cambiar el slug obliga a otro proyecto de EAS).
+     Nadie lo ve y cambiarlo solo arriesga romper el despliegue.
 
 ## Punto de retoma (2026-10-05)
 
