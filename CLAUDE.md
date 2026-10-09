@@ -3339,6 +3339,27 @@ hasta que lo pida**; se agregan aquí a medida que aparecen.
    desinstalan una sola vez (antes, revisar en Mi cuenta que no quede nada
    sin enviar). EAS genera llave de firma nueva para el paquete nuevo. Formato
    `com.<dominio>.<app>`, minúsculas, definitivo.
+5. **Filtros del informe:** vehículo o placa (un campo de búsqueda, y la
+   lista de vehículos al elegir cliente; el servidor ya filtra por
+   `vehiculoId`, la pantalla no lo ofrecía) y **número de calor**, buscado
+   en la llanta montada y en la desmontada, como el serial. "Filtro de calor"
+   y "número de calor" son el mismo (confirmado).
+6. **Tres profundidades por llanta: exterior, centro, interior**
+   (decisiones del usuario, 2026-10-09):
+   - Basta **al menos una**; si falta alguna, avisa pero no bloquea.
+   - La **llanta desmontada también lleva las tres**.
+   - Propuesta aceptada en el análisis: se guardan las tres y la **mínima**
+     queda como `profundidad` (la que usan desgaste, alertas e informe);
+     **la calcula el servidor**. PDF y CSV muestran las tres y la mínima.
+     Las órdenes viejas, con una sola, se muestran igual. Toca ~32 archivos:
+     esquema (Prisma y SQLite del celular), contrato, dominio, editor, PDF,
+     CSV, descarga. Va junto con el punto 3 (punto decimal).
+   - Orden propuesto: 6 + 3 primero, luego 5, luego marca (4 + colores).
+7. **Colores de la marca ASISTECTIRE** (con los logos de fondo blanco y negro
+   que tiene el usuario): logo de fondo negro dentro de la app, de fondo
+   blanco en el PDF. Los colores de estado (verde, amarillo, rojo) se quedan
+   aparte de la marca. Paleta en `src/diseno/tokens.ts` (un solo archivo) y
+   los colores del PDF. Falta que el usuario pase los archivos.
 
 ## Punto de retoma (2026-10-05)
 
