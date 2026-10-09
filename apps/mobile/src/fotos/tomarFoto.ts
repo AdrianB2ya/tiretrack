@@ -43,7 +43,7 @@ export async function tomarYAdjuntar(
   if (r.tipo === "sin_permiso") {
     return {
       tipo: "aviso",
-      mensaje: "TireTrack no tiene permiso para usar la cámara. Actívalo en Ajustes > Aplicaciones > Expo Go (o TireTrack) > Permisos.",
+      mensaje: "Asistectire no tiene permiso para usar la cámara. Actívalo en Ajustes > Aplicaciones > Asistectire > Permisos.",
     };
   }
   if (r.tipo === "error") return { tipo: "aviso", mensaje: `No se pudo tomar la foto: ${r.mensaje}` };

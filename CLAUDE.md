@@ -3333,7 +3333,7 @@ hasta que lo pida**; se agregan aquí a medida que aparecen.
    viajaba y salía en el CSV (columna CALOR), pero el editor no tenía dónde
    escribirlo. Ahora hay campo en la llanta montada y en la desmontada.
 3. ~~**Profundidad (profundímetro):** no deja escribir el **punto decimal**.~~ Hecho (2026-10-09).
-4. **Logo y nombre nuevos** (esperando el diseño). Al aplicarlos: ícono
+4. **Hecho (2026-10-09), con ícono provisional.** **Logo y nombre nuevos**. Al aplicarlos: ícono
    1024², ícono adaptable de Android (primer plano con zona segura ~66% +
    fondo), monocromo, splash sobre el fondo oscuro, logo horizontal para el
    ingreso. **El usuario decidió cambiar también el identificador**
@@ -3432,13 +3432,43 @@ Pendiente 5 de las pruebas en campo.
 - **Número de calor**: en la llanta montada y en la desmontada, como el serial.
 - Los mismos filtros valen para la vista previa, el CSV y el PDF de órdenes.
 
+## Marca Asistectire (2026-10-09)
+
+Pendientes 4 y 7. Decisiones del usuario: nombre **Asistectire**,
+identificador **`com.asistectire.app`**, rojo de la marca **como acento**.
+
+- **Identificador nuevo**: Android lo trata como otra app. Hay que
+  **desinstalar la anterior** (`app.tiretrack.campo`) después de revisar en
+  Mi cuenta que no quede nada sin enviar. EAS genera llave de firma nueva.
+- **Imágenes** (`apps/mobile/assets`, generadas de `C:devlogos`):
+  ícono 1024² sobre el negro del logo, ícono adaptable con el logo dentro de
+  la zona segura (60%), splash sobre `#090706`, logo para la pantalla de
+  ingreso. **Provisionales**: el texto del logo no se lee a 48 px; falta que
+  el diseñador mande solo el símbolo (ver pendiente 7).
+- **Paleta**: el fondo es el negro del logo (`#090706`), así el logo no
+  muestra recuadro. Lo interactivo y lo elegido va en **blanco** (botón
+  principal blanco con texto negro); el rojo `#ED1C24` (`colores.marca`)
+  solo en la barra de la pestaña activa y el PDF. Prueba de contraste
+  (`tokens.test.ts`): texto ≥ 7:1, texto tenue ≥ 4,5:1, botón ≥ 7:1, y el
+  rojo de marca no puede ser el color de lo interactivo.
+- **Ingreso**: el logo reemplaza al nombre escrito. Las imágenes se importan
+  como módulo (`src/tipos/imagenes.d.ts`): en el teléfono llegan como
+  recurso, en las pruebas como ruta.
+- **PDF**: logo de fondo blanco (`apps/api/assets/logo-claro.jpg`) arriba a
+  la derecha y línea roja de la marca bajo el encabezado. Si faltara el
+  archivo, el PDF sale igual sin logo.
+- **Textos**: nombre de la app, permisos de cámara y fotos, autenticadora
+  (las cuentas ya registradas siguen funcionando), mensaje de WhatsApp,
+  aviso de cámara, pantalla del superadmin, pie del PDF. Lo interno
+  (paquetes, roles, base, Render, repositorio, slug de EAS) no se renombra.
+
 ## Punto de retoma (2026-10-05)
 
 **Estado:** el usuario prueba la app en el teléfono con Expo Go (SDK 52). La guía de despliegue (`DESPLEGAR.md`) está lista; falta que el usuario cree las cuentas.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 968/968, mobile 919 + recorrido 459.
+**Verificado:** `npm run verify` con base: raíz 968/968, mobile 923 + recorrido 459.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

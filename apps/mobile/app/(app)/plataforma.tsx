@@ -24,7 +24,7 @@ export default function PantallaPlataforma() {
         <Text style={estilos.titulo}>Cuenta de plataforma</Text>
         <Tarjeta>
           <Text style={estilos.cuerpo}>
-            {usuario.nombre}, tu cuenta administra TireTrack, no una empresa. Por seguridad no ve las órdenes,
+            {usuario.nombre}, tu cuenta administra Asistectire, no una empresa. Por seguridad no ve las órdenes,
             clientes ni mediciones de ninguna empresa.
           </Text>
         </Tarjeta>

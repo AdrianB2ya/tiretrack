@@ -59,5 +59,5 @@ const estilos = StyleSheet.create({
   activa: { backgroundColor: conOpacidad(colores.primario, 0.1) },
   texto: { ...texto.etiqueta, color: colores.textoTenue },
   textoActivo: { color: colores.primario, fontWeight: "700" },
-  marca: { position: "absolute", top: 0, left: espacio.md, right: espacio.md, height: 3, backgroundColor: colores.primario },
+  marca: { position: "absolute", top: 0, left: espacio.md, right: espacio.md, height: 3, backgroundColor: colores.marca },
 });

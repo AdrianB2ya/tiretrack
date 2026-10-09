@@ -42,7 +42,7 @@ const fondosBoton: Record<TipoBoton, string> = {
 };
 
 const textosBoton: Record<TipoBoton, string> = {
-  primario: colores.blanco,
+  primario: colores.sobrePrimario,
   secundario: colores.texto,
   peligro: colores.blanco,
   fantasma: colores.textoTenue,

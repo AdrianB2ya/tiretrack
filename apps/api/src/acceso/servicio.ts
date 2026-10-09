@@ -454,7 +454,7 @@ export class ServicioAuth {
         return {
           tipo: "configurar_2fa",
           secreto,
-          uri: generateURI({ secret: secreto, label: usuario.email, issuer: "TireTrack" }),
+          uri: generateURI({ secret: secreto, label: usuario.email, issuer: "Asistectire" }),
         };
       }
       if (!usuario.dobleFactorSecreto || !codigoTotpValido(e.codigo2fa, usuario.dobleFactorSecreto)) {
@@ -487,7 +487,7 @@ export class ServicioAuth {
     const secreto = generateSecret();
     return {
       secreto,
-      uri: generateURI({ secret: secreto, label: email, issuer: `TireTrack (${empresa})` }),
+      uri: generateURI({ secret: secreto, label: email, issuer: `Asistectire (${empresa})` }),
     };
   }
 

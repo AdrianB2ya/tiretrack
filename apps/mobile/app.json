@@ -1,14 +1,14 @@
 {
   "expo": {
-    "name": "TireTrack",
+    "name": "Asistectire",
     "slug": "tiretrack",
     "version": "0.1.0",
     "orientation": "portrait",
-    "scheme": "tiretrack",
+    "scheme": "asistectire",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "android": {
-      "package": "app.tiretrack.campo",
+      "package": "com.asistectire.app",
       "versionCode": 1,
       "permissions": [
         "android.permission.CAMERA",
@@ -16,7 +16,8 @@
         "android.permission.ACCESS_NETWORK_STATE"
       ],
       "adaptiveIcon": {
-        "backgroundColor": "#1A1D23"
+        "foregroundImage": "./assets/icono-adaptable.png",
+        "backgroundColor": "#090706"
       },
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO"
@@ -32,8 +33,8 @@
       [
         "expo-image-picker",
         {
-          "cameraPermission": "TireTrack usa la cámara para registrar el estado de las llantas en la orden de servicio.",
-          "photosPermission": "TireTrack accede a tus fotos solo si eliges una imagen ya tomada para adjuntarla a una orden.",
+          "cameraPermission": "Asistectire usa la cámara para registrar el estado de las llantas en la orden de servicio.",
+          "photosPermission": "Asistectire accede a tus fotos solo si eliges una imagen ya tomada para adjuntarla a una orden.",
           "microphonePermission": false
         }
       ],
@@ -44,12 +45,12 @@
       "typedRoutes": true
     },
     "ios": {
-      "bundleIdentifier": "app.tiretrack.campo",
+      "bundleIdentifier": "com.asistectire.app",
       "buildNumber": "1",
       "supportsTablet": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "TireTrack usa la cámara para registrar el estado de las llantas en la orden de servicio.",
-        "NSPhotoLibraryUsageDescription": "TireTrack accede a tus fotos solo si eliges una imagen ya tomada para adjuntarla a una orden."
+        "NSCameraUsageDescription": "Asistectire usa la cámara para registrar el estado de las llantas en la orden de servicio.",
+        "NSPhotoLibraryUsageDescription": "Asistectire accede a tus fotos solo si eliges una imagen ya tomada para adjuntarla a una orden."
       }
     },
     "updates": {
@@ -68,6 +69,12 @@
     "owner": "adrianb2ya",
     "runtimeVersion": {
       "policy": "appVersion"
+    },
+    "icon": "./assets/icono.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#090706"
     }
   }
 }

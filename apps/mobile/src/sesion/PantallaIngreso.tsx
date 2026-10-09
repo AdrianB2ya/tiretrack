@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Aviso, Boton, Campo } from "../diseno/componentes";
 import { colores, conOpacidad, espacio, radio, tactil, texto } from "../diseno/tokens";
 import { revisarCodigo, revisarFormulario, type Credenciales, type ResultadoIngreso } from "./ingreso";
+import logoOscuro from "../../assets/logo-oscuro.png";
 
 /**
  * Pantalla de ingreso.
@@ -11,6 +12,9 @@ import { revisarCodigo, revisarFormulario, type Credenciales, type ResultadoIngr
  * vez de fallar con un error genérico: un técnico sin cobertura tiene que
  * saber que el problema es la señal y no su contraseña.
  */
+
+/** En Node (pruebas) la imagen llega como ruta; en el teléfono, como recurso. */
+const LOGO = typeof logoOscuro === "string" ? { uri: logoOscuro } : logoOscuro;
 
 export interface PantallaIngresoProps {
   onIngresar: (credenciales: Credenciales) => Promise<ResultadoIngreso | { tipo: "trabajo_de_otro"; mensaje: string }>;
@@ -131,7 +135,7 @@ export function PantallaIngreso({ onIngresar, onDescartarYEntrar, entrando = fal
           <Text style={estilos.titulo}>Código de verificación</Text>
           <Text style={estilos.explicacion}>
             Tu cuenta pide un segundo paso. Abre tu app autenticadora (Google Authenticator,
-            Authy…) y escribe el código de 6 números que muestra para TireTrack.
+            Authy…) y escribe el código de 6 números que muestra para Asistectire.
           </Text>
           <Text style={estilos.ayudaIzq}>Entrando como {email.trim().toLowerCase()}</Text>
 
@@ -193,7 +197,14 @@ export function PantallaIngreso({ onIngresar, onDescartarYEntrar, entrando = fal
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView contentContainerStyle={estilos.contenido} keyboardShouldPersistTaps="handled">
-        <Text style={estilos.marca}>TireTrack</Text>
+        <Image
+          source={LOGO}
+          style={estilos.logo}
+          resizeMode="contain"
+          accessibilityLabel="Asistectire"
+          role="img"
+          testID="logo"
+        />
         <Text style={estilos.ayuda}>Entra para ver tus órdenes del día</Text>
 
         <Campo
@@ -265,7 +276,7 @@ export function PantallaIngreso({ onIngresar, onDescartarYEntrar, entrando = fal
 const estilos = StyleSheet.create({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: espacio.xl, gap: espacio.md, flexGrow: 1, justifyContent: "center" },
-  marca: { fontSize: 30, fontWeight: "800", color: colores.primario, textAlign: "center" },
+  logo: { width: "100%", height: 150, alignSelf: "center" },
   titulo: { ...texto.subtitulo, color: colores.texto },
   ayuda: { ...texto.ayuda, color: colores.textoTenue, textAlign: "center", marginBottom: espacio.lg },
   ayudaIzq: { ...texto.ayuda, color: colores.textoTenue },

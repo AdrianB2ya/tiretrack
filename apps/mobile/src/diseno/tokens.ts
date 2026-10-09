@@ -7,14 +7,26 @@
  * de diseño.
  */
 
+/**
+ * Paleta de Asistectire (decisión del usuario, 2026-10-09): negro, blanco y
+ * el rojo de la marca **como acento** (logo, barra superior, pestaña activa).
+ * Lo interactivo va en blanco sobre negro, como el logo: si los botones
+ * fueran rojos, el rojo dejaría de significar "peligro" (llanta gastada,
+ * firma inválida) y bajo el sol esa señal no puede perderse.
+ *
+ * El fondo es el negro del logo: el logo se ve sin recuadro sobre la app.
+ */
 export const colores = {
-  fondo: "#1A1D23",
-  superficie: "#242830",
-  tarjeta: "#2E3340",
-  borde: "#3A4050",
+  fondo: "#090706",
+  superficie: "#141211",
+  tarjeta: "#1E1B1A",
+  borde: "#37312F",
 
-  primario: "#F57C00",
-  primarioClaro: "#FF9800",
+  /** Lo interactivo y lo elegido: blanco, como las letras del logo. */
+  primario: "#F4F2F1",
+  primarioClaro: "#FFFFFF",
+  /** El rojo de la marca. Solo como acento, nunca para botones ni estados. */
+  marca: "#ED1C24",
   secundario: "#4A90D9",
 
   exito: "#2ECC71",
@@ -22,9 +34,11 @@ export const colores = {
   peligro: "#E74C3C",
   morado: "#9B59B6",
 
-  texto: "#E8EAF0",
-  textoTenue: "#8B93A7",
+  texto: "#F2F0EF",
+  textoTenue: "#A59E9B",
   blanco: "#FFFFFF",
+  /** Texto sobre lo primario (blanco): el negro del fondo. */
+  sobrePrimario: "#090706",
 } as const;
 
 /**

@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import PDFDocument from "pdfkit";
 import {
   armarDocumentoOrden,
@@ -16,6 +19,22 @@ import {
  * los datos y se dibuja. Corre bajo RLS: una orden que quien pregunta no ve,
  * no existe.
  */
+
+/**
+ * Logo de Asistectire (versión de fondo blanco: el PDF se imprime y se
+ * comparte en blanco). Si faltara el archivo, el PDF sale igual sin logo: la
+ * constancia del servicio no puede depender de una imagen.
+ */
+const LOGO: Buffer | null = (() => {
+  try {
+    return readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../assets/logo-claro.jpg"));
+  } catch {
+    return null;
+  }
+})();
+
+/** Rojo de la marca, solo como acento (línea bajo el encabezado). */
+const ROJO_MARCA = "#ED1C24";
 
 export interface Consulta {
   query<T = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<{ rows: T[] }>;
@@ -140,7 +159,7 @@ export class ServicioDocumento {
 
 function generar(titulo: string, dibujar: (pdf: PDFKit.PDFDocument) => void): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const pdf = new PDFDocument({ size: "A4", margin: 40, info: { Title: titulo, Creator: "TireTrack" } });
+    const pdf = new PDFDocument({ size: "A4", margin: 40, info: { Title: titulo, Creator: "Asistectire" } });
     const partes: Buffer[] = [];
     pdf.on("data", (b: Buffer) => partes.push(b));
     pdf.on("end", () => resolve(Buffer.concat(partes)));
@@ -154,9 +173,14 @@ function dibujarOrden(pdf: PDFKit.PDFDocument, doc: Documento, generadoEn: strin
   {
     const ancho = pdf.page.width - 80;
     pdf.fillColor("#000");
-    pdf.y = Math.max(pdf.y, 40);
-    pdf.font("Helvetica-Bold").fontSize(16).text(doc.titulo, { continued: true }).font("Helvetica").text(`  ${doc.identificador}`);
-    pdf.moveDown(0.5);
+    const arriba = Math.max(pdf.y, 40);
+    // Logo a la derecha, título a la izquierda, y la línea roja de la marca debajo.
+    if (LOGO) pdf.image(LOGO, 40 + ancho - 110, arriba - 6, { fit: [110, 44] });
+    pdf.font("Helvetica-Bold").fontSize(16).text(doc.titulo, 40, arriba + 8, { continued: true }).font("Helvetica").text(`  ${doc.identificador}`);
+    const linea = arriba + 46;
+    pdf.moveTo(40, linea).lineTo(40 + ancho, linea).lineWidth(2).strokeColor(ROJO_MARCA).stroke();
+    pdf.lineWidth(1).strokeColor("#000");
+    pdf.y = linea + 10;
 
     // Lo que no puede pasarse por alto va primero, en un recuadro.
     for (const aviso of doc.avisos) {
@@ -235,7 +259,7 @@ function dibujarOrden(pdf: PDFKit.PDFDocument, doc: Documento, generadoEn: strin
     }
 
     pdf.moveDown(1.5);
-    pdf.font("Helvetica").fontSize(7).fillColor("#666666").text(`Generado por TireTrack el ${generadoEn}.`, 40, pdf.y, { width: ancho });
+    pdf.font("Helvetica").fontSize(7).fillColor("#666666").text(`Generado por Asistectire el ${generadoEn}.`, 40, pdf.y, { width: ancho });
     pdf.fillColor("#000");
   }
 }

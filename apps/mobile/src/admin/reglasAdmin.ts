@@ -51,7 +51,7 @@ export function revisarSedeEmpresa(f: { nombre: string; codigo: string; ciudad: 
 
 /**
  * El mensaje para WhatsApp: qué hacer, en orden, sin depender de que la
- * persona sepa qué es TireTrack.
+ * persona sepa qué es Asistectire.
  */
 export function mensajeActivacion(nombre: string, codigo: string, expiraEn: string): string {
   const fecha = new Date(expiraEn);
@@ -59,7 +59,7 @@ export function mensajeActivacion(nombre: string, codigo: string, expiraEn: stri
     ? ""
     : ` Vence el ${fecha.toLocaleDateString("es-CO", { day: "numeric", month: "long" })}.`;
   return (
-    `Hola ${nombre.split(" ")[0]}. Tu código para activar TireTrack es ${codigo}. ` +
+    `Hola ${nombre.split(" ")[0]}. Tu código para activar Asistectire es ${codigo}. ` +
     `Abre la app, toca «Tengo un código de activación», escribe tu correo y este código, ` +
     `y elige tu contraseña.${vence}`
   );
