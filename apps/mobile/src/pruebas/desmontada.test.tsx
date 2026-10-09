@@ -120,6 +120,12 @@ describe("en el editor", () => {
     expect(nuevo.desmontada).toMatchObject({ serial: "VIEJA-3", dot: "1520" });
   });
 
+  it("se anota el número de calor de la que sale", () => {
+    const onCambiar = montar({ desmontada: desmontadaDesde(anterior, 3) });
+    fireEvent.change(screen.getByLabelText("Número de calor de la que sale"), { target: { value: "H7731" } });
+    expect((onCambiar.mock.calls.at(-1)?.[0] as BorradorMedicion).desmontada?.numCalor).toBe("H7731");
+  });
+
   it("el interruptor la abre y la cierra", () => {
     const onCambiar = montar();
     // El Switch web es un checkbox dentro del elemento con el testID.

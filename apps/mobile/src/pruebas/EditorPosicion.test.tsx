@@ -157,6 +157,13 @@ describe("medición", () => {
     expect(screen.getByText("Mínimo del eje: 3 mm")).toBeTruthy();
   });
 
+  it("se anota el número de calor de la montada", () => {
+    // Faltaba el campo (pendiente de las pruebas en campo): el dato existía pero no había dónde escribirlo.
+    const { onCambiar } = montar();
+    fireEvent.change(screen.getByLabelText("Número de calor"), { target: { value: "H2201" } });
+    expect((onCambiar.mock.calls[0]?.[0] as BorradorMedicion).numCalor).toBe("H2201");
+  });
+
   it("acepta coma decimal", () => {
     // El teclado del técnico tiene coma, no punto.
     const { onCambiar } = montar();

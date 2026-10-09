@@ -164,6 +164,15 @@ export function EditorPosicion({
           {...avisoProps(avisos, "dot")}
         />
 
+        <Campo
+          etiqueta="Número de calor"
+          value={borrador.numCalor ?? ""}
+          onChangeText={(v) => cambiar("numCalor", v || null)}
+          autoCapitalize="characters"
+          testID="num-calor"
+          {...avisoProps(avisos, "numCalor")}
+        />
+
         <Selector
           etiqueta="Marca"
           opciones={catalogo.marcas.map((m) => ({
@@ -415,6 +424,13 @@ function BloqueDesmontada({ d, avisos, traida, onCambiar }: {
           />
         </View>
       </View>
+      <Campo
+        etiqueta="Número de calor de la que sale"
+        value={d.numCalor ?? ""}
+        onChangeText={(v) => poner("numCalor", v || null)}
+        autoCapitalize="characters"
+        testID="des-num-calor"
+      />
       <TresProfundidades
         titulo="Profundidad al retirarla (mm)"
         medidas={d.profundidades}

@@ -3326,8 +3326,9 @@ hasta que lo pida**; se agregan aquí a medida que aparecen.
 1. **Usuario de rol cliente:** al crearlo, pedir solo los datos que aplican
    al cliente y mostrar solo **ese cliente y sus sedes**, no las sedes de la
    empresa prestadora.
-2. **Número de calor:** falta el campo en la **llanta montada** y en la
-   **llanta desmontada** del editor de posición.
+2. **Hecho (2026-10-09).** **Número de calor:** el dato ya se guardaba,
+   viajaba y salía en el CSV (columna CALOR), pero el editor no tenía dónde
+   escribirlo. Ahora hay campo en la llanta montada y en la desmontada.
 3. ~~**Profundidad (profundímetro):** no deja escribir el **punto decimal**.~~ Hecho (2026-10-09).
 4. **Logo y nombre nuevos** (esperando el diseño). Al aplicarlos: ícono
    1024², ícono adaptable de Android (primer plano con zona segura ~66% +
