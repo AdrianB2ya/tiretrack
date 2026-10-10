@@ -3499,6 +3499,12 @@ cd apps/api && node --env-file=.env --import tsx src/server.ts
 cd apps/mobile && EXPO_PUBLIC_API_URL=http://<IP-LAN>:4000/api/v1 REACT_NATIVE_PACKAGER_HOSTNAME=<IP-LAN> npx expo start --go --offline
 ```
 
+**Validado en el teléfono (2026-10-09):** APK `com.asistectire.app`
+(commit `236e016`) con las tres profundidades, el punto decimal, los filtros
+del informe, el número de calor, el usuario cliente y la marca Asistectire;
+migración `20261009120000_tres_profundidades` aplicada en Neon y Render
+desplegado. Queda pendiente el ícono definitivo (solo el símbolo).
+
 **En línea (2026-10-07):** API en Render (`tiretrack-api.onrender.com`), base en
 Neon con la semilla de demostración, APK del perfil `campo` instalado en un
 Samsung y los usuarios de la semilla activados con `codigos-empresa`. El
