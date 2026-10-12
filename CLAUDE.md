@@ -3392,6 +3392,20 @@ hasta que lo pida**; se agregan aquí a medida que aparecen.
      `tiretrack_app`/`tiretrack_auth`, nombres de base, servicio de Render,
      repositorio y slug de EAS (cambiar el slug obliga a otro proyecto de EAS).
      Nadie lo ve y cambiarlo solo arriesga romper el despliegue.
+8. **Crear referencias de llanta (marca → diseño → medida) desde la app.**
+   Hoy nadie puede: el catálogo viene de la semilla. El celular sabe encolar
+   marca y diseño creados en campo y el servidor los recibe, pero **no hay
+   botón**; las medidas ni siquiera tienen ruta (el servicio
+   `agregarMedida` existe). Propuesta aceptada:
+   - En el editor, "No está en la lista: agregar" para marca, diseño y
+     medida (técnico, coordinador, administrador), sin señal, marcado "creada
+     en campo", con sugerencia de parecidos antes de crear.
+   - "Más → Catálogo de llantas" para el administrador: crear y ver marcas,
+     diseños (tipo de eje) y medidas con profundidad de fábrica.
+   - **Decisión del usuario (2026-10-12): las medidas las crea cualquiera,
+     marcadas a revisión.** Sin profundidad de fábrica conocida se deja vacía y
+     no se calcula desgaste hasta completarla. La revisión de "creadas en
+     campo" debe incluir medidas.
 
 ## Tres profundidades y punto decimal (2026-10-09)
 
