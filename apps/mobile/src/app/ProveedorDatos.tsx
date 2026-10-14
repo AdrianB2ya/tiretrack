@@ -18,6 +18,9 @@ import {
   type PosicionEjeLocal,
   type RecomendacionLocal,
   type TecnicoLocal,
+  type MarcaLocal,
+  type DisenoLocal,
+  type MedidaLocal,
 } from "../datos/repositorio";
 import { MotorSincronizacion, type ResumenSincronizacion } from "../datos/sincronizacion";
 import { Descargador, type ClienteDescarga } from "../datos/descarga";
@@ -56,6 +59,18 @@ export interface EstadoDatos {
   readonly errorDescarga: string | null;
 }
 
+/** Catálogo de llantas en el celular: leer por nivel y agregar lo que falta. */
+export interface AccionesCatalogo {
+  marcas(): Promise<MarcaLocal[]>;
+  disenosDe(marcaId: string): Promise<DisenoLocal[]>;
+  medidasDe(disenoId: string): Promise<MedidaLocal[]>;
+  crearMarca(nombre: string): Promise<MarcaLocal>;
+  crearDiseno(marcaId: string, nombre: string, tipoEje: string): Promise<DisenoLocal>;
+  crearMedida(disenoId: string, medida: string, profundidadOriginal: number | null): Promise<MedidaLocal>;
+  /** Refleja en el celular la profundidad que la oficina corrigió en el servidor. */
+  fijarProfundidadLocal(medidaId: string, profundidad: number | null): Promise<void>;
+}
+
 export interface AccionesDatos {
   refrescar(): Promise<void>;
   sincronizar(): Promise<ResumenSincronizacion | null>;
@@ -73,6 +88,8 @@ export interface AccionesDatos {
   ): Promise<void>;
   cambiarEstado(ordenId: string, estado: string, motivo?: string): Promise<void>;
   catalogoPara(marcaId: string | null, disenoId: string | null, tipoEje: string): Promise<CatalogoEditor>;
+  /** Catálogo de llantas: leer y agregar (R1). Todo en el celular, por la cola. */
+  accionesCatalogo: AccionesCatalogo;
   /** Órdenes que esperan revisión, listas para la bandeja del coordinador. */
   bandejaRevision(): Promise<OrdenEnBandeja[]>;
   tecnicosDeSede(sedeId: string): Promise<TecnicoLocal[]>;
@@ -378,6 +395,19 @@ export function ProveedorDatos({
    * miles de medidas y cargarlas para elegir una es tiempo de pantalla en
    * blanco frente al camión.
    */
+  const accionesCatalogo = useMemo<AccionesCatalogo>(
+    () => ({
+      marcas: () => repo.marcas(),
+      disenosDe: (marcaId) => repo.disenosDe(marcaId),
+      medidasDe: (disenoId) => repo.medidasDe(disenoId),
+      crearMarca: (nombre) => repo.crearMarcaLocal(nombre),
+      crearDiseno: (marcaId, nombre, tipoEje) => repo.crearDisenoLocal(marcaId, nombre, tipoEje),
+      crearMedida: (disenoId, medida, prof) => repo.crearMedidaLocal(disenoId, medida, prof),
+      fijarProfundidadLocal: (medidaId, prof) => repo.fijarProfundidadOriginalLocal(medidaId, prof),
+    }),
+    [repo],
+  );
+
   const catalogoPara = useCallback<AccionesDatos["catalogoPara"]>(
     async (marcaId, disenoId, tipoEje) => {
       const [marcas, servicios] = await Promise.all([repo.marcas(), repo.servicios()]);
@@ -533,6 +563,7 @@ export function ProveedorDatos({
       firmar,
       cambiarEstado,
       catalogoPara,
+      accionesCatalogo,
       bandejaRevision,
       tecnicosDeSede,
       reasignar,
@@ -555,7 +586,7 @@ export function ProveedorDatos({
     [
       cargando, ordenes, pendientesDeEnviar, sincronizando, ultimaSincronizacion, errorDescarga,
       refrescar, sincronizar, cargarOrden, guardarMedicion, actualizarDatosOrden,
-      firmar, cambiarEstado, catalogoPara, bandejaRevision, tecnicosDeSede,
+      firmar, cambiarEstado, catalogoPara, accionesCatalogo, bandejaRevision, tecnicosDeSede,
       reasignar, medicionAnterior, fotosDe, fotosSinSubir, adjuntarFoto, fuentesOrden, crearOrden,
       fuentesFlota, recomendacionesDe, crearRecomendacion, resolverRecomendacion, posicionesPlantilla, accionesFlota,
       cambiosSinEnviar, reintentarCambio, descartarCambio,

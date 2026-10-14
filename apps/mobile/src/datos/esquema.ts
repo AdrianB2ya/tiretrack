@@ -474,6 +474,15 @@ export const MIGRACIONES: readonly Migracion[] = [
       ALTER TABLE medicion ADD COLUMN des_prof_interior REAL;
     `,
   },
+  {
+    version: 15,
+    nombre: "medidas creadas en campo",
+    sql: `
+      -- Como marca y diseño: lo creado en el celular no se borra al
+      -- descargar el catálogo hasta que el servidor lo tenga.
+      ALTER TABLE medida ADD COLUMN creada_local INTEGER NOT NULL DEFAULT 0;
+    `,
+  },
 ];
 
 export const VERSION_ESQUEMA = MIGRACIONES[MIGRACIONES.length - 1]?.version ?? 0;

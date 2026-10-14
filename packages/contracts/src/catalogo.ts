@@ -41,6 +41,8 @@ export const zCrearDiseno = z.object({
  * por diseño, el porcentaje de desgaste sale mal en flotas con dos medidas.
  */
 export const zCrearMedida = z.object({
+  /** Lo genera el celular: reintentar la operación no crea otra medida. */
+  id: zId.optional(),
   disenoId: zId,
   medida: z
     .string()
@@ -49,6 +51,11 @@ export const zCrearMedida = z.object({
     .max(30)
     .regex(/^[\d/.\-RXx ]+$/, "Formato esperado: 295/80R22.5"),
   profundidadOriginal: zProfundidad.nullable().optional(),
+});
+
+/** Completar o corregir la profundidad de fábrica (null: no se sabe). */
+export const zProfundidadOriginal = z.object({
+  profundidadOriginal: zProfundidad.nullable(),
 });
 
 export const zPromoverMarca = z.object({ marcaId: zId });

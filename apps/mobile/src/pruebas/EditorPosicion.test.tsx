@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent , act } from "@testing-library/react";
 import { EditorPosicion, type CatalogoEditor } from "../ordenes/EditorPosicion";
 import { borradorNuevo, type BorradorMedicion } from "../ordenes/reglasEditorPosicion";
 import type { Casilla } from "../ordenes/diagrama";
@@ -123,7 +123,28 @@ describe("selección en cascada", () => {
   it("distingue lo creado en campo", () => {
     // Está pendiente de que el administrador lo revise.
     montar();
-    expect(screen.getByText("nueva")).toBeTruthy();
+    expect(screen.getByText("Recauchadora Fundación (nueva)")).toBeTruthy();
+  });
+
+  it("lo que no está se agrega desde la posición y queda elegido (R1)", async () => {
+    const onAgregar = { marca: vi.fn().mockResolvedValue(null), diseno: vi.fn(), medida: vi.fn() };
+    montar({}, { onAgregar });
+    await act(async () => { fireEvent.change(screen.getByTestId("lista-marca-buscar"), { target: { value: "Double Coin" } }); });
+    await act(async () => { fireEvent.click(screen.getByTestId("lista-marca-agregar")); });
+    expect(onAgregar.marca).toHaveBeenCalledWith("Double Coin");
+  });
+
+  it("una medida nueva se pide con su profundidad de fábrica, que puede quedar vacía", async () => {
+    const onAgregar = { marca: vi.fn(), diseno: vi.fn(), medida: vi.fn().mockResolvedValue(null) };
+    montar({ marcaId: "mar-1", disenoId: "dis-1" }, { onAgregar });
+    await act(async () => { fireEvent.change(screen.getByTestId("lista-medida-buscar"), { target: { value: "11r22.5" } }); });
+    await act(async () => { fireEvent.click(screen.getByTestId("lista-medida-agregar")); });
+    expect(onAgregar.medida).toHaveBeenCalledWith("11R22.5", null);
+  });
+
+  it("sin permiso para agregar (onAgregar ausente) solo se elige", () => {
+    montar();
+    expect(screen.queryByTestId("lista-marca-agregar")).toBeNull();
   });
 
   it("sin catálogo descargado lo dice en vez de quedar en blanco", () => {

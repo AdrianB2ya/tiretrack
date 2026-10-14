@@ -6,9 +6,9 @@ import { useDatos } from "../../src/app/ProveedorDatos";
 import { useUsuario } from "../../src/app/ProveedorSesion";
 import { Vacio } from "../../src/diseno/componentes";
 
-const RUTA = { marca: "marcas", diseno: "disenos" } as const;
+const RUTA = { marca: "marcas", diseno: "disenos", medida: "medidas" } as const;
 
-/** Marcas y diseños creados en campo: los revisa el administrador, en línea. */
+/** Marcas, diseños y medidas creados en campo: los revisa el administrador, en línea. */
 export default function RutaRevisionCatalogo() {
   const usuario = useUsuario();
   const { enLinea } = useServicios();
@@ -17,6 +17,11 @@ export default function RutaRevisionCatalogo() {
     () => ({
       cargar: () => enLinea<Revision>("GET", "/catalogo/revision"),
       aprobar: (tipo, id) => enLinea("POST", `/catalogo/${RUTA[tipo]}/${id}/aprobar`, {}),
+      fijarProfundidad: async (id, profundidad) => {
+        const r = await enLinea("POST", `/catalogo/medidas/${id}/profundidad`, { profundidadOriginal: profundidad });
+        if (r.ok) void sincronizar();
+        return r;
+      },
       unificar: async (tipo, id, destinoId) => {
         const r = await enLinea<{ disenosUnificados: number }>("POST", `/catalogo/${RUTA[tipo]}/${id}/unificar`, { destinoId });
         // La duplicada deja de ofrecerse también en este teléfono.

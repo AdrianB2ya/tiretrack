@@ -84,8 +84,11 @@ export function opcionesMas(rol: Rol | string): OpcionMas[] {
     o.push({ clave: "usuarios", etiqueta: "Usuarios", detalle: "Altas y códigos de activación", ruta: "/usuarios" });
     o.push({ clave: "sedes", etiqueta: "Sedes", detalle: "Sedes de la empresa", ruta: "/sedes" });
   }
+  if (puedeGestionarCatalogo(r)) {
+    o.push({ clave: "catalogo", etiqueta: "Catálogo de llantas", detalle: "Marcas, diseños y medidas con su profundidad de fábrica", ruta: "/catalogo" });
+  }
   if (puedeRevisarCreadasEnCampo(r) && r !== "superadmin") {
-    o.push({ clave: "revision-catalogo", etiqueta: "Marcas creadas en campo", detalle: "Aprobar o unificar lo que escribieron los técnicos", ruta: "/revision-catalogo" });
+    o.push({ clave: "revision-catalogo", etiqueta: "Creado en campo", detalle: "Aprobar o unificar marcas, diseños y medidas que agregaron los técnicos", ruta: "/revision-catalogo" });
   }
   if (puedeVerAuditoria(r)) {
     o.push({ clave: "auditoria", etiqueta: "Auditoría", detalle: "Quién sacó datos y quién cambió qué", ruta: "/auditoria" });
@@ -95,4 +98,9 @@ export function opcionesMas(rol: Rol | string): OpcionMas[] {
   }
   o.push({ clave: "cuenta", etiqueta: "Mi cuenta", detalle: "Sesión y cambios sin enviar", ruta: "/cuenta" });
   return o;
+}
+
+/** Catálogo de llantas completo: la oficina (el técnico agrega desde la posición). */
+export function puedeGestionarCatalogo(r: Rol): boolean {
+  return r === "administrador" || r === "coordinador";
 }

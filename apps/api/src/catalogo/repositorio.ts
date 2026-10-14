@@ -37,6 +37,15 @@ export interface Medida {
   readonly disenoId: string;
   readonly medida: string;
   readonly profundidadOriginal: number | null;
+  /** null: del catálogo general. */
+  readonly empresaId?: string | null;
+  readonly creadaEnCampo?: boolean;
+}
+
+/** Medida creada en campo, con su diseño y marca para reconocerla. */
+export interface MedidaRevisable extends Medida {
+  readonly disenoNombre: string;
+  readonly marcaNombre: string;
 }
 
 export interface RepositorioCatalogo {
@@ -54,11 +63,15 @@ export interface RepositorioCatalogo {
   buscarDiseno(id: string): Promise<Diseno | null>;
   crearDiseno(d: Omit<Diseno, "activo" | "esGlobal">): Promise<Diseno>;
 
-  listarMedidas(disenoId: string): Promise<Medida[]>;
-  crearMedida(m: Medida): Promise<Medida>;
+  /** Las globales y las de la empresa; nunca las de otra. */
+  listarMedidas(disenoId: string, empresaId: string): Promise<Medida[]>;
+  crearMedida(m: Medida & { empresaId: string; creadaEnCampo: boolean }): Promise<Medida>;
+  buscarMedida(id: string): Promise<Medida | null>;
+  fijarProfundidadOriginal(id: string, profundidad: number | null): Promise<void>;
 
   listarCreadasEnCampo(empresaId: string): Promise<{ marcas: Marca[]; disenos: Diseno[] }>;
-  marcarRevisada(tipo: "marca" | "diseno", id: string): Promise<void>;
+  medidasCreadasEnCampo(empresaId: string): Promise<MedidaRevisable[]>;
+  marcarRevisada(tipo: "marca" | "diseno" | "medida", id: string): Promise<void>;
 
   /** Con su alias, para decidir una unificación. */
   revisable(tipo: "marca" | "diseno", id: string): Promise<Revisable | null>;
@@ -186,52 +199,49 @@ export class RepositorioCatalogoPg implements RepositorioCatalogo {
     return r.rows[0] as Diseno;
   }
 
-  async listarMedidas(disenoId: string): Promise<Medida[]> {
-    const r = await this.db.query<{
-      id: string;
-      disenoId: string;
-      medida: string;
-      profundidadOriginal: string | null;
-    }>(
-      `SELECT id, "disenoId", medida, "profundidadOriginal"
-         FROM "DisenoMedida" WHERE "disenoId" = $1 ORDER BY medida`,
-      [disenoId],
+  async listarMedidas(disenoId: string, empresaId: string): Promise<Medida[]> {
+    // El filtro por empresa repite lo que hace RLS: una medida propia puede
+    // colgar de un diseño global y no debe verse desde otra empresa.
+    const r = await this.db.query<FilaMedida>(
+      `SELECT ${COLUMNAS_MEDIDA} FROM "DisenoMedida"
+        WHERE "disenoId" = $1 AND ("empresaId" IS NULL OR "empresaId" = $2)
+        ORDER BY medida`,
+      [disenoId, empresaId],
     );
-    // Decimal llega como texto desde pg: convertirlo aquí evita que un
-    // Number() olvidado más adelante produzca NaN en el cálculo de desgaste.
-    return r.rows.map((m) => ({
-      id: m.id,
-      disenoId: m.disenoId,
-      medida: m.medida,
-      profundidadOriginal: m.profundidadOriginal === null ? null : Number(m.profundidadOriginal),
-    }));
+    return r.rows.map(aMedida);
   }
 
-  async crearMedida(m: Medida): Promise<Medida> {
-    const r = await this.db.query<{
-      id: string;
-      disenoId: string;
-      medida: string;
-      profundidadOriginal: string | null;
-    }>(
-      `INSERT INTO "DisenoMedida" (id, "disenoId", medida, "profundidadOriginal")
-       VALUES ($1, $2, $3, $4)
-       RETURNING id, "disenoId", medida, "profundidadOriginal"`,
-      [m.id, m.disenoId, m.medida, m.profundidadOriginal],
+  async crearMedida(m: Medida & { empresaId: string; creadaEnCampo: boolean }): Promise<Medida> {
+    const r = await this.db.query<FilaMedida>(
+      `INSERT INTO "DisenoMedida" (id, "empresaId", "disenoId", medida, "profundidadOriginal", "creadaEnCampo")
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING ${COLUMNAS_MEDIDA}`,
+      [m.id, m.empresaId, m.disenoId, m.medida, m.profundidadOriginal, m.creadaEnCampo],
     );
-    const fila = r.rows[0] as {
-      id: string;
-      disenoId: string;
-      medida: string;
-      profundidadOriginal: string | null;
-    };
-    return {
-      id: fila.id,
-      disenoId: fila.disenoId,
-      medida: fila.medida,
-      profundidadOriginal:
-        fila.profundidadOriginal === null ? null : Number(fila.profundidadOriginal),
-    };
+    return aMedida(r.rows[0] as FilaMedida);
+  }
+
+  async buscarMedida(id: string): Promise<Medida | null> {
+    const r = await this.db.query<FilaMedida>(`SELECT ${COLUMNAS_MEDIDA} FROM "DisenoMedida" WHERE id = $1`, [id]);
+    return r.rows[0] ? aMedida(r.rows[0]) : null;
+  }
+
+  async fijarProfundidadOriginal(id: string, profundidad: number | null): Promise<void> {
+    await this.db.query(`UPDATE "DisenoMedida" SET "profundidadOriginal" = $2 WHERE id = $1`, [id, profundidad]);
+  }
+
+  async medidasCreadasEnCampo(empresaId: string): Promise<MedidaRevisable[]> {
+    const r = await this.db.query<FilaMedida & { disenoNombre: string; marcaNombre: string }>(
+      `SELECT dm.id, dm."disenoId", dm.medida, dm."profundidadOriginal", dm."empresaId", dm."creadaEnCampo",
+              d.nombre AS "disenoNombre", m.nombre AS "marcaNombre"
+         FROM "DisenoMedida" dm
+         JOIN "Diseno" d ON d.id = dm."disenoId"
+         JOIN "Marca" m ON m.id = d."marcaId"
+        WHERE dm."creadaEnCampo" = true AND dm."empresaId" = $1 AND d.activo AND m.activa
+        ORDER BY m.nombre, d.nombre, dm.medida`,
+      [empresaId],
+    );
+    return r.rows.map((f) => ({ ...aMedida(f), disenoNombre: f.disenoNombre, marcaNombre: f.marcaNombre }));
   }
 
   async listarCreadasEnCampo(empresaId: string): Promise<{ marcas: Marca[]; disenos: Diseno[] }> {
@@ -253,8 +263,8 @@ export class RepositorioCatalogoPg implements RepositorioCatalogo {
     return { marcas: marcas.rows, disenos: disenos.rows };
   }
 
-  async marcarRevisada(tipo: "marca" | "diseno", id: string): Promise<void> {
-    const tabla = tipo === "marca" ? "Marca" : "Diseno";
+  async marcarRevisada(tipo: "marca" | "diseno" | "medida", id: string): Promise<void> {
+    const tabla = tipo === "marca" ? "Marca" : tipo === "diseno" ? "Diseno" : "DisenoMedida";
     await this.db.query(`UPDATE "${tabla}" SET "creadaEnCampo" = false WHERE id = $1`, [id]);
   }
 
@@ -305,4 +315,30 @@ export class RepositorioCatalogoPg implements RepositorioCatalogo {
       );
     }
   }
+}
+
+interface FilaMedida {
+  id: string;
+  disenoId: string;
+  medida: string;
+  profundidadOriginal: string | null;
+  empresaId: string | null;
+  creadaEnCampo: boolean;
+}
+
+const COLUMNAS_MEDIDA = `id, "disenoId", medida, "profundidadOriginal", "empresaId", "creadaEnCampo"`;
+
+/**
+ * Decimal llega como texto desde pg: convertirlo aquí evita que un Number()
+ * olvidado más adelante produzca NaN en el cálculo de desgaste.
+ */
+function aMedida(f: FilaMedida): Medida {
+  return {
+    id: f.id,
+    disenoId: f.disenoId,
+    medida: f.medida,
+    profundidadOriginal: f.profundidadOriginal === null ? null : Number(f.profundidadOriginal),
+    empresaId: f.empresaId,
+    creadaEnCampo: f.creadaEnCampo,
+  };
 }

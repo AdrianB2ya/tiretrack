@@ -33,6 +33,7 @@ const NOMBRE: Record<TipoOperacion, string> = {
   cambiar_estado: "Cambio de estado",
   crear_marca: "Marca nueva",
   crear_diseno: "Diseño nuevo",
+  crear_medida: "Medida nueva",
   reasignar: "Reasignación",
   adjuntar_foto: "Foto",
   firmar: "Firma del cliente",
@@ -51,6 +52,8 @@ export function describirCambio(c: CambioSinEnviar): string {
   if (c.tipo === "guardar_medicion" && typeof d["posicion"] === "number") base = `Medición de la posición ${d["posicion"]}`;
   if (c.tipo === "cambiar_estado" && typeof d["estado"] === "string") base = `Cambio de estado a ${ESTADO[d["estado"]] ?? d["estado"]}`;
   if (c.tipo === "crear_marca" && typeof d["nombre"] === "string") base = `Marca nueva: ${d["nombre"]}`;
+  if (c.tipo === "crear_diseno" && typeof d["nombre"] === "string") base = `Diseño nuevo: ${d["nombre"]}`;
+  if (c.tipo === "crear_medida" && typeof d["medida"] === "string") base = `Medida nueva: ${d["medida"]}`;
   return c.orden ? `${base} · ${c.orden}` : base;
 }
 

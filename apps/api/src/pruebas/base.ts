@@ -339,6 +339,21 @@ export class BaseDePruebas {
         "esGlobal" boolean NOT NULL DEFAULT false
       );
 
+      CREATE TABLE "Diseno" (
+        id text PRIMARY KEY,
+        "empresaId" text REFERENCES "Empresa"(id),
+        "marcaId" text NOT NULL REFERENCES "Marca"(id),
+        nombre text NOT NULL,
+        "esGlobal" boolean NOT NULL DEFAULT false
+      );
+
+      CREATE TABLE "DisenoMedida" (
+        id text PRIMARY KEY,
+        "empresaId" text REFERENCES "Empresa"(id),
+        "disenoId" text NOT NULL REFERENCES "Diseno"(id),
+        medida text NOT NULL
+      );
+
       CREATE TABLE "OrdenServicio" (
         id text PRIMARY KEY,
         "empresaId" text NOT NULL REFERENCES "Empresa"(id),
@@ -518,6 +533,19 @@ export class BaseDePruebas {
     // Marca propia de la empresa A
     await this.admin.query(
       `INSERT INTO "Marca" (id, "empresaId", nombre, "esGlobal") VALUES ('mar-a', 'emp-a', 'Reencauchadora A', false)`,
+    );
+    // Diseño global, y un diseño PROPIO de A colgado de la marca global: ver
+    // la marca no puede bastar para ver el diseño.
+    await this.admin.query(
+      `INSERT INTO "Diseno" (id, "empresaId", "marcaId", nombre, "esGlobal")
+       VALUES ('dis-glob', NULL, 'mar-glob', 'XZE', true),
+              ('dis-a', 'emp-a', 'mar-glob', 'Propio A', false)`,
+    );
+    // Medida global y medida PROPIA de A sobre el diseño global.
+    await this.admin.query(
+      `INSERT INTO "DisenoMedida" (id, "empresaId", "disenoId", medida)
+       VALUES ('med-glob', NULL, 'dis-glob', '295/80R22.5'),
+              ('med-a', 'emp-a', 'dis-glob', '315/80R22.5')`,
     );
   }
 }

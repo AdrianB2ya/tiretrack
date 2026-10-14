@@ -17,7 +17,7 @@ import {
   type Rol,
   type Veredicto,
 } from "@tiretrack/domain";
-import type { RepositorioCatalogo, Marca, Diseno, Medida, Revisable } from "./repositorio";
+import type { RepositorioCatalogo, Marca, Diseno, Medida, MedidaRevisable, Revisable } from "./repositorio";
 
 /**
  * Catálogo de llantas.
@@ -64,8 +64,8 @@ export class ServicioCatalogo {
     const diseno = await this.repo.buscarDiseno(disenoId);
     if (!diseno) return [];
     const marca = await this.repo.buscarMarca(diseno.marcaId);
-    if (!marca || !this.visible(marca, ctx.empresaId)) return [];
-    return this.repo.listarMedidas(disenoId);
+    if (!marca || !this.visible(marca, ctx.empresaId) || !this.visible(diseno, ctx.empresaId)) return [];
+    return this.repo.listarMedidas(disenoId, ctx.empresaId);
   }
 
   private visible(e: EntradaConAmbito, empresaId: string): boolean {
@@ -175,13 +175,13 @@ export class ServicioCatalogo {
    */
   async agregarMedida(
     ctx: Contexto,
-    entrada: { disenoId: string; medida: string; profundidadOriginal?: number },
+    entrada: { disenoId: string; medida: string; profundidadOriginal?: number | null; id?: string },
   ): Promise<Resultado<Medida>> {
     const permiso = puedeCrearEntrada(ctx.rol);
     if (!permiso.permitido) return { ok: false, veredicto: permiso };
 
     const diseno = await this.repo.buscarDiseno(entrada.disenoId);
-    if (!diseno) return fallo("DISENO_NO_ENCONTRADO", "El diseño no existe");
+    if (!diseno || !this.visible(diseno, ctx.empresaId)) return fallo("DISENO_NO_ENCONTRADO", "El diseño no existe");
 
     const marca = await this.repo.buscarMarca(diseno.marcaId);
     if (!marca || !this.visible(marca, ctx.empresaId)) {
@@ -193,18 +193,44 @@ export class ServicioCatalogo {
       return fallo("MEDIDA_INVALIDA", "Formato esperado: 295/80R22.5");
     }
 
-    const existentes = await this.repo.listarMedidas(entrada.disenoId);
+    // Reintento de la misma operación (el id lo genera el celular): no es un
+    // duplicado, es la misma medida que ya llegó.
+    if (entrada.id) {
+      const previa = await this.repo.buscarMedida(entrada.id);
+      if (previa && previa.disenoId === entrada.disenoId && previa.empresaId === ctx.empresaId) {
+        return { ok: true, valor: previa };
+      }
+    }
+
+    const existentes = await this.repo.listarMedidas(entrada.disenoId, ctx.empresaId);
     if (existentes.some((m) => clave(m.medida) === clave(medida))) {
       return fallo("YA_EXISTE", `La medida ${medida} ya está registrada en este diseño`);
     }
 
     const creada = await this.repo.crearMedida({
-      id: nuevoId(),
+      id: entrada.id ?? nuevoId(),
+      empresaId: ctx.empresaId,
       disenoId: entrada.disenoId,
       medida,
       profundidadOriginal: entrada.profundidadOriginal ?? null,
+      // Igual que marca y diseño: lo decide el rol, no un parámetro.
+      creadaEnCampo: ctx.rol === "tecnico",
     });
     return { ok: true, valor: creada };
+  }
+
+  /**
+   * Completar o corregir la profundidad de fábrica de una medida propia. Sin
+   * ella no se calcula el desgaste; las globales las administra la plataforma.
+   */
+  async fijarProfundidadOriginal(ctx: Contexto, id: string, profundidad: number | null): Promise<Resultado<void>> {
+    if (ctx.rol !== "administrador" && ctx.rol !== "coordinador") {
+      return fallo("SIN_PERMISO", "La profundidad de fábrica la corrige la oficina");
+    }
+    const m = await this.repo.buscarMedida(id);
+    if (!m || m.empresaId !== ctx.empresaId) return fallo("NO_EXISTE", "No existe, o es del catálogo general");
+    await this.repo.fijarProfundidadOriginal(id, profundidad);
+    return { ok: true, valor: undefined };
   }
 
   // ── Gobierno ──────────────────────────────────────────────────────────────
@@ -214,9 +240,15 @@ export class ServicioCatalogo {
     return this.repo.listarCreadasEnCampo(ctx.empresaId);
   }
 
-  async marcarRevisada(ctx: Contexto, tipo: "marca" | "diseno", id: string): Promise<Resultado<void>> {
+  async marcarRevisada(ctx: Contexto, tipo: "marca" | "diseno" | "medida", id: string): Promise<Resultado<void>> {
     if (!puedeRevisarCreadasEnCampo(ctx.rol)) {
       return fallo("SIN_PERMISO", "Solo el administrador revisa el catálogo creado en campo");
+    }
+    if (tipo === "medida") {
+      const m = await this.repo.buscarMedida(id);
+      if (!m || m.empresaId !== ctx.empresaId) return fallo("NO_EXISTE", "No existe");
+      await this.repo.marcarRevisada("medida", id);
+      return { ok: true, valor: undefined };
     }
     // Solo lo propio: una global o de otra empresa no es "lo creado aquí".
     const e = await this.repo.revisable(tipo, id);
@@ -232,6 +264,7 @@ export class ServicioCatalogo {
   async revision(ctx: Contexto): Promise<Resultado<{
     marcas: (Revisable & { candidatas: Revisable[] })[];
     disenos: (Revisable & { candidatas: Revisable[] })[];
+    medidas: MedidaRevisable[];
   }>> {
     if (!puedeRevisarCreadasEnCampo(ctx.rol)) {
       return fallo("SIN_PERMISO", "Solo el administrador revisa el catálogo creado en campo");
@@ -248,6 +281,10 @@ export class ServicioCatalogo {
       valor: {
         marcas: await Promise.all(pendientes.marcas.map((m) => conCandidatas("marca", m.id, marcasVigentes))),
         disenos: await Promise.all(pendientes.disenos.map((d) => conCandidatas("diseno", d.id, disenosVigentes))),
+        // Una medida no tiene variantes mal escritas (se normaliza y no se
+        // repite en el diseño): se revisa para confirmarla y completar su
+        // profundidad de fábrica.
+        medidas: await this.repo.medidasCreadasEnCampo(ctx.empresaId),
       },
     };
   }

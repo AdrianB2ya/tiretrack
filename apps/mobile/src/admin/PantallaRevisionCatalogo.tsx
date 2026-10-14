@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { Aviso, Boton, Insignia, Opcion, Tarjeta, Vacio } from "../diseno/componentes";
+import { Aviso, Boton, CampoDecimal, Insignia, Opcion, Tarjeta, Vacio } from "../diseno/componentes";
 import { colores, espacio, texto } from "../diseno/tokens";
 
 /**
@@ -19,16 +19,27 @@ export interface EntradaRevision {
   marcaNombre?: string;
   candidatas: { id: string; nombre: string; esGlobal: boolean; marcaNombre?: string }[];
 }
+/** Medida creada en campo: se confirma y se completa su profundidad de fábrica. */
+export interface MedidaRevision {
+  id: string;
+  medida: string;
+  marcaNombre: string;
+  disenoNombre: string;
+  profundidadOriginal: number | null;
+}
 export interface Revision {
   marcas: EntradaRevision[];
   disenos: EntradaRevision[];
+  /** Opcional: un servidor anterior no las manda. */
+  medidas?: MedidaRevision[];
 }
 type R<T> = { ok: true; datos: T } | { ok: false; status: number; mensaje: string };
 type Tipo = "marca" | "diseno";
 
 export interface FuentesRevision {
   cargar(): Promise<R<Revision>>;
-  aprobar(tipo: Tipo, id: string): Promise<R<unknown>>;
+  aprobar(tipo: Tipo | "medida", id: string): Promise<R<unknown>>;
+  fijarProfundidad(medidaId: string, profundidad: number | null): Promise<R<unknown>>;
   unificar(tipo: Tipo, id: string, destinoId: string): Promise<R<{ disenosUnificados: number }>>;
 }
 
@@ -42,7 +53,11 @@ export function PantallaRevisionCatalogo({ fuentes }: { fuentes: FuentesRevision
     if (r.ok) {
       // Sin confiar en la forma: una respuesta incompleta se muestra vacía, no revienta.
       const conCandidatas = (es: EntradaRevision[] | undefined) => (Array.isArray(es) ? es : []).map((e) => ({ ...e, candidatas: e.candidatas ?? [] }));
-      setRevision({ marcas: conCandidatas(r.datos?.marcas), disenos: conCandidatas(r.datos?.disenos) });
+      setRevision({
+        marcas: conCandidatas(r.datos?.marcas),
+        disenos: conCandidatas(r.datos?.disenos),
+        medidas: Array.isArray(r.datos?.medidas) ? r.datos.medidas : [],
+      });
       setError(null);
     } else setError(r.status === 0 ? "Sin señal: la revisión se hace en línea." : r.mensaje);
   }, [fuentes]);
@@ -67,12 +82,13 @@ export function PantallaRevisionCatalogo({ fuentes }: { fuentes: FuentesRevision
     );
   }
   if (!revision) return <Vacio mensaje="Cargando lo creado en campo…" />;
-  const total = revision.marcas.length + revision.disenos.length;
+  const medidas = revision.medidas ?? [];
+  const total = revision.marcas.length + revision.disenos.length + medidas.length;
 
   return (
     <ScrollView style={estilos.pantalla} contentContainerStyle={estilos.contenido}>
       <Text style={estilos.detalle}>
-        Lo que los técnicos escribieron cuando la llanta no estaba en el catálogo. Si es una variante mal escrita,
+        Lo que los técnicos agregaron cuando la llanta no estaba en el catálogo. Si es una variante mal escrita,
         unifícala: lo registrado no cambia, pero los informes la cuentan como la correcta.
       </Text>
       {aviso ? <Aviso tono="exito" titulo={aviso} /> : null}
@@ -86,6 +102,10 @@ export function PantallaRevisionCatalogo({ fuentes }: { fuentes: FuentesRevision
       {revision.disenos.length > 0 ? <Text style={estilos.subtitulo}>Diseños</Text> : null}
       {revision.disenos.map((e) => (
         <Entrada key={e.id} tipo="diseno" entrada={e} fuentes={fuentes} onHecho={hecho} />
+      ))}
+      {medidas.length > 0 ? <Text style={estilos.subtitulo}>Medidas</Text> : null}
+      {medidas.map((m) => (
+        <EntradaMedida key={m.id} medida={m} fuentes={fuentes} onHecho={hecho} />
       ))}
     </ScrollView>
   );
@@ -165,6 +185,53 @@ function Entrada({ tipo, entrada, fuentes, onHecho }: {
           </Boton>
         </>
       ) : null}
+    </Tarjeta>
+  );
+}
+
+/**
+ * Una medida no tiene variantes mal escritas (se normaliza y no se repite en
+ * el diseño): se confirma, y es el momento de completar la profundidad de
+ * fábrica, de la que sale el desgaste.
+ */
+function EntradaMedida({ medida, fuentes, onHecho }: {
+  medida: MedidaRevision;
+  fuentes: FuentesRevision;
+  onHecho: (r: R<unknown>, mensaje: string) => Promise<void>;
+}) {
+  const [prof, setProf] = useState<number | null>(medida.profundidadOriginal);
+  const [trabajando, setTrabajando] = useState(false);
+  const aprobar = async () => {
+    setTrabajando(true);
+    try {
+      if (prof !== medida.profundidadOriginal) {
+        const r = await fuentes.fijarProfundidad(medida.id, prof);
+        if (!r.ok) return await onHecho(r, "");
+      }
+      await onHecho(await fuentes.aprobar("medida", medida.id), `${medida.medida} quedó en el catálogo`);
+    } finally {
+      setTrabajando(false);
+    }
+  };
+  return (
+    <Tarjeta testID={`revisar-${medida.id}`}>
+      <View style={estilos.fila}>
+        <Text style={estilos.nombre}>{medida.medida}</Text>
+        <Insignia color={colores.advertencia}>Creada en campo</Insignia>
+      </View>
+      <Text style={estilos.detalle}>
+        {medida.marcaNombre} · {medida.disenoNombre}
+      </Text>
+      <CampoDecimal
+        etiqueta="Profundidad de fábrica en mm"
+        ayuda="Sin ella no se calcula el desgaste de estas llantas."
+        valor={prof}
+        onCambio={setProf}
+        testID={`prof-${medida.id}`}
+      />
+      <Boton tipo="secundario" testID={`aprobar-${medida.id}`} cargando={trabajando} onPress={() => void aprobar()}>
+        Es correcta
+      </Boton>
     </Tarjeta>
   );
 }

@@ -60,10 +60,12 @@ describe.skipIf(!disponible)("catálogo", () => {
 
       CREATE TABLE "DisenoMedida" (
         id text PRIMARY KEY,
+        "empresaId" text,
         "disenoId" text NOT NULL REFERENCES "Diseno"(id) ON DELETE CASCADE,
         medida text NOT NULL,
         "profundidadOriginal" numeric(5,2),
-        UNIQUE ("disenoId", medida)
+        "creadaEnCampo" boolean NOT NULL DEFAULT false,
+        UNIQUE ("disenoId", "empresaId", medida)
       );
 
       CREATE TABLE "LlantaRegistro" (
@@ -263,6 +265,40 @@ describe.skipIf(!disponible)("catálogo", () => {
     it("rechaza un formato de medida que no lo es", async () => {
       const r = await servicio.agregarMedida(ADMIN_A, { disenoId: "d-glob", medida: "grande" });
       expect(r.ok).toBe(false);
+    });
+
+    it("una medida propia sobre un diseño global no la ve otra empresa", async () => {
+      const r = await servicio.agregarMedida(ADMIN_A, { disenoId: "d-glob", medida: "315/80R22.5" });
+      expect(r.ok).toBe(true);
+      const deA = (await servicio.medidasDeDiseno(ADMIN_A, "d-glob")).map((m) => m.medida);
+      const deB = (await servicio.medidasDeDiseno(ADMIN_B, "d-glob")).map((m) => m.medida);
+      expect(deA).toContain("315/80R22.5");
+      expect(deB).not.toContain("315/80R22.5");
+      // Y la otra empresa puede registrar la misma medida como suya.
+      expect((await servicio.agregarMedida(ADMIN_B, { disenoId: "d-glob", medida: "315/80R22.5" })).ok).toBe(true);
+    });
+
+    it("la del técnico queda para revisión; reintentar con el mismo id no la duplica", async () => {
+      const id = "00000000-0000-4000-8000-0000000000aa";
+      const r1 = await servicio.agregarMedida(TECNICO_A, { id, disenoId: "d-glob", medida: "12R22.5" });
+      const r2 = await servicio.agregarMedida(TECNICO_A, { id, disenoId: "d-glob", medida: "12R22.5" });
+      expect(r1.ok && r2.ok).toBe(true);
+      expect(r1.ok && r1.valor.creadaEnCampo).toBe(true);
+      const rev = await servicio.revision(ADMIN_A);
+      expect(rev.ok && rev.valor.medidas.map((m) => m.id)).toEqual([id]);
+      expect(rev.ok && rev.valor.medidas[0]?.marcaNombre).toBe("Michelin");
+      // El administrador completa la profundidad y la aprueba.
+      expect((await servicio.fijarProfundidadOriginal(ADMIN_A, id, 15.5)).ok).toBe(true);
+      expect((await servicio.marcarRevisada(ADMIN_A, "medida", id)).ok).toBe(true);
+      const despues = await servicio.revision(ADMIN_A);
+      expect(despues.ok && despues.valor.medidas).toEqual([]);
+      const m = (await servicio.medidasDeDiseno(ADMIN_A, "d-glob")).find((x) => x.id === id);
+      expect(m?.profundidadOriginal).toBe(15.5);
+    });
+
+    it("la profundidad de una medida global o ajena no se toca", async () => {
+      expect((await servicio.fijarProfundidadOriginal(ADMIN_A, "me-1", 20)).ok).toBe(false);
+      expect((await servicio.fijarProfundidadOriginal(TECNICO_A, "me-1", 20)).ok).toBe(false);
     });
   });
 

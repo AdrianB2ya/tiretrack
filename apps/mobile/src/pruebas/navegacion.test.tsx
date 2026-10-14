@@ -26,9 +26,9 @@ describe("navegación de la oficina", () => {
 
   it("'Más' ofrece a cada rol solo lo que puede hacer", () => {
     const coordinador = opcionesMas("coordinador").map((o) => o.clave);
-    expect(coordinador).toEqual(["nueva-orden", "programaciones", "flota", "alertas", "informe", "cuenta"]);
+    expect(coordinador).toEqual(["nueva-orden", "programaciones", "flota", "alertas", "informe", "catalogo", "cuenta"]);
     const admin = opcionesMas("administrador").map((o) => o.clave);
-    expect(admin).toEqual(expect.arrayContaining(["usuarios", "sedes", "plantillas", "auditoria", "revision-catalogo"]));
+    expect(admin).toEqual(expect.arrayContaining(["usuarios", "sedes", "plantillas", "auditoria", "revision-catalogo", "catalogo"]));
     expect(coordinador).not.toContain("usuarios");
     expect(coordinador).not.toContain("auditoria");
     expect(coordinador).not.toContain("revision-catalogo");

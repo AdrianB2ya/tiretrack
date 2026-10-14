@@ -2,7 +2,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { Aviso, Boton, Campo, CampoDecimal, Insignia, Opcion as OpcionElegible } from "../diseno/componentes";
 import { DESTINOS_LLANTA, ETIQUETA_PUNTO_PROFUNDIDAD, PUNTOS_PROFUNDIDAD } from "@tiretrack/domain";
-import { colores, conOpacidad, espacio, radio, tactil, texto } from "../diseno/tokens";
+import { colores, conOpacidad, espacio, radio, tactil, texto, tiposEje } from "../diseno/tokens";
 import type { Casilla } from "./diagrama";
 import {
   ESTADOS_LLANTA,
@@ -23,6 +23,8 @@ import {
   type DesmontadaBorrador,
 } from "./reglasEditorPosicion";
 import type { DisenoLocal, MarcaLocal, MedidaLocal, ServicioLocal } from "../datos/repositorio";
+import { ListaBuscable } from "../diseno/ListaBuscable";
+import { evaluarAltaMedida, evaluarAltaNombre } from "../catalogo/alta";
 
 /**
  * Editor de una posición, a pantalla completa.
@@ -61,6 +63,15 @@ export interface EditorPosicionProps {
    * sale si se cambia. null si no hay orden anterior que la haya medido.
    */
   desmontadaSugerida?: DesmontadaBorrador | null;
+  /**
+   * Agregar al catálogo lo que no está (R1). Cada uno crea, elige lo creado y
+   * devuelve un mensaje si no se pudo. Sin esto, solo se elige.
+   */
+  onAgregar?: {
+    marca: (nombre: string) => Promise<string | null>;
+    diseno: (nombre: string) => Promise<string | null>;
+    medida: (medida: string, profundidadOriginal: number | null) => Promise<string | null>;
+  };
 }
 
 export function EditorPosicion({
@@ -75,6 +86,7 @@ export function EditorPosicion({
   guardando = false,
   fotos,
   desmontadaSugerida = null,
+  onAgregar,
 }: EditorPosicionProps) {
   const [confirmando, setConfirmando] = useState(false);
 
@@ -173,37 +185,72 @@ export function EditorPosicion({
           {...avisoProps(avisos, "numCalor")}
         />
 
-        <Selector
+        {/* Con muchas opciones se busca; lo que no está se agrega aquí mismo (R1). */}
+        <ListaBuscable
           etiqueta="Marca"
-          opciones={catalogo.marcas.map((m) => ({
-            id: m.id,
-            texto: m.nombre,
-            // Lo creado en campo se distingue: está pendiente de revisión
-            marca: m.creadaLocal ? "nueva" : undefined,
-          }))}
+          testID="lista-marca"
+          opciones={catalogo.marcas.map((m) => ({ id: m.id, texto: m.nombre, nueva: m.creadaLocal }))}
           seleccionado={borrador.marcaId}
           onElegir={(id) => onCambiar({ ...borrador, marcaId: id, disenoId: null, medida: null })}
+          {...(onAgregar
+            ? {
+                alta: {
+                  etiqueta: "Agregar marca",
+                  evaluar: (t: string) => evaluarAltaNombre(t, catalogo.marcas),
+                  onCrear: (v: string) => onAgregar.marca(v),
+                  nota: "Queda marcada para que el administrador la revise.",
+                },
+              }
+            : {})}
         />
 
         {borrador.marcaId ? (
-          <Selector
+          <ListaBuscable
             etiqueta="Diseño"
-            opciones={catalogo.disenos.map((d) => ({
-              id: d.id,
-              texto: d.nombre,
-              ...(d.creadaLocal ? { marca: "nueva" as const } : {}),
-            }))}
+            testID="lista-diseno"
+            opciones={catalogo.disenos.map((d) => ({ id: d.id, texto: d.nombre, nueva: d.creadaLocal }))}
             seleccionado={borrador.disenoId}
             onElegir={(id) => onCambiar({ ...borrador, disenoId: id, medida: null })}
+            {...(onAgregar
+              ? {
+                  alta: {
+                    etiqueta: "Agregar diseño",
+                    evaluar: (t: string) => evaluarAltaNombre(t, catalogo.disenos),
+                    onCrear: (v: string) => onAgregar.diseno(v),
+                    nota: `Se registra como diseño de ${(tiposEje as Record<string, { etiqueta: string }>)[casilla.tipoEje]?.etiqueta.toLowerCase() ?? casilla.tipoEje}; el administrador lo revisa.`,
+                  },
+                }
+              : {})}
           />
         ) : null}
 
         {borrador.disenoId ? (
-          <Selector
+          <ListaBuscable
             etiqueta="Medida"
-            opciones={catalogo.medidas.map((m) => ({ id: m.medida, texto: m.medida }))}
+            testID="lista-medida"
+            opciones={catalogo.medidas.map((m) => ({
+              id: m.medida,
+              texto: m.medida,
+              nueva: m.creadaLocal,
+              ...(m.profundidadOriginal === null ? { detalle: "sin profundidad de fábrica" } : {}),
+            }))}
             seleccionado={borrador.medida}
             onElegir={(id) => cambiar("medida", id)}
+            {...(onAgregar
+              ? {
+                  alta: {
+                    etiqueta: "Agregar medida",
+                    evaluar: (t: string) =>
+                      evaluarAltaMedida(t, catalogo.medidas.map((m) => ({ id: m.medida, nombre: m.medida }))),
+                    numero: {
+                      etiqueta: "Profundidad de fábrica en mm (si la sabes)",
+                      ayuda: "Sin ella no se calcula el desgaste; la oficina la puede completar después.",
+                    },
+                    onCrear: (v: string, n: number | null) => onAgregar.medida(v, n),
+                    nota: "Queda marcada para que el administrador la revise.",
+                  },
+                }
+              : {})}
           />
         ) : null}
 
@@ -507,26 +554,6 @@ function Opciones({
   );
 }
 
-/** Lista que puede ser larga: se comporta igual pero se desplaza. */
-function Selector(props: {
-  etiqueta: string;
-  opciones: readonly Opcion[];
-  seleccionado: string | null;
-  onElegir: (id: string) => void;
-}) {
-  if (props.opciones.length === 0) {
-    return (
-      <View style={estilos.grupoOpciones}>
-        <Text style={estilos.etiquetaGrupo}>{props.etiqueta}</Text>
-        <Text style={estilos.sinOpciones}>
-          Sin opciones descargadas. Sincroniza cuando tengas señal
-        </Text>
-      </View>
-    );
-  }
-  return <Opciones {...props} />;
-}
-
 function Ficha({
   opcion,
   activa,
@@ -724,7 +751,6 @@ const estilos = StyleSheet.create({
   },
   textoFicha: { ...texto.cuerpo, color: colores.texto },
   marcaNueva: { fontSize: 11, color: colores.advertencia, textAlign: "center" },
-  sinOpciones: { ...texto.ayuda, color: colores.advertencia },
   textoError: { ...texto.ayuda, color: colores.peligro, marginTop: espacio.xs },
   desgaste: {
     padding: espacio.md,

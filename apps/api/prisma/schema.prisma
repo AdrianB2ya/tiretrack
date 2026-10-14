@@ -68,6 +68,7 @@ model Empresa {
   clientes        Cliente[]
   configuraciones ConfiguracionEje[]
   marcas          Marca[]
+  medidas         DisenoMedida[]
   servicios       Servicio[]
   tiposParche     TipoParche[]
   ordenes         OrdenServicio[]
@@ -437,13 +438,21 @@ model Diseno {
 /// que el porcentaje de desgaste salga mal en flotas con dos medidas.
 model DisenoMedida {
   id                  String   @id
+  /// null: del catálogo general. Con valor: propia de esa empresa, aunque
+  /// cuelgue de un diseño global (una empresa agrega una medida a Michelin
+  /// XZE y las demás no la ven).
+  empresaId           String?
+  empresa             Empresa? @relation(fields: [empresaId], references: [id])
   disenoId            String
   diseno              Diseno   @relation(fields: [disenoId], references: [id], onDelete: Cascade)
   medida              String
   profundidadOriginal Decimal? @db.Decimal(5, 2)
+  /// Creada en campo: pendiente de revisión del administrador.
+  creadaEnCampo       Boolean  @default(false)
   creadoEn            DateTime @default(now())
 
-  @@unique([disenoId, medida])
+  @@unique([disenoId, empresaId, medida])
+  @@index([empresaId, disenoId])
 }
 
 model Servicio {

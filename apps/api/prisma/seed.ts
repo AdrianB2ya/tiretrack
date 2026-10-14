@@ -308,7 +308,7 @@ async function main() {
       });
       for (const me of d.medidas) {
         await prisma.disenoMedida.upsert({
-          where: { disenoId_medida: { disenoId: uid(d.id), medida: me.medida } },
+          where: { id: uid(`${d.id}-${me.medida.replace(/W/g, "")}`) },
           update: {},
           create: {
             id: uid(`${d.id}-${me.medida.replace(/\W/g, "")}`),

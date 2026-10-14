@@ -42,6 +42,7 @@ const RUTAS: Record<TipoOperacion, (op: OperacionPendiente) => { metodo: string;
   reasignar: (op) => ({ metodo: "POST", ruta: `/ordenes/${op.ordenId}/reasignar` }),
   crear_marca: () => ({ metodo: "POST", ruta: "/catalogo/marcas" }),
   crear_diseno: () => ({ metodo: "POST", ruta: "/catalogo/disenos" }),
+  crear_medida: () => ({ metodo: "POST", ruta: "/catalogo/medidas" }),
   adjuntar_foto: (op) => ({ metodo: "POST", ruta: `/ordenes/${op.ordenId}/fotos` }),
   crear_cliente: () => ({ metodo: "POST", ruta: "/flota/clientes" }),
   crear_sede_cliente: () => ({ metodo: "POST", ruta: "/flota/sedes" }),

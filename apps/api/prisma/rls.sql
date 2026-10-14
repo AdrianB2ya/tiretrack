@@ -273,16 +273,25 @@ CREATE POLICY aislamiento_empresa ON "Marca"
 ALTER TABLE "Diseno" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "Diseno" FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS aislamiento_empresa ON "Diseno";
+-- Un diseño propio cuelga a veces de una marca global ("XZE" de Michelin
+-- creado por una empresa): ver la marca no basta, el diseño también tiene
+-- que ser global o de la empresa. Antes solo se miraba la marca y el diseño
+-- propio de una empresa le llegaba a todas en la descarga.
 CREATE POLICY aislamiento_empresa ON "Diseno"
-  USING (EXISTS (SELECT 1 FROM "Marca" m WHERE m.id = "marcaId"))
-  WITH CHECK (EXISTS (SELECT 1 FROM "Marca" m WHERE m.id = "marcaId"));
+  USING (("esGlobal" = true OR "empresaId" = app_empresa_id())
+         AND EXISTS (SELECT 1 FROM "Marca" m WHERE m.id = "marcaId"))
+  WITH CHECK ("empresaId" = app_empresa_id()
+              AND EXISTS (SELECT 1 FROM "Marca" m WHERE m.id = "marcaId"));
 
 ALTER TABLE "DisenoMedida" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "DisenoMedida" FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS aislamiento_empresa ON "DisenoMedida";
+-- Igual que el diseño: una medida propia puede colgar de un diseño global.
 CREATE POLICY aislamiento_empresa ON "DisenoMedida"
-  USING (EXISTS (SELECT 1 FROM "Diseno" d WHERE d.id = "disenoId"))
-  WITH CHECK (EXISTS (SELECT 1 FROM "Diseno" d WHERE d.id = "disenoId"));
+  USING (("empresaId" IS NULL OR "empresaId" = app_empresa_id())
+         AND EXISTS (SELECT 1 FROM "Diseno" d WHERE d.id = "disenoId"))
+  WITH CHECK ("empresaId" = app_empresa_id()
+              AND EXISTS (SELECT 1 FROM "Diseno" d WHERE d.id = "disenoId"));
 
 -- ── Auditoría: se lee de la propia empresa, y NO se modifica ni se borra ────
 -- Un registro de auditoría que se puede alterar no sirve como evidencia.

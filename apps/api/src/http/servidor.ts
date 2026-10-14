@@ -9,6 +9,8 @@ import {
   zCrearConfiguracionEje,
   zEjeDefinicion,
   zCrearDiseno,
+  zCrearMedida,
+  zProfundidadOriginal,
   zCrearMarca,
   zCrearOrden,
   zActivarCuenta,
@@ -838,6 +840,17 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
       return r.ok ? { status: 200, cuerpo: r.valor } : rechazo(r.veredicto);
     }));
 
+    // Una medida se aprueba pero no se unifica: no tiene variantes mal
+    // escritas (se normaliza y no se repite en el diseño).
+    app.post("/catalogo/medidas/:id/aprobar", administracion(async (s, ctx, req) => {
+      const id = zId.safeParse(params(req).id);
+      if (!id.success) return { status: 404, cuerpo: { error: { codigo: "NO_EXISTE", mensaje: "No existe" } } };
+      const r = await s.catalogo.marcarRevisada(ctx, "medida", id.data);
+      if (!r.ok) return rechazo(r.veredicto);
+      await s.informe.registrarAuditoria(ctx, "actualizar", { entidad: "medida", id: id.data, revision: "aprobada" });
+      return { status: 200, cuerpo: {} };
+    }));
+
     for (const [ruta, tipo] of [["marcas", "marca"], ["disenos", "diseno"]] as const) {
       app.post(`/catalogo/${ruta}/:id/aprobar`, administracion(async (s, ctx, req) => {
         const id = zId.safeParse(params(req).id);
@@ -1085,6 +1098,33 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
       });
       if (!r.ok) return rechazo(r.veredicto);
       return { status: 201, cuerpo: { id: r.valor.diseno.id } };
+    }));
+
+    /**
+     * Medida nueva (R1). Llega por la cola, como marca y diseño: el técnico la
+     * crea frente a la llanta, a veces sin señal. Sin profundidad de fábrica
+     * conocida se guarda igual; el desgaste espera a que alguien la complete.
+     */
+    app.post("/catalogo/medidas", operacion(async (s, ctx, req) => {
+      const p = zCrearMedida.safeParse(req.body);
+      if (!p.success) return datosInvalidos(p.error.issues);
+      const r = await s.catalogo.agregarMedida(ctx, p.data);
+      if (!r.ok) return rechazo(r.veredicto);
+      return { status: 201, cuerpo: { id: r.valor.id, medida: r.valor.medida } };
+    }));
+
+    /** Completar o corregir la profundidad de fábrica (oficina, en línea). */
+    app.post("/catalogo/medidas/:id/profundidad", administracion(async (s, ctx, req) => {
+      const id = zId.safeParse(params(req).id);
+      if (!id.success) return { status: 404, cuerpo: { error: { codigo: "NO_EXISTE", mensaje: "No existe" } } };
+      const p = zProfundidadOriginal.safeParse(req.body ?? {});
+      if (!p.success) return datosInvalidos(p.error.issues);
+      const r = await s.catalogo.fijarProfundidadOriginal(ctx, id.data, p.data.profundidadOriginal);
+      if (!r.ok) return rechazo(r.veredicto);
+      await s.informe.registrarAuditoria(ctx, "actualizar", {
+        entidad: "medida", id: id.data, profundidadOriginal: p.data.profundidadOriginal,
+      });
+      return { status: 200, cuerpo: {} };
     }));
 
     app.post("/fotos/:id/confirmar", operacion(async (s, ctx, req) => {

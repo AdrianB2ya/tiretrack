@@ -30,7 +30,7 @@ import { OrdenNoDisponible } from "../../../../../src/ordenes/OrdenNoDisponible"
 export default function PantallaPosicion() {
   const { id, numero } = useLocalSearchParams<{ id: string; numero: string }>();
   const router = useRouter();
-  const { cargarOrden, guardarMedicion, catalogoPara, fotosDe, adjuntarFoto, medicionAnterior } = useDatos();
+  const { cargarOrden, guardarMedicion, catalogoPara, fotosDe, adjuntarFoto, medicionAnterior, accionesCatalogo } = useDatos();
   // La llanta que estaba según la última orden: es la que sale si se cambia.
   const [desmontadaSugerida, setDesmontadaSugerida] = useState<DesmontadaBorrador | null>(null);
   const usuario = useUsuario();
@@ -190,6 +190,27 @@ export default function PantallaPosicion() {
       onCopiarHermana={numeroHermana ? copiar : undefined}
       fotos={fotos}
       desmontadaSugerida={desmontadaSugerida}
+      // Lo que no está en el catálogo se agrega aquí y queda elegido: el
+      // técnico sigue capturando sin salir de la posición.
+      onAgregar={{
+        marca: async (nombre) => {
+          const m = await accionesCatalogo.crearMarca(nombre);
+          setBorrador((b) => (b ? { ...b, marcaId: m.id, disenoId: null, medida: null } : b));
+          return null;
+        },
+        diseno: async (nombre) => {
+          if (!borrador.marcaId) return "Elige primero la marca";
+          const d = await accionesCatalogo.crearDiseno(borrador.marcaId, nombre, casilla.tipoEje);
+          setBorrador((b) => (b ? { ...b, disenoId: d.id, medida: null } : b));
+          return null;
+        },
+        medida: async (medida, profundidad) => {
+          if (!borrador.disenoId) return "Elige primero el diseño";
+          const m = await accionesCatalogo.crearMedida(borrador.disenoId, medida, profundidad);
+          setBorrador((b) => (b ? { ...b, medida: m.medida } : b));
+          return null;
+        },
+      }}
     />
   );
 }

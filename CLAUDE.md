@@ -3559,7 +3559,7 @@ para el final" de abajo). Cada tarea, su commit. Alcance: pendientes 8 a 15,
 lineamientos, brechas A, B, C, E y F, bloqueo de órdenes y envío de informes.
 D queda fuera.
 
-- [ ] R1 Catálogo de llantas desde la app (marca, diseño, medida; en el
+- [x] R1 Catálogo de llantas desde la app (marca, diseño, medida; en el
   editor y en "Catálogo de llantas"; revisión incluye medidas)
 - [ ] R2 Límites por empresa (cambio inmediato, programar cambio,
   profundidad baja) y su pantalla; llantas para cambio con los dos niveles
@@ -3585,6 +3585,46 @@ D queda fuera.
 
 (Se agregan a medida que aparecen; mientras, se toma la opción más
 conservadora y se anota aquí.)
+
+## Catálogo de llantas desde la app (R1, 2026-10-13)
+
+Pendiente 8. Ya no hace falta SQL para agregar una referencia.
+
+- **En la posición** (técnico, coordinador, administrador): marca, diseño y
+  medida son listas con búsqueda (`ListaBuscable`); lo que no está se
+  escribe y se agrega ahí mismo, queda elegido y viaja por la cola
+  (`crear_marca`, `crear_diseno`, `crear_medida`), también sin señal. El
+  diseño nuevo toma el tipo de eje de la posición.
+- **Antes de crear se compara** (`src/catalogo/alta.ts`, con el dominio):
+  el duplicado exacto se ofrece para elegirlo ("michelín" es Michelin), lo
+  parecido se muestra y crear igual pide un segundo toque. La medida se
+  normaliza ("295/80r22,5" → 295/80R22.5).
+- **La medida pide la profundidad de fábrica, opcional**: sin ella se guarda
+  y no se calcula desgaste hasta completarla (decisión del usuario). No viaja
+  un null.
+- **"Más → Catálogo de llantas"** (administrador y coordinador): recorrer
+  marca → diseño (con tipo de eje) → medida, agregar en cada nivel y
+  **completar o corregir la profundidad de fábrica** (en línea:
+  `POST /catalogo/medidas/:id/profundidad`, solo medidas propias; las del
+  catálogo general son de la plataforma). Queda en la auditoría.
+- **Revisión ("Creado en campo")** incluye medidas: se confirman
+  (`/catalogo/medidas/:id/aprobar`) completando la profundidad; no se
+  unifican (no tienen variantes mal escritas).
+- **Servidor**: `POST /catalogo/medidas` por la cola, idempotente por el id
+  del celular. `DisenoMedida` gana `empresaId` (null = catálogo general) y
+  `creadaEnCampo`; la clave única pasa a `(disenoId, empresaId, medida)`:
+  dos empresas pueden registrar la misma medida sobre un diseño global sin
+  verse. Migración `20261013120000_medidas_por_empresa`; en el celular, la 15
+  (`medida.creada_local`: descargar el catálogo no borra lo que aún no llegó).
+
+### Fuga encontrada al construirlo: diseños propios visibles para todos
+
+La política de `Diseno` solo comprobaba que **la marca** fuera visible. Un
+diseño que una empresa creaba bajo una marca global (su "XZE" de Michelin)
+**le llegaba a todas las empresas en la descarga**. Ahora exige además que el
+diseño sea global o de la empresa, y lo mismo la medida. Probado contra RLS
+real en `aislamiento.test.ts` (las tablas de diseño y medida no estaban en
+ese banco); con la política vieja, la prueba falla.
 
 ## Tres profundidades y punto decimal (2026-10-09)
 
@@ -3661,7 +3701,7 @@ identificador **`com.asistectire.app`**, rojo de la marca **como acento**.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 968/968, mobile 923 + recorrido 459.
+**Verificado:** `npm run verify` con base: raíz 974/974, mobile 945 + recorrido 469.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

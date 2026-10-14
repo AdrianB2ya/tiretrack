@@ -1,0 +1,191 @@
+import { useMemo, useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
+import { Aviso, Boton, Campo, CampoDecimal, Opcion } from "./componentes";
+import { colores, espacio, texto } from "./tokens";
+import { filtrarPorTexto, type EvaluacionAlta } from "../catalogo/alta";
+
+/**
+ * Lista para elegir uno entre muchos (marcas, diseños, medidas, clientes…).
+ *
+ * Con pocas opciones se ven todas, como siempre. Con muchas aparece un campo
+ * para buscar: con guantes, escribir tres letras es más rápido y más seguro
+ * que desplazarse por cincuenta fichas. La búsqueda ignora tildes,
+ * mayúsculas, espacios y guiones ("xze" encuentra "X-ZE").
+ *
+ * Con `alta`, lo que no está se puede agregar desde aquí mismo, pero antes se
+ * compara con lo que hay: un duplicado se ofrece para elegirlo y lo parecido
+ * se muestra, y crear igual pide un segundo toque.
+ */
+
+export interface OpcionLista {
+  readonly id: string;
+  readonly texto: string;
+  readonly detalle?: string;
+  /** Creada en este celular, pendiente de revisión. */
+  readonly nueva?: boolean;
+}
+
+export interface AltaLista {
+  /** "Agregar marca", "Agregar medida". */
+  readonly etiqueta: string;
+  readonly evaluar: (texto: string) => EvaluacionAlta;
+  /** Un número opcional que se pide al crear (la profundidad de fábrica). */
+  readonly numero?: { readonly etiqueta: string; readonly ayuda?: string };
+  /** Crea y elige. Devuelve un mensaje si no se pudo. */
+  readonly onCrear: (valor: string, numero: number | null) => Promise<string | null>;
+  /** Línea bajo el botón: qué pasa con lo que se crea. */
+  readonly nota?: string;
+}
+
+/** Con más opciones que estas, se busca en vez de mostrarlas todas. */
+export const MAX_SIN_BUSQUEDA = 8;
+/** Tope de fichas a la vista: el resto se alcanza escribiendo. */
+export const MAX_A_LA_VISTA = 30;
+
+export function ListaBuscable({
+  etiqueta,
+  opciones,
+  seleccionado,
+  onElegir,
+  alta,
+  vacio = "Sin opciones descargadas. Sincroniza cuando tengas señal",
+  testID = "lista",
+}: {
+  etiqueta: string;
+  opciones: readonly OpcionLista[];
+  seleccionado: string | null;
+  onElegir: (id: string) => void;
+  alta?: AltaLista;
+  vacio?: string;
+  testID?: string;
+}) {
+  const [termino, setTermino] = useState("");
+  const [numero, setNumero] = useState<number | null>(null);
+  const [confirmarParecida, setConfirmarParecida] = useState(false);
+  const [creando, setCreando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const conBusqueda = opciones.length > MAX_SIN_BUSQUEDA || alta !== undefined;
+  const filtradas = useMemo(() => filtrarPorTexto(opciones, termino), [opciones, termino]);
+  const aLaVista = filtradas.slice(0, MAX_A_LA_VISTA);
+  // La elegida siempre a la vista, aunque la búsqueda no la incluya.
+  const elegida = opciones.find((o) => o.id === seleccionado);
+  if (elegida && !aLaVista.some((o) => o.id === elegida.id)) aLaVista.unshift(elegida);
+  const evaluacion = alta && termino.trim() !== "" ? alta.evaluar(termino) : null;
+
+  const cambiarTermino = (t: string) => {
+    setTermino(t);
+    setConfirmarParecida(false);
+    setError(null);
+  };
+
+  const crear = async (valor: string, parecidas: number) => {
+    if (!alta) return;
+    if (parecidas > 0 && !confirmarParecida) {
+      setConfirmarParecida(true);
+      return;
+    }
+    setCreando(true);
+    try {
+      const fallo = await alta.onCrear(valor, numero);
+      if (fallo) {
+        setError(fallo);
+        return;
+      }
+      setTermino("");
+      setNumero(null);
+      setConfirmarParecida(false);
+    } finally {
+      setCreando(false);
+    }
+  };
+
+  return (
+    <View style={estilos.grupo} testID={testID}>
+      <Text style={estilos.etiqueta}>{etiqueta}</Text>
+
+      {conBusqueda ? (
+        <Campo
+          etiqueta={alta ? "Buscar o escribir una nueva" : "Buscar"}
+          value={termino}
+          onChangeText={cambiarTermino}
+          autoCorrect={false}
+          testID={`${testID}-buscar`}
+        />
+      ) : null}
+
+      {opciones.length === 0 && !alta ? <Text style={estilos.tenue}>{vacio}</Text> : null}
+
+      <View style={estilos.fichas}>
+        {aLaVista.map((o) => (
+          <Opcion
+            key={o.id}
+            activa={o.id === seleccionado}
+            etiqueta={o.nueva ? `${o.texto} (nueva)` : o.texto}
+            {...(o.detalle ? { detalle: o.detalle } : {})}
+            testID={`opcion-${o.id}`}
+            onPress={() => onElegir(o.id)}
+          />
+        ))}
+      </View>
+      {filtradas.length > MAX_A_LA_VISTA ? (
+        <Text style={estilos.tenue}>Hay {filtradas.length - MAX_A_LA_VISTA} más: escribe para encontrarlas.</Text>
+      ) : null}
+      {termino.trim() !== "" && filtradas.length === 0 && !alta ? (
+        <Text style={estilos.tenue}>Nada coincide con “{termino.trim()}”.</Text>
+      ) : null}
+
+      {evaluacion?.estado === "invalida" ? <Text style={estilos.error}>{evaluacion.mensaje}</Text> : null}
+      {evaluacion?.estado === "existe" ? (
+        <View style={estilos.alta}>
+          <Aviso tono="info" titulo={`Ya existe: ${evaluacion.existente.nombre}`} />
+          <Boton tipo="secundario" testID={`${testID}-elegir-existente`} onPress={() => {
+            onElegir(evaluacion.existente.id);
+            cambiarTermino("");
+          }}>
+            Elegir {evaluacion.existente.nombre}
+          </Boton>
+        </View>
+      ) : null}
+      {evaluacion?.estado === "nueva" && alta ? (
+        <View style={estilos.alta}>
+          {evaluacion.parecidas.length > 0 ? (
+            <Aviso
+              tono="advertencia"
+              titulo="¿Es alguna de estas?"
+              detalle={`${evaluacion.parecidas.map((p) => p.nombre).join(", ")}. Si es una de ellas, elígela: una variante mal escrita parte los informes en dos.`}
+            />
+          ) : null}
+          {alta.numero ? (
+            <CampoDecimal
+              etiqueta={alta.numero.etiqueta}
+              {...(alta.numero.ayuda ? { ayuda: alta.numero.ayuda } : {})}
+              valor={numero}
+              onCambio={setNumero}
+              testID={`${testID}-numero`}
+            />
+          ) : null}
+          <Boton
+            tipo="secundario"
+            cargando={creando}
+            testID={`${testID}-agregar`}
+            onPress={() => void crear(evaluacion.valor, evaluacion.parecidas.length)}
+          >
+            {confirmarParecida ? `Agregar “${evaluacion.valor}” de todos modos` : `${alta.etiqueta}: “${evaluacion.valor}”`}
+          </Boton>
+          {alta.nota ? <Text style={estilos.tenue}>{alta.nota}</Text> : null}
+        </View>
+      ) : null}
+      {error ? <Text style={estilos.error}>{error}</Text> : null}
+    </View>
+  );
+}
+
+const estilos = StyleSheet.create({
+  grupo: { gap: espacio.sm, marginBottom: espacio.md },
+  etiqueta: { ...texto.etiqueta, color: colores.texto },
+  fichas: { flexDirection: "row", flexWrap: "wrap", gap: espacio.sm },
+  tenue: { ...texto.ayuda, color: colores.textoTenue },
+  error: { ...texto.ayuda, color: colores.peligro },
+  alta: { gap: espacio.sm },
+});

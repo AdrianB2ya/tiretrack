@@ -110,6 +110,8 @@ export interface MedidaLocal {
   readonly disenoId: string;
   readonly medida: string;
   readonly profundidadOriginal: number | null;
+  /** Creada en este celular y aún sin confirmar por el servidor. */
+  readonly creadaLocal?: boolean;
 }
 
 export interface ServicioLocal {
@@ -308,7 +310,7 @@ function sinVacios(o: Record<string, unknown>): Record<string, unknown> {
  */
 export const TIPOS_OPERACION = [
   "crear_orden", "actualizar_orden", "guardar_medicion", "cambiar_estado",
-  "crear_marca", "crear_diseno", "reasignar", "adjuntar_foto", "firmar", "subir_foto",
+  "crear_marca", "crear_diseno", "crear_medida", "reasignar", "adjuntar_foto", "firmar", "subir_foto",
   "crear_cliente", "crear_sede_cliente", "crear_vehiculo",
   "crear_recomendacion", "resolver_recomendacion",
 ] as const;
@@ -991,7 +993,7 @@ export class RepositorioLocal {
 
   async medidasDe(disenoId: string): Promise<MedidaLocal[]> {
     const filas = await this.db.consultar<Record<string, unknown>>(
-      `SELECT id, diseno_id, medida, profundidad_original
+      `SELECT id, diseno_id, medida, profundidad_original, creada_local
          FROM medida WHERE diseno_id = ? ORDER BY medida`,
       [disenoId],
     );
@@ -1001,6 +1003,7 @@ export class RepositorioLocal {
       medida: String(f["medida"]),
       profundidadOriginal:
         f["profundidad_original"] === null ? null : Number(f["profundidad_original"]),
+      creadaLocal: aBool(f["creada_local"]),
     }));
   }
 
@@ -1064,6 +1067,29 @@ export class RepositorioLocal {
     return { id, marcaId, nombre: nombre.trim(), tipoEje, creadaLocal: true };
   }
 
+  /**
+   * Medida nueva, creada frente a la llanta. Sin profundidad de fábrica
+   * conocida se guarda igual: el desgaste espera a que la oficina la complete.
+   */
+  async crearMedidaLocal(disenoId: string, medida: string, profundidadOriginal: number | null): Promise<MedidaLocal> {
+    const id = nuevoId();
+    await this.enTransaccion(async () => {
+      await this.db.ejecutar(
+        `INSERT INTO medida (id, diseno_id, medida, profundidad_original, creada_local) VALUES (?, ?, ?, ?, 1)`,
+        [id, disenoId, medida, profundidadOriginal],
+      );
+      await this.encolar("crear_medida", id, null, {
+        id, disenoId, medida, ...(profundidadOriginal !== null ? { profundidadOriginal } : {}),
+      });
+    });
+    return { id, disenoId, medida, profundidadOriginal, creadaLocal: true };
+  }
+
+  /** La oficina corrigió la profundidad de fábrica en el servidor: se refleja aquí. */
+  async fijarProfundidadOriginalLocal(medidaId: string, profundidad: number | null): Promise<void> {
+    await this.db.ejecutar(`UPDATE medida SET profundidad_original = ? WHERE id = ?`, [profundidad, medidaId]);
+  }
+
   /** Reemplaza el catálogo con lo que llegó del servidor. */
   async guardarCatalogo(datos: {
     marcas?: readonly MarcaLocal[];
@@ -1095,11 +1121,12 @@ export class RepositorioLocal {
         }
       }
       if (datos.medidas) {
-        await this.db.ejecutar(`DELETE FROM medida`);
+        // Igual que marcas y diseños: lo creado aquí espera al servidor.
+        await this.db.ejecutar(`DELETE FROM medida WHERE creada_local = 0`);
         for (const m of datos.medidas) {
           await this.db.ejecutar(
-            `INSERT INTO medida (id, diseno_id, medida, profundidad_original)
-             VALUES (?, ?, ?, ?)`,
+            `INSERT OR REPLACE INTO medida (id, diseno_id, medida, profundidad_original, creada_local)
+             VALUES (?, ?, ?, ?, 0)`,
             [m.id, m.disenoId, m.medida, m.profundidadOriginal],
           );
         }

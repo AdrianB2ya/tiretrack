@@ -269,6 +269,31 @@ cuando("aislamiento entre empresas", () => {
       expect(b.rows.map((x) => x.id)).not.toContain("mar-a");
     });
 
+    it("un diseño propio colgado de una marca global solo lo ve su empresa", async () => {
+      const a = await bd.comoUsuario(CTX_COORDINADOR_A, `SELECT id FROM "Diseno" ORDER BY id`);
+      const b = await bd.comoUsuario(CTX_COORDINADOR_B, `SELECT id FROM "Diseno" ORDER BY id`);
+      expect(a.rows.map((x) => x.id)).toEqual(["dis-a", "dis-glob"]);
+      expect(b.rows.map((x) => x.id)).toEqual(["dis-glob"]);
+    });
+
+    it("una medida propia sobre un diseño global solo la ve su empresa", async () => {
+      const a = await bd.comoUsuario(CTX_COORDINADOR_A, `SELECT id FROM "DisenoMedida" ORDER BY id`);
+      const b = await bd.comoUsuario(CTX_COORDINADOR_B, `SELECT id FROM "DisenoMedida" ORDER BY id`);
+      expect(a.rows.map((x) => x.id)).toEqual(["med-a", "med-glob"]);
+      expect(b.rows.map((x) => x.id)).toEqual(["med-glob"]);
+    });
+
+    it("una empresa no crea medidas a nombre de otra ni globales", async () => {
+      for (const emp of ["'emp-a'", "NULL"]) {
+        await expect(
+          bd.comoUsuario(
+            CTX_COORDINADOR_B,
+            `INSERT INTO "DisenoMedida" (id, "empresaId", "disenoId", medida) VALUES ('med-x', ${emp}, 'dis-glob', '11R22.5')`,
+          ),
+        ).rejects.toThrow(/row-level security|política|policy/i);
+      }
+    });
+
     it("una empresa no puede crear marcas globales", async () => {
       // Solo la plataforma promueve marcas a globales.
       await expect(
