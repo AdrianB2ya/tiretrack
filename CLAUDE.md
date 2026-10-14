@@ -3695,18 +3695,27 @@ reprodujo después.
 
 ## Decisiones abiertas
 
-- **Señal de presencia en la orden** (propuesta del usuario): mostrar "Carlos
-  abrió esta orden hace 10 minutos" sin bloquear. Se descartó el bloqueo duro
+- **Presencia en la orden — decisión del usuario (2026-10-13): debe
+  BLOQUEARSE**, no solo avisar. Antes se había descartado el bloqueo duro
   porque choca con el trabajo sin conexión: un técnico que pierde señal con
-  el bloqueo tomado dejaría la orden inaccesible.
+  el bloqueo tomado dejaría la orden inaccesible, y sin señal el bloqueo no
+  se puede pedir ni comprobar. **Al desarrollarlo, proponer el diseño antes
+  de construir**: bloqueo con vencimiento (se libera solo si quien lo tiene
+  no da señales en X minutos), liberación manual por el coordinador, y qué
+  pasa con lo capturado sin señal por quien no tenía el bloqueo (hoy el
+  servidor ya rechaza mediciones de quien no es el técnico asignado, y una
+  posición ocupada se aparta).
 
 No decidir por cuenta propia. Preguntar cuando toque el tema.
 
 - Suplantación del superadmin (motivo, ticket, vencimiento): decidido
   construirla antes de una segunda empresa o de dar soporte real.
-- Alcance del coordinador: ¿toda la empresa o solo sus sedes?
-- Si se bloquea exportar órdenes sin cerrar (el cliente ya no las ve en su
-  informe; la oficina y el técnico sí)
+- ~~Alcance del coordinador~~: decidido, solo sus sedes (ver "Flujo
+  completo en la app").
+- ~~Si se bloquea exportar órdenes sin cerrar~~: **decidido (2026-10-13):
+  se deja como está**. La oficina y el técnico exportan con el aviso de
+  cuántas van sin cerrar (y el estado en el archivo); el cliente solo ve
+  las que esperan su aprobación o están cerradas.
 - Cómo se cuenta la alineación al facturar (hoy se marca por llanta, pero se
   ejecuta por eje)
 
