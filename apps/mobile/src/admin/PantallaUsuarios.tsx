@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { ElegirUno } from "../diseno/ListaBuscable";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { Rol } from "@tiretrack/domain";
 import { Aviso, Boton, Campo, Insignia, Tarjeta, Vacio } from "../diseno/componentes";
@@ -197,9 +198,7 @@ function FormNuevo({ fuentes, onCancelar, onCreado }: {
           <>
             {/* Un usuario cliente no trabaja en sedes de la empresa: ve las órdenes de SU cliente. */}
             <Text style={estilos.etiqueta}>Cliente al que pertenece</Text>
-            {clientes.map((c) => (
-              <Opcion key={c.id} activa={f.clienteId === c.id} etiqueta={c.nombre} onPress={() => setF({ ...f, clienteId: c.id })} />
-            ))}
+            <ElegirUno opciones={clientes.map((c) => ({ id: c.id, texto: c.nombre }))} seleccionado={f.clienteId} onElegir={(id) => setF({ ...f, clienteId: id })} />
             {intentado && p.find((x) => x.campo === "clienteId") ? <Text style={estilos.error}>Elige el cliente</Text> : null}
             {f.clienteId && sedesCliente.length > 0 ? (
               <Aviso

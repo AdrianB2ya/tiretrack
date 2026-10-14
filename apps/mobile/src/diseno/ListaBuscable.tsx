@@ -23,6 +23,8 @@ export interface OpcionLista {
   readonly detalle?: string;
   /** Creada en este celular, pendiente de revisión. */
   readonly nueva?: boolean;
+  /** Por defecto `opcion-{id}`. */
+  readonly testID?: string;
 }
 
 export interface AltaLista {
@@ -51,7 +53,8 @@ export function ListaBuscable({
   vacio = "Sin opciones descargadas. Sincroniza cuando tengas señal",
   testID = "lista",
 }: {
-  etiqueta: string;
+  /** Sin etiqueta, cuando la pantalla ya pone su propio título encima. */
+  etiqueta?: string;
   opciones: readonly OpcionLista[];
   seleccionado: string | null;
   onElegir: (id: string) => void;
@@ -102,7 +105,7 @@ export function ListaBuscable({
 
   return (
     <View style={estilos.grupo} testID={testID}>
-      <Text style={estilos.etiqueta}>{etiqueta}</Text>
+      {etiqueta ? <Text style={estilos.etiqueta}>{etiqueta}</Text> : null}
 
       {conBusqueda ? (
         <Campo
@@ -123,7 +126,7 @@ export function ListaBuscable({
             activa={o.id === seleccionado}
             etiqueta={o.nueva ? `${o.texto} (nueva)` : o.texto}
             {...(o.detalle ? { detalle: o.detalle } : {})}
-            testID={`opcion-${o.id}`}
+            testID={o.testID ?? `opcion-${o.id}`}
             onPress={() => onElegir(o.id)}
           />
         ))}
@@ -188,4 +191,42 @@ const estilos = StyleSheet.create({
   tenue: { ...texto.ayuda, color: colores.textoTenue },
   error: { ...texto.ayuda, color: colores.peligro },
   alta: { gap: espacio.sm },
+  columna: { gap: espacio.sm },
 });
+
+/**
+ * Elegir uno (R3): con pocas opciones, la lista de siempre, una debajo de la
+ * otra; con muchas, la misma lista con búsqueda. Así una flota de 200
+ * vehículos no obliga a desplazarse con guantes, y una de tres no gana un
+ * campo de texto que no hace falta.
+ */
+export function ElegirUno({
+  opciones,
+  seleccionado,
+  onElegir,
+  enLinea = false,
+}: {
+  opciones: readonly OpcionLista[];
+  seleccionado: string | null;
+  onElegir: (id: string) => void;
+  /** Fichas en fila (opciones cortas como "Todos"), en vez de una por línea. */
+  enLinea?: boolean;
+}) {
+  if (opciones.length > MAX_SIN_BUSQUEDA) {
+    return <ListaBuscable opciones={opciones} seleccionado={seleccionado} onElegir={onElegir} />;
+  }
+  return (
+    <View style={enLinea ? estilos.fichas : estilos.columna}>
+      {opciones.map((o) => (
+        <Opcion
+          key={o.id}
+          activa={o.id === seleccionado}
+          etiqueta={o.texto}
+          {...(o.detalle ? { detalle: o.detalle } : {})}
+          {...(o.testID ? { testID: o.testID } : {})}
+          onPress={() => onElegir(o.id)}
+        />
+      ))}
+    </View>
+  );
+}

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { ElegirUno } from "../diseno/ListaBuscable";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { nuevoId, type Frecuencia, type TipoServicio } from "@tiretrack/domain";
 import type { CrearProgramacion } from "@tiretrack/contracts";
@@ -264,40 +265,30 @@ function FormularioProgramacionNueva({ fuentes, hoy, sedesDelUsuario, onListo }:
 
       <Paso titulo="Cliente" error={problemaDe("clienteId")}>
         {clientes.length === 0 ? <Text style={estilos.ayuda}>Sin clientes descargados. Sincroniza con señal.</Text> : null}
-        {clientes.map((c) => (
-          <Opcion key={c.id} etiqueta={c.nombre} activa={f.clienteId === c.id} onPress={() => poner("clienteId", c.id)} />
-        ))}
+        <ElegirUno opciones={clientes.map((c) => ({ id: c.id, texto: c.nombre }))} seleccionado={f.clienteId} onElegir={(id) => poner("clienteId", id)} />
       </Paso>
 
       {f.clienteId ? (
         <Paso titulo="Sede del cliente" error={problemaDe("sedeClienteId")}>
-          {sedesCliente.map((s) => (
-            <Opcion key={s.id} etiqueta={s.nombre} activa={f.sedeClienteId === s.id} onPress={() => poner("sedeClienteId", s.id)} />
-          ))}
+          <ElegirUno opciones={sedesCliente.map((s) => ({ id: s.id, texto: s.nombre }))} seleccionado={f.sedeClienteId} onElegir={(id) => poner("sedeClienteId", id)} />
         </Paso>
       ) : null}
 
       {f.sedeClienteId ? (
         <Paso titulo="Vehículo" error={problemaDe("vehiculoId")}>
           {vehiculos.length === 0 ? <Text style={estilos.ayuda}>Esta sede no tiene vehículos registrados.</Text> : null}
-          {vehiculos.map((v) => (
-            <Opcion
-              key={v.id}
-              etiqueta={`${v.codigo}${v.placa ? ` · ${v.placa}` : ""}`}
-              detalle={v.nombre}
-              activa={f.vehiculoId === v.id}
-              onPress={() => poner("vehiculoId", v.id)}
-            />
-          ))}
+          <ElegirUno
+            opciones={vehiculos.map((v) => ({ id: v.id, texto: `${v.codigo}${v.placa ? ` · ${v.placa}` : ""}`, detalle: v.nombre }))}
+            seleccionado={f.vehiculoId}
+            onElegir={(id) => poner("vehiculoId", id)}
+          />
         </Paso>
       ) : null}
 
       {f.sedeId ? (
         <Paso titulo="Técnico que hará las visitas" error={problemaDe("tecnicoId")}>
           {tecnicos.length === 0 ? <Text style={estilos.ayuda}>Esta sede no tiene técnicos activos.</Text> : null}
-          {tecnicos.map((t) => (
-            <Opcion key={t.id} etiqueta={t.nombre} activa={f.tecnicoId === t.id} onPress={() => poner("tecnicoId", t.id)} />
-          ))}
+          <ElegirUno opciones={tecnicos.map((t) => ({ id: t.id, texto: t.nombre }))} seleccionado={f.tecnicoId} onElegir={(id) => poner("tecnicoId", id)} />
         </Paso>
       ) : null}
 

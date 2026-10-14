@@ -5,7 +5,7 @@ import { abrirBaseEnMemoria } from "../datos/conexionNode";
 import { migrar, type Conexion } from "../datos/base";
 import { RepositorioLocal } from "../datos/repositorio";
 import { evaluarAltaMedida, evaluarAltaNombre, filtrarPorTexto } from "../catalogo/alta";
-import { ListaBuscable, MAX_A_LA_VISTA } from "../diseno/ListaBuscable";
+import { ElegirUno, ListaBuscable, MAX_A_LA_VISTA } from "../diseno/ListaBuscable";
 import { PantallaCatalogo, type FuentesCatalogo } from "../catalogo/PantallaCatalogo";
 import { describirCambio } from "../sesion/cambios";
 import type { AccionesCatalogo } from "../app/ProveedorDatos";
@@ -112,6 +112,26 @@ describe("lista con búsqueda", () => {
     await act(async () => { fireEvent.click(screen.getByTestId("lista-elegir-existente")); });
     expect(onElegir).toHaveBeenCalledWith("m-1");
     expect(onCrear).not.toHaveBeenCalled();
+  });
+});
+
+describe("elegir uno (R3): la búsqueda aparece solo cuando hace falta", () => {
+  const clientes = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `c-${i}`, texto: `Transportes ${i}` }));
+
+  it("con pocas opciones, la lista de siempre", () => {
+    render(<ElegirUno opciones={clientes(4)} seleccionado={null} onElegir={() => {}} />);
+    expect(screen.queryByTestId("lista-buscar")).toBeNull();
+    expect(screen.getAllByRole("radio")).toHaveLength(4);
+  });
+
+  it("con muchas, se busca y se elige", async () => {
+    const onElegir = vi.fn();
+    render(<ElegirUno opciones={clientes(60)} seleccionado={null} onElegir={onElegir} />);
+    await act(async () => { fireEvent.change(screen.getByTestId("lista-buscar"), { target: { value: "transportes 57" } }); });
+    const r = screen.getAllByRole("radio");
+    expect(r).toHaveLength(1);
+    await act(async () => { fireEvent.click(r[0]!); });
+    expect(onElegir).toHaveBeenCalledWith("c-57");
   });
 });
 

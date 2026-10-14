@@ -3563,7 +3563,7 @@ D queda fuera.
   editor y en "Catálogo de llantas"; revisión incluye medidas)
 - [x] R2 Límites por empresa (cambio inmediato, programar cambio,
   profundidad baja) y su pantalla; llantas para cambio con los dos niveles
-- [ ] R3 Listas con búsqueda para catálogos y menús largos
+- [x] R3 Listas con búsqueda para catálogos y menús largos
 - [ ] R4 Orden de levantamiento (tipo de orden)
 - [ ] R5 Vencimiento por DOT visible en el editor y el PDF
 - [ ] R6 Diferencia de lados y diferencia de presión
@@ -3633,6 +3633,23 @@ diseño que una empresa creaba bajo una marca global (su "XZE" de Michelin)
 diseño sea global o de la empresa, y lo mismo la medida. Probado contra RLS
 real en `aislamiento.test.ts` (las tablas de diseño y medida no estaban en
 ese banco); con la política vieja, la prueba falla.
+
+## Listas con búsqueda (R3, 2026-10-13)
+
+Pendiente 9. `src/diseno/ListaBuscable.tsx`:
+
+- **`ListaBuscable`**: campo de búsqueda (sin tildes, mayúsculas, espacios
+  ni guiones), tope de 30 fichas a la vista con "hay N más: escribe", la
+  elegida siempre visible y, opcional, **agregar lo que no está** (R1).
+- **`ElegirUno`**: con 8 opciones o menos, la lista de siempre; con más, la
+  búsqueda. Así una flota de 200 vehículos no obliga a desplazarse con
+  guantes, y una lista de tres no gana un campo que no hace falta.
+- Se usa en: marca, diseño y medida del editor; orden nueva (sede, cliente,
+  sede del cliente, vehículo, técnico); informe (cliente, vehículo, con
+  "Todos"); visitas recurrentes; usuario cliente; catálogo de llantas.
+- **No se usa en los servicios de la posición**: son 9 fijos, se marcan
+  varios a la vez y caben en pantalla como fichas; esconderlos tras una
+  búsqueda costaría un toque por servicio.
 
 ## Límites de cambio por empresa (R2, 2026-10-13)
 
@@ -3733,7 +3750,7 @@ identificador **`com.asistectire.app`**, rojo de la marca **como acento**.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 986/986, mobile 954 + recorrido 479.
+**Verificado:** `npm run verify` con base: raíz 986/986, mobile 956 + recorrido 479.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

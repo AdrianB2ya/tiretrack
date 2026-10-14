@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ElegirUno } from "../diseno/ListaBuscable";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Aviso, Boton, Campo, Insignia, Opcion, Tarjeta } from "../diseno/componentes";
 import { colores, espacio, estadosOrden, texto } from "../diseno/tokens";
@@ -50,6 +51,9 @@ const RANGOS = [
   { cual: "mes", etiqueta: "Este mes" },
   { cual: "mesAnterior", etiqueta: "Mes anterior" },
 ] as const;
+
+/** La opción "Todos" de los filtros: no es un id real. */
+const TODOS = "__todos";
 
 export function PantallaInforme({ fuentes }: { fuentes: FuentesInforme }) {
   const [f, setF] = useState<FiltroPantalla>(FILTRO_VACIO);
@@ -180,28 +184,25 @@ export function PantallaInforme({ fuentes }: { fuentes: FuentesInforme }) {
       </View>
 
       <Text style={estilos.etiqueta}>Cliente</Text>
-      <View style={estilos.enLinea}>
-        <Opcion etiqueta="Todos" activa={f.clienteId === null} onPress={() => cambiar({ clienteId: null })} />
-        {clientes.map((c) => (
-          <Opcion key={c.id} etiqueta={c.nombre} activa={f.clienteId === c.id} onPress={() => cambiar({ clienteId: c.id, vehiculoId: null })} />
-        ))}
-      </View>
+      <ElegirUno
+        enLinea
+        opciones={[{ id: TODOS, texto: "Todos" }, ...clientes.map((c) => ({ id: c.id, texto: c.nombre }))]}
+        seleccionado={f.clienteId ?? TODOS}
+        onElegir={(id) => cambiar(id === TODOS ? { clienteId: null } : { clienteId: id, vehiculoId: null })}
+      />
 
       {vehiculos.length > 0 ? (
         <>
           <Text style={estilos.etiqueta}>Vehículo</Text>
-          <View style={estilos.enLinea}>
-            <Opcion etiqueta="Todos" activa={f.vehiculoId === null} onPress={() => cambiar({ vehiculoId: null })} />
-            {vehiculos.map((v) => (
-              <Opcion
-                key={v.id}
-                etiqueta={v.placa ? `${v.codigo} · ${v.placa}` : v.codigo}
-                activa={f.vehiculoId === v.id}
-                testID={`vehiculo-${v.id}`}
-                onPress={() => cambiar({ vehiculoId: v.id, vehiculo: "" })}
-              />
-            ))}
-          </View>
+          <ElegirUno
+            enLinea
+            opciones={[
+              { id: TODOS, texto: "Todos" },
+              ...vehiculos.map((v) => ({ id: v.id, texto: v.placa ? `${v.codigo} · ${v.placa}` : v.codigo, testID: `vehiculo-${v.id}` })),
+            ]}
+            seleccionado={f.vehiculoId ?? TODOS}
+            onElegir={(id) => cambiar(id === TODOS ? { vehiculoId: null } : { vehiculoId: id, vehiculo: "" })}
+          />
         </>
       ) : null}
       <Campo

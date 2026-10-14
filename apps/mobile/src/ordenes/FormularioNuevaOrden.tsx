@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { ListaBuscable, MAX_SIN_BUSQUEDA } from "../diseno/ListaBuscable";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import type { Prioridad, TipoServicio } from "@tiretrack/domain";
 import { Aviso, Boton, Campo } from "../diseno/componentes";
@@ -296,6 +297,16 @@ function Opciones({
   onElegir: (id: string) => void;
   enLinea?: boolean;
 }) {
+  // Con muchas (clientes, vehículos de una flota grande) se busca (R3).
+  if (opciones.length > MAX_SIN_BUSQUEDA) {
+    return (
+      <ListaBuscable
+        opciones={opciones.map((o) => ({ id: o.id, texto: o.etiqueta, ...(o.detalle ? { detalle: o.detalle } : {}) }))}
+        seleccionado={elegida}
+        onElegir={onElegir}
+      />
+    );
+  }
   return (
     <View style={enLinea ? estilos.enLinea : estilos.lista}>
       {opciones.map((o) => {
