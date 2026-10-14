@@ -3600,14 +3600,14 @@ conservadora y se anota aquí.)
    mm en adelante"). Se informa; no bloquea ni pide confirmar.
 6. **R7 — el técnico suelta la orden sin motivo** y la oficina con motivo
    de al menos 10 letras. ¿Correcto, o el técnico también debe decir por qué?
+7. **R7 — un técnico con la orden bloqueada que la oficina reasigna**: hoy la
+   oficina tiene que liberarla primero (decisión del usuario). Se tomó que
+   anular también lo exige. ¿Correcto?
 8. **R8 — la llanta es del cliente** (la flota es suya) y la empresa la
    administra; el inventario de bodega es por sede de la empresa. ¿Así lo
    manejan, o hay llantas propias de Asistectire (para vender o prestar)?
 9. **R8 — la historia se arma al aprobar la orden** (pasa a esperar al
    cliente), no al capturar: lo que el coordinador revisó. ¿Correcto?
-7. **R7 — un técnico con la orden bloqueada que la oficina reasigna**: hoy la
-   oficina tiene que liberarla primero (decisión del usuario). Se tomó que
-   anular también lo exige. ¿Correcto?
 
 ## Catálogo de llantas desde la app (R1, 2026-10-13)
 
