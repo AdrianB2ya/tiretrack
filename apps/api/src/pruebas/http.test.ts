@@ -1067,6 +1067,52 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
     });
   });
 
+  describe("carga masiva (R12)", () => {
+    const cargar = (tipo: string, csv: string, token = "tok-coordinador") =>
+      pedir({ ruta: `/carga/${tipo}`, token, clave: null, cuerpo: { csv } });
+    const contar = async (tabla: string) => (await pool.query(`SELECT count(*)::int AS n FROM "${tabla}"`)).rows[0].n as number;
+
+    it("carga clientes, sedes y vehículos; lo que ya existe se reconoce y no se duplica", async () => {
+      const csv = [
+        "CLIENTE;NIT;SEDE;CODIGO;PLACA;DESCRIPCION;PLANTILLA;KM",
+        "Transportes Reyna;800.123.456-7;Planta Norte;CA-50;ABC123;Tractocamión;4 posiciones;1.200",
+        "Carga Andina;900.555.111-2;Bodega;CN-1;;Furgón;4 posiciones;",
+      ].join("\n");
+      const r = await cargar("flota", csv);
+      expect(r.statusCode, r.body).toBe(200);
+      expect(r.json().creados).toEqual({ clientes: 1, sedes: 2, vehiculos: 2 });
+      const otra = await cargar("flota", csv);
+      expect(otra.json()).toMatchObject({ creados: { clientes: 0, sedes: 0, vehiculos: 0 }, existentes: 2 });
+    });
+
+    it("con un solo error no se carga nada, y se dice qué fila", async () => {
+      const antes = await contar("Cliente");
+      const r = await cargar("flota", [
+        "CLIENTE;NIT;SEDE;CODIGO;DESCRIPCION;PLANTILLA",
+        "Carga Andina;900.555.111-2;Bodega;CN-1;Furgón;4 posiciones",
+        "Otra;900.555.222-3;Bodega;CN-2;Furgón;No existe",
+      ].join("\n"));
+      expect(r.statusCode).toBe(422);
+      expect(r.json().errores).toEqual([{ fila: 3, mensaje: 'No hay una plantilla de ejes vigente llamada "No existe"' }]);
+      expect(await contar("Cliente")).toBe(antes);
+    });
+
+    it("carga llantas en bodega y el catálogo", async () => {
+      const ll = await cargar("llantas", "NIT CLIENTE;SEDE;NUMERO INTERNO;SERIAL;MEDIDA;COSTO\n800.123.456-7;FUN;A-1;MX-1;295/80r22.5;1.850.000\n");
+      expect(ll.statusCode, ll.body).toBe(200);
+      expect(ll.json().creados).toEqual({ llantas: 1 });
+      const cat = await cargar("catalogo", "MARCA;DISEÑO;TIPO EJE;MEDIDA;PROF FABRICA\nDouble Coin;RT500;traccion;11R22.5;18,5\n");
+      expect(cat.statusCode, cat.body).toBe(200);
+      expect(cat.json().creados).toEqual({ marcas: 1, disenos: 1, medidas: 1 });
+    });
+
+    it("el técnico no hace cargas masivas", async () => {
+      const r = await cargar("catalogo", "MARCA;DISEÑO;TIPO EJE;MEDIDA\nX;Y;traccion;11R22.5\n", "tok-tecnico");
+      expect(r.statusCode).toBe(422);
+      expect(r.json().errores[0].mensaje).toBe("La carga masiva la hace la oficina");
+    });
+  });
+
   describe("retiro y garantías (R10)", () => {
     const traer = (ruta: string, token = "tok-coordinador") =>
       app.inject({ method: "GET", url: PREFIJO_API + ruta, headers: { authorization: `Bearer ${token}` } });

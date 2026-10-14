@@ -43,3 +43,4 @@ export * from "./informe/tablero";
 export * from "./trabajos/reglas";
 export * from "./trabajos/programacion";
 export * from "./auditoria/vista";
+export * from "./carga/carga";

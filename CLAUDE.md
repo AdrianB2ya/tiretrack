@@ -3574,7 +3574,7 @@ D queda fuera.
   referencia de desgaste, km/mm, proyección, costo, CPK)
 - [x] R10 Retiro y fallas: motivos, foto si es falla, causas, garantías
 - [x] R11 Tableros, proyección de compras, portal del cliente con indicadores
-- [ ] R12 Carga masiva desde Excel (flota, llantas, catálogo)
+- [x] R12 Carga masiva desde Excel (flota, llantas, catálogo)
 - [ ] R13 Avisos y envío de informes por correo (WhatsApp: compartir)
 - [ ] R14 Cotización (sin precios hasta D)
 - [ ] R15 Código QR del vehículo
@@ -3657,6 +3657,37 @@ diseño que una empresa creaba bajo una marca global (su "XZE" de Michelin)
 diseño sea global o de la empresa, y lo mismo la medida. Probado contra RLS
 real en `aislamiento.test.ts` (las tablas de diseño y medida no estaban en
 ese banco); con la política vieja, la prueba falla.
+
+## Carga masiva desde Excel (R12, 2026-10-14)
+
+Brecha E. Dominio `carga/carga.ts`; servidor `carga/servicio.ts`,
+`POST /carga/{flota|llantas|catalogo}` (oficina, en línea); app
+`src/carga/`, ruta `carga`, "Más → Cargar desde Excel".
+
+- **CSV, no .xlsx**: en Excel, "Guardar como → CSV". Leer xlsx exigiría una
+  librería pesada en el celular; el CSV lo produce cualquier hoja de cálculo.
+  Se aceptan `;` y `,`, BOM, comillas y fin de línea de Windows; las
+  columnas se reconocen sin importar tildes ni mayúsculas.
+- **Plantillas** con una fila de ejemplo, que se bajan desde la pantalla
+  (hoja de compartir). Una prueba exige que el ejemplo pase la validación.
+- **La misma validación en la app y en el servidor**: la app revisa fila por
+  fila ANTES de enviar y dice qué está mal con el número de fila de Excel;
+  no deja cargar con errores.
+- **Todo o nada**: con un error el servidor responde 422 con la lista de
+  filas y la transacción se deshace. Media carga dejaría sin saber qué entró.
+- **Crea con los servicios de siempre** (flota, catálogo, llantas), no con
+  SQL aparte: una carga respeta las mismas reglas que un alta a mano.
+- **Lo que ya existe se reconoce y no se duplica**: cliente por NIT (solo
+  dígitos), sede por nombre, vehículo por código en su sede, llanta por
+  serial o número interno, marca y diseño por nombre normalizado, medida por
+  diseño. Volver a subir el mismo archivo no crea nada.
+- El catálogo cargado **no pregunta por parecidos** (`forzar`): lo que sube
+  la oficina es deliberado. Queda en la auditoría (`carga_masiva`).
+- Tope de 2000 filas por carga.
+- `ClienteHttp.enLinea` ahora devuelve también el cuerpo del error (ahí
+  vienen las filas con problemas).
+- Dependencia nueva: `expo-document-picker` ~13.0 (la de Expo 52), con
+  importación diferida como la cámara. **Requiere APK nuevo.**
 
 ## Tablero de la flota (R11, 2026-10-14)
 
@@ -3965,7 +3996,7 @@ identificador **`com.asistectire.app`**, rojo de la marca **como acento**.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 1056/1056, mobile 991 + recorrido 574.
+**Verificado:** `npm run verify` con base: raíz 1066/1066, mobile 996 + recorrido 584.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

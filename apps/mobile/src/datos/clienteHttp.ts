@@ -107,12 +107,14 @@ export class ClienteHttp implements ClienteSincronizacion, ClienteDescarga {
     metodo: "GET" | "POST",
     ruta: string,
     cuerpo?: unknown,
-  ): Promise<{ ok: true; datos: T } | { ok: false; status: number; codigo: string | null; mensaje: string }> {
+  ): Promise<{ ok: true; datos: T } | { ok: false; status: number; codigo: string | null; mensaje: string; cuerpo?: unknown }> {
     const r = await this.conSesion(metodo, ruta, cuerpo);
     if (!("json" in r)) return r;
     const j = (await r.json().catch(() => ({}))) as { error?: { codigo?: string; mensaje?: string } };
     if (r.ok) return { ok: true, datos: j as T };
-    return { ok: false, status: r.status, codigo: j.error?.codigo ?? null, mensaje: j.error?.mensaje ?? "No se pudo completar" };
+    // El cuerpo completo: algunas respuestas traen más que el error (la carga
+    // masiva, la lista de filas con problemas).
+    return { ok: false, status: r.status, codigo: j.error?.codigo ?? null, mensaje: j.error?.mensaje ?? "No se pudo completar", cuerpo: j };
   }
 
   /**

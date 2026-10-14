@@ -52,13 +52,14 @@ const zVersionConfiguracion = z.object({ ejes: z.array(zEjeDefinicion).min(1), c
 
 /** Consulta de la descarga: `desde` es la marca `hasta` que entregó el servidor. */
 const zConsultaDescarga = z.object({ desde: zInstante.optional() });
-import { fechaEnColombia, MAX_ORDENES_PDF, puedeAprobar, puedeVerAuditoria, ROLES, type Rol, type Veredicto } from "@tiretrack/domain";
+import { fechaEnColombia, MAX_ORDENES_PDF, puedeAprobar, puedeVerAuditoria, ROLES, TIPOS_CARGA, type Rol, type TipoCarga, type Veredicto } from "@tiretrack/domain";
 import type { Claims, ResultadoActivacion, ResultadoLogin } from "../acceso/servicio";
 import { ServicioUsuarios } from "../usuarios/servicio";
 import { ServicioEmpresa } from "../empresa/servicio";
 import { ServicioLlantas } from "../llantas/servicio";
 import { ServicioReclamos } from "../llantas/reclamos";
 import { tableroDeFlota } from "../informe/tablero";
+import { ServicioCarga } from "../carga/servicio";
 import { ServicioProgramaciones } from "../programaciones/servicio";
 import { ServicioRecomendaciones } from "../recomendaciones/servicio";
 import { ServicioDocumento } from "../informe/documento";
@@ -837,6 +838,30 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
     }));
 
     // ── Retiro y garantías (R10) ──
+
+    // ── Carga masiva desde Excel (R12) ──
+    // En línea y en UNA transacción: con un error no se carga nada (la
+    // respuesta 422 deshace todo). La lista de errores va fila por fila.
+
+    app.post("/carga/:tipo", administracion(async (s, ctx, req) => {
+      const tipo = String(params(req).tipo);
+      if (!(TIPOS_CARGA as readonly string[]).includes(tipo)) {
+        return { status: 404, cuerpo: { error: { codigo: "NO_EXISTE", mensaje: "No existe" } } };
+      }
+      const csv = (req.body as { csv?: unknown } | undefined)?.csv;
+      if (typeof csv !== "string" || csv.trim() === "") {
+        return { status: 422, cuerpo: { error: { codigo: "DATOS_INVALIDOS", mensaje: "Falta el contenido del archivo" } } };
+      }
+      const r = await new ServicioCarga(s.consulta, s.flota, s.catalogo, s.llantas).cargar(ctx, tipo as TipoCarga, csv);
+      if (r.errores.length > 0) {
+        return {
+          status: 422,
+          cuerpo: { error: { codigo: "CARGA_CON_ERRORES", mensaje: `${r.errores.length} problema(s): no se cargó nada` }, errores: r.errores },
+        };
+      }
+      await s.informe.registrarAuditoria(ctx, "crear", { entidad: "carga_masiva", tipo, filas: r.filas, creados: r.creados, existentes: r.existentes });
+      return { status: 200, cuerpo: r };
+    }));
 
     // ── Tablero de la flota (R11) ──
     app.get("/tablero", consulta(async (s, ctx, req) => {
