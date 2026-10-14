@@ -3461,6 +3461,73 @@ desarrollar.** Se marca qué ya existe y qué falta decidir.
     - PRESIÓN: recomendada (= PSI objetivo del eje, ya existe), encontrada
       (ya existe), DIFERENCIA (nuevo cálculo).
 
+### Lineamientos del usuario (2026-10-13)
+
+1. **Mejorar el diseño: más intuitivo.** Revisar los flujos principales
+   (captura del técnico, revisión del coordinador, portal del cliente,
+   administración) con menos toques, navegación más clara y listas con
+   búsqueda.
+2. **Todo parametrizado en lo posible** por empresa: límites de
+   profundidad, umbrales de cambio, tolerancias de presión, plazos, catálogos.
+3. **Crear todo desde la app**, sin scripts ni SQL: catálogo de llantas,
+   empresas (superadmin), parámetros. Hoy dependen de herramientas de línea
+   de comandos o SQL: alta de empresa (`crear-empresa`), catálogo de llantas
+   (SQL en Neon), códigos masivos (`codigos-empresa`).
+
+### Brechas encontradas al revisar como profesional del sector (2026-10-13)
+
+Sin desarrollar; para priorizar con el usuario.
+
+**A. La llanta como activo (lo más importante que falta).** Hoy la app
+registra mediciones por posición, pero la llanta no existe como objeto propio:
+- Ficha de llanta con **número interno** (marcado a fuego o etiqueta) además
+  del serial, estado (nueva, montada, en bodega, en reencauche, desecho) y su
+  historia completa.
+- **Vidas / reencauche**: cuántas veces se reencauchó, banda, reencauchadora,
+  costo y profundidad de cada vida. El CPK real se calcula por vida.
+- **Inventario por sede**: llantas en bodega, entradas (compra), salidas
+  (montaje), stock mínimo.
+- Base para km recorridos (pendiente 12), costo y CPK (15).
+
+**B. Retiro y análisis de fallas.**
+- **Catálogo de motivos de retiro** (desgaste normal, corte, impacto,
+  separación, desgaste irregular, falla de reencauche…) parametrizable, con
+  foto obligatoria si es falla.
+- Informe de **causas de retiro** por marca, diseño, posición y vehículo.
+- **Garantías y reclamos** al proveedor con su seguimiento.
+
+**C. Indicadores y tableros.**
+- Tablero por cliente y por flota: CPK por marca y diseño, km/mm, vida útil
+  promedio, rendimiento por posición, comparativo de marcas.
+- **Proyección de compras**: cuántas llantas habrá que cambiar en los
+  próximos 30, 60 y 90 días según el ritmo de desgaste.
+- Portal del cliente con esos indicadores, no solo las órdenes.
+
+**D. Parametrización que hoy está fija en el código.**
+- **Servicios**: catálogo fijo; las empresas los querrán propios y con
+  **precio** (cotización y facturación).
+- **Festivos de Colombia**: los días hábiles solo saltan sábados y
+  domingos; el plazo de aprobación tácita y las recurrencias deben saltar
+  festivos.
+- Plazo de aprobación tácita (5 días hábiles fijos), tolerancia de presión
+  (15% fija), motivos de no identificada, destinos de la llanta.
+- Tipos de vehículo y **horómetro** (maquinaria que se mide por horas, no
+  por km: costo por hora en vez de CPK).
+
+**E. Operación y comunicación.**
+- **Avisos** al cliente y al coordinador (correo o WhatsApp) cuando hay una
+  orden esperando su aprobación o una llanta para cambio inmediato.
+- **Cotización** de los cambios recomendados (llantas + servicios) a partir
+  del levantamiento.
+- **Carga masiva desde Excel** de flota, llantas y catálogo: sin esto, dar de
+  alta un cliente con 200 vehículos a mano es inviable.
+- **Código QR** pegado en el vehículo para abrir su ficha y su orden.
+
+**F. Plataforma.**
+- Alta de empresas desde la app (superadmin) y la sesión de soporte con
+  motivo, ticket y vencimiento (ya decidida para antes de la 2ª empresa).
+- Copias de seguridad y plan de paso a producción (plan gratuito duerme).
+
 
 ## Tres profundidades y punto decimal (2026-10-09)
 
