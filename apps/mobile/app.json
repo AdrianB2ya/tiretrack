@@ -38,6 +38,13 @@
           "microphonePermission": false
         }
       ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Asistectire usa la cámara para registrar el estado de las llantas y leer el código QR del vehículo.",
+          "recordAudioAndroid": false
+        }
+      ],
       "expo-secure-store",
       "expo-sqlite"
     ],

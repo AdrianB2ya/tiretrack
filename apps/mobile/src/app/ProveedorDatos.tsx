@@ -15,7 +15,7 @@ import {
   type FotoEnGaleria,
   type MedicionLocal,
   type OrdenLocal,
-  type PosicionEjeLocal,
+  type PosicionEjeLocal, type FichaVehiculoLocal,
   type RecomendacionLocal,
   type TecnicoLocal,
   type MarcaLocal,
@@ -118,6 +118,8 @@ export interface AccionesDatos {
   fuentesFlota: FuentesFlota;
   /** Posiciones de una plantilla, para partir de ella al crear su versión nueva. */
   posicionesPlantilla(configuracionEjeId: string): Promise<PosicionEjeLocal[]>;
+  /** La ficha del vehículo que abre el QR (R15); null si no está en el teléfono. */
+  fichaVehiculo(id: string): Promise<FichaVehiculoLocal | null>;
   /** Crear en el celular y encolar; sale al sincronizar. */
   accionesFlota: AccionesFlota;
 }
@@ -523,6 +525,7 @@ export function ProveedorDatos({
   );
 
   const posicionesPlantilla = useCallback((id: string) => repo.posicionesDe(id), [repo]);
+  const fichaVehiculo = useCallback((id: string) => repo.fichaVehiculo(id), [repo]);
 
   const accionesFlota = useMemo<AccionesFlota>(
     () => ({
@@ -589,6 +592,7 @@ export function ProveedorDatos({
       crearRecomendacion,
       resolverRecomendacion,
       posicionesPlantilla,
+      fichaVehiculo,
       accionesFlota,
       cambiosSinEnviar,
       reintentarCambio,
@@ -599,7 +603,7 @@ export function ProveedorDatos({
       refrescar, sincronizar, cargarOrden, guardarMedicion, actualizarDatosOrden,
       firmar, cambiarEstado, catalogoPara, accionesCatalogo, marcarBloqueoLocal, bandejaRevision, tecnicosDeSede,
       reasignar, medicionAnterior, fotosDe, fotosSinSubir, adjuntarFoto, fuentesOrden, crearOrden,
-      fuentesFlota, recomendacionesDe, crearRecomendacion, resolverRecomendacion, posicionesPlantilla, accionesFlota,
+      fuentesFlota, recomendacionesDe, crearRecomendacion, resolverRecomendacion, posicionesPlantilla, fichaVehiculo, accionesFlota,
       cambiosSinEnviar, reintentarCambio, descartarCambio,
     ],
   );

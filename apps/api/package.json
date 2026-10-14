@@ -22,10 +22,12 @@
     "jsonwebtoken": "^9.0.3",
     "otplib": "^13.5.0",
     "pdfkit": "^0.15.2",
+    "qrcode": "^1.5.4",
     "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/pdfkit": "^0.17.6",
+    "@types/qrcode": "^1.5.5",
     "prisma": "^6.2.1",
     "tsx": "^4.19.2"
   }

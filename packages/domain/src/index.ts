@@ -46,3 +46,4 @@ export * from "./auditoria/vista";
 export * from "./carga/carga";
 export * from "./avisos/correo";
 export * from "./cotizacion/cotizacion";
+export * from "./flota/qr";

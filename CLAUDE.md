@@ -3577,7 +3577,7 @@ D queda fuera.
 - [x] R12 Carga masiva desde Excel (flota, llantas, catálogo)
 - [x] R13 Avisos y envío de informes por correo (WhatsApp: compartir)
 - [x] R14 Cotización (sin precios hasta D)
-- [ ] R15 Código QR del vehículo
+- [x] R15 Código QR del vehículo
 - [ ] R16 Plataforma: alta de empresas, sesión de soporte, copias
 - [ ] R17 Rediseño de flujos (más intuitivo)
 
@@ -3634,6 +3634,11 @@ conservadora y se anota aquí.)
     técnico), y agrega sola una línea de **Montaje** por cada llanta a
     cambiar. Las recomendaciones abiertas iguales (sin importar mayúsculas)
     se juntan en una línea. ¿Así?
+17. **R15 — escanear dentro de la app**: se agregó `expo-camera` (lector de
+    QR dentro de la app) en vez de depender de la cámara del teléfono, que
+    en Android no siempre abre enlaces `asistectire://`. El enlace funciona
+    igual si el teléfono lo abre. ¿Les sirve así, o prefieren QR con una
+    dirección web (requiere dominio propio)?
 
 ## Catálogo de llantas desde la app (R1, 2026-10-13)
 
@@ -3674,6 +3679,37 @@ diseño que una empresa creaba bajo una marca global (su "XZE" de Michelin)
 diseño sea global o de la empresa, y lo mismo la medida. Probado contra RLS
 real en `aislamiento.test.ts` (las tablas de diseño y medida no estaban en
 ese banco); con la política vieja, la prueba falla.
+
+## Código QR del vehículo (R15, 2026-10-14)
+
+Brecha E. Dominio `flota/qr.ts`; servidor `flota/etiquetasQr.ts`,
+`GET /flota/qr` (filtros `clienteId`, `sedeClienteId`, `vehiculoId`); app
+`src/flota/EscanerQR.tsx`, `FichaVehiculo.tsx`, `PantallaEtiquetasQR.tsx`,
+rutas `escanear`, `vehiculo/[id]` y `codigos-qr`.
+
+- **El QR lleva solo el enlace con el id**: `asistectire://vehiculo/<uuid>`.
+  Sin sesión no abre nada; un QR fotografiado por un tercero no dice de quién
+  es el camión ni su placa. `leerQRVehiculo` acepta el enlace o el UUID solo
+  y rechaza cualquier otro QR (una factura, un repuesto).
+- **Etiquetas en PDF** (oficina): ocho por hoja A4 con línea de corte, código
+  y placa en grande debajo del QR y el cliente. Hasta 200 por archivo. Es un
+  listado de la flota: queda en la auditoría (`exportar_listado`, origen
+  `qr_vehiculos`). Librería `qrcode` (JavaScript puro) en el servidor.
+- **Escanear** (técnico y oficina, primero en "Más"): lector dentro de la
+  app con `expo-camera` ~16.0 (la de Expo 52). Una lectura a la vez —la
+  cámara reporta el mismo código muchas veces por segundo—; un QR ajeno se
+  dice y se puede volver a apuntar. Sin permiso, explica dónde activarlo.
+  `app.json`: complemento con el texto del permiso en español y
+  `recordAudioAndroid: false` (no pide micrófono). **Requiere APK nuevo.**
+- **Ficha del vehículo** desde la base del teléfono (sin señal): código,
+  placa, cliente, sede, plantilla, km; las órdenes en curso primero y las
+  últimas cinco cerradas; "Nueva orden"; la oficina reimprime su etiqueta.
+  Un vehículo deshabilitado lo dice y no ofrece orden nueva; uno que no está
+  en el teléfono explica por qué puede ser. El enlace abre la misma ruta.
+- En pruebas, `expo-camera` es un doble (`src/pruebas/dobles`) con
+  `mostrarCodigo`, como `react-native-svg`.
+- `ETIQUETA_ESTADO_ORDEN` se exporta del dominio (estaba privada en el
+  documento de la orden) en vez de redeclararla en la ficha.
 
 ## Cotización (R14, 2026-10-14)
 
@@ -4075,7 +4111,7 @@ identificador **`com.asistectire.app`**, rojo de la marca **como acento**.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 1093/1093, mobile 1002 + recorrido 594.
+**Verificado:** `npm run verify` con base: raíz 1098/1098, mobile 1009 + recorrido 649.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

@@ -60,6 +60,7 @@ import { ServicioLlantas } from "../llantas/servicio";
 import { ServicioReclamos } from "../llantas/reclamos";
 import { tableroDeFlota } from "../informe/tablero";
 import { ServicioCarga } from "../carga/servicio";
+import { MAX_ETIQUETAS, pdfEtiquetas, vehiculosParaEtiquetas } from "../flota/etiquetasQr";
 import { cotizacionDe, pdfCotizacion } from "../informe/cotizacion";
 import { CorreoDesactivado, type Correo } from "../correo/correo";
 import { ServicioProgramaciones } from "../programaciones/servicio";
@@ -1010,6 +1011,56 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
         (_a, r, mensaje) =>
           correoLlantasParaCambio({ empresa: r.empresa, fecha: fechaEnColombia(reloj()), llantas, quien: r.quien, ...(mensaje ? { mensaje } : {}) }),
       );
+    });
+
+    // ── Código QR del vehículo (R15) ──
+    // Etiquetas para imprimir: la oficina, que es quien las pega en la flota.
+    // Es un listado de la flota (códigos y placas): queda en la auditoría.
+
+    app.get("/flota/qr", async (req, reply) => {
+      const auth = req.headers.authorization;
+      const claims = auth?.startsWith("Bearer ") ? op.verificarToken(auth.slice(7)) : null;
+      if (!claims) return reply.status(401).send({ error: { codigo: "NO_AUTENTICADO", mensaje: "Sesión inválida" } });
+      const posible = contextoDe(claims);
+      if ("motivo" in posible) return reply.status(403).send({ error: { codigo: posible.motivo, mensaje: "Esta sesión no imprime códigos" } });
+      const ctx = posible;
+      if (ctx.rol !== "administrador" && ctx.rol !== "coordinador") {
+        return reply.status(403).send({ error: { codigo: "SIN_PERMISO", mensaje: "Los códigos QR los imprime la oficina" } });
+      }
+      const q = (req.query ?? {}) as Record<string, unknown>;
+      const filtro: { clienteId?: string; sedeClienteId?: string; vehiculoId?: string } = {};
+      for (const k of ["clienteId", "sedeClienteId", "vehiculoId"] as const) {
+        if (q[k] === undefined || q[k] === "") continue;
+        const id = zId.safeParse(q[k]);
+        if (!id.success) return reply.status(422).send({ error: { codigo: "DATOS_INVALIDOS", mensaje: "Filtro inválido" } });
+        filtro[k] = id.data;
+      }
+      const r = await enTransaccion(op.pool, ctx, async (db): Promise<{ confirmar: boolean; valor: Salida }> => {
+        const vehiculos = await vehiculosParaEtiquetas(db, filtro);
+        if (vehiculos.length === 0) return { confirmar: false, valor: errorSalida(404, "SIN_REGISTROS", "No hay vehículos activos con ese filtro") };
+        if (vehiculos.length > MAX_ETIQUETAS) {
+          return { confirmar: false, valor: errorSalida(422, "DEMASIADOS_VEHICULOS", `Más de ${MAX_ETIQUETAS} vehículos: elige un cliente o una sede`) };
+        }
+        await new ServicioInforme(db, reloj).registrarAuditoria(ctx, "exportar_listado", {
+          origen: "qr_vehiculos", vehiculos: vehiculos.length, filtros: filtro,
+        });
+        return {
+          confirmar: true,
+          valor: {
+            ok: true,
+            archivo: {
+              nombre: `codigos-qr-${fechaEnColombia(reloj())}.pdf`, contenido: await pdfEtiquetas(vehiculos), tipo: "application/pdf",
+              ordenes: 0, sinCerrar: 0, folio: "", vehiculo: "",
+            },
+          },
+        };
+      });
+      if (!r.ok) return reply.status(r.status).send(r.cuerpo);
+      return reply
+        .status(200)
+        .header("content-type", "application/pdf")
+        .header("content-disposition", `attachment; filename="${r.archivo.nombre}"`)
+        .send(r.archivo.contenido);
     });
 
     // ── Cotización (R14) ──

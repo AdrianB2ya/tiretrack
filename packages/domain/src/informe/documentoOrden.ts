@@ -87,7 +87,8 @@ export interface Documento {
   readonly firma: { lineas: readonly string[]; trazo: string | null } | null;
 }
 
-const ESTADOS: Record<string, string> = {
+/** El estado de la orden como lo lee una persona. */
+export const ETIQUETA_ESTADO_ORDEN: Record<string, string> = {
   borrador: "Borrador",
   programada: "Programada",
   en_proceso: "En proceso",
@@ -96,6 +97,7 @@ const ESTADOS: Record<string, string> = {
   cerrada: "Cerrada",
   anulada: "Anulada",
 };
+const ESTADOS = ETIQUETA_ESTADO_ORDEN;
 
 const NOMBRE_SERVICIO = new Map<string, string>(CATALOGO_SERVICIOS.map((s) => [s.codigo, s.nombre]));
 const num = (n: number | null, sufijo = "") => (n === null ? "" : `${String(n).replace(".", ",")}${sufijo}`);

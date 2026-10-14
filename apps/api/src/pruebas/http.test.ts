@@ -660,6 +660,26 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
     });
   });
 
+  describe("códigos QR de los vehículos (R15)", () => {
+    const qr = (q: string, token = "tok-coordinador") =>
+      app.inject({ method: "GET", url: `${PREFIJO_API}/flota/qr${q}`, headers: { authorization: `Bearer ${token}` } });
+
+    it("la oficina baja las etiquetas en PDF y queda en la auditoría", async () => {
+      const r = await qr(`?clienteId=${SEMILLA.cliente}`);
+      expect(r.statusCode, r.body).toBe(200);
+      expect(r.headers["content-type"]).toBe("application/pdf");
+      expect(r.rawPayload.subarray(0, 5).toString()).toBe("%PDF-");
+      const a = await pool.query(`SELECT accion::text AS accion, detalle FROM "Auditoria" ORDER BY "creadoEn" DESC LIMIT 1`);
+      expect(a.rows[0]).toMatchObject({ accion: "exportar_listado", detalle: { origen: "qr_vehiculos", vehiculos: 1 } });
+    });
+
+    it("el técnico no las imprime; sin vehículos lo dice; un filtro mal formado es 422", async () => {
+      expect((await qr("", "tok-tecnico")).statusCode).toBe(403);
+      expect((await qr(`?vehiculoId=${nuevoId()}`)).statusCode).toBe(404);
+      expect((await qr("?clienteId=x")).statusCode).toBe(422);
+    });
+  });
+
   describe("cotización (R14)", () => {
     const ver = (q: string, token = "tok-coordinador") =>
       app.inject({ method: "GET", url: `${PREFIJO_API}/cotizacion${q}`, headers: { authorization: `Bearer ${token}` } });

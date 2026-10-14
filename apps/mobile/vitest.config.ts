@@ -20,6 +20,8 @@ export default defineConfig({
       // valida en el dispositivo, la lógica de la ruta en el dominio.
       "react-native-svg": new URL("./src/pruebas/dobles/react-native-svg.tsx", import.meta.url)
         .pathname,
+      // La cámara real es nativa; el escaneo se valida en el teléfono (R15).
+      "expo-camera": new URL("./src/pruebas/dobles/expo-camera.tsx", import.meta.url).pathname,
     },
   },
 });

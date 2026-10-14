@@ -256,6 +256,14 @@ export interface VehiculoLocal {
   readonly kmActual: number;
 }
 
+/** El vehículo con su cliente, sede y plantilla: la ficha que abre el QR (R15). */
+export interface FichaVehiculoLocal extends VehiculoLocal {
+  readonly activo: boolean;
+  readonly cliente: string | null;
+  readonly sede: string | null;
+  readonly plantilla: string | null;
+}
+
 /** Cliente, sede y vehículo resueltos de una orden, para mostrarlos juntos. */
 export interface FotoLocal {
   readonly id: string;
@@ -885,6 +893,38 @@ export class RepositorioLocal {
       [clienteId],
     );
     return filas.map((f) => ({ id: String(f["id"]), nombre: String(f["nombre"]) }));
+  }
+
+  /**
+   * La ficha del vehículo (R15), también si está deshabilitado: un QR viejo
+   * pegado en un camión dado de baja debe decir eso, no "no existe".
+   * Sin la flota descargada, null.
+   */
+  async fichaVehiculo(id: string): Promise<FichaVehiculoLocal | null> {
+    const [f] = await this.db.consultar<Record<string, unknown>>(
+      `SELECT v.id, v.sede_cliente_id, v.configuracion_eje_id, v.codigo, v.placa, v.nombre, v.km_actual, v.activo,
+              sc.nombre AS sede, c.nombre AS cliente, ce.nombre AS plantilla
+         FROM vehiculo v
+         LEFT JOIN sede_cliente sc ON sc.id = v.sede_cliente_id
+         LEFT JOIN cliente c ON c.id = sc.cliente_id
+         LEFT JOIN configuracion_eje ce ON ce.id = v.configuracion_eje_id
+        WHERE v.id = ?`,
+      [id],
+    );
+    if (!f) return null;
+    return {
+      id: String(f["id"]),
+      sedeClienteId: String(f["sede_cliente_id"]),
+      configuracionEjeId: String(f["configuracion_eje_id"]),
+      codigo: String(f["codigo"]),
+      placa: (f["placa"] as string) ?? null,
+      nombre: String(f["nombre"]),
+      kmActual: Number(f["km_actual"] ?? 0),
+      activo: Number(f["activo"] ?? 1) === 1,
+      cliente: (f["cliente"] as string) ?? null,
+      sede: (f["sede"] as string) ?? null,
+      plantilla: (f["plantilla"] as string) ?? null,
+    };
   }
 
   async vehiculosDeSedeCliente(sedeClienteId: string): Promise<VehiculoLocal[]> {

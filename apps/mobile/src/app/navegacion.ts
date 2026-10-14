@@ -56,6 +56,10 @@ export interface OpcionMas {
 export function opcionesMas(rol: Rol | string): OpcionMas[] {
   const r = rol as Rol;
   const o: OpcionMas[] = [];
+  // R15: el QR pegado en el vehículo abre su ficha y su orden en curso.
+  if (r === "tecnico" || puedeAprobar(r)) {
+    o.push({ clave: "escanear", etiqueta: "Escanear vehículo", detalle: "Leer el código QR pegado en el vehículo", ruta: "/escanear" });
+  }
   if (r === "tecnico") {
     // El técnico crea clientes y sedes porque es operativo: llega a una sede
     // que no estaba registrada y necesita trabajar (1.5). Vehículos no.
@@ -94,6 +98,7 @@ export function opcionesMas(rol: Rol | string): OpcionMas[] {
   }
   if (puedeGestionarCatalogo(r)) {
     o.push({ clave: "cotizacion", etiqueta: "Cotización", detalle: "Lo que hay que cambiar en la flota de un cliente, para cotizar", ruta: "/cotizacion" });
+    o.push({ clave: "codigos-qr", etiqueta: "Códigos QR de vehículos", detalle: "Etiquetas para imprimir y pegar en cada vehículo", ruta: "/codigos-qr" });
     o.push({ clave: "carga", etiqueta: "Cargar desde Excel", detalle: "Clientes, vehículos, llantas o catálogo, de un archivo", ruta: "/carga" });
   }
   if (puedeGestionarCatalogo(r)) {
