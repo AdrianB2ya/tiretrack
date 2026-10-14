@@ -32,6 +32,25 @@ const SEVERIDAD: Record<string, { etiqueta: string; color: string; peso: number 
   media: { etiqueta: "Media", color: colores.textoTenue, peso: 2 },
 };
 
+/**
+ * Qué dice cada alerta, en el texto de la insignia: bajo el sol los colores se
+ * confunden, y "CAMBIO INMEDIATO" no admite dudas (R2).
+ */
+export const TIPO_ALERTA: Record<string, { etiqueta: string; color: string }> = {
+  profundidad_baja: { etiqueta: "CAMBIO INMEDIATO", color: colores.peligro },
+  programar_cambio: { etiqueta: "PROGRAMAR CAMBIO", color: colores.advertencia },
+  dot_vencido: { etiqueta: "DOT VENCIDO", color: colores.peligro },
+  dot_por_vencer: { etiqueta: "DOT POR VENCER", color: colores.textoTenue },
+};
+
+/** Cuántas de cada nivel de profundidad, para el resumen de arriba. */
+export function contarNiveles(alertas: readonly AlertaLlanta[]) {
+  return {
+    inmediato: alertas.filter((a) => a.tipo === "profundidad_baja").length,
+    programar: alertas.filter((a) => a.tipo === "programar_cambio").length,
+  };
+}
+
 /** Por vehículo; los que tienen algo crítico, arriba. */
 export function agruparAlertas(alertas: readonly AlertaLlanta[]) {
   const grupos = new Map<string, AlertaLlanta[]>();
@@ -76,7 +95,10 @@ export function AlertasLlantas({ cargar, onProgramar }: { cargar: () => Promise<
       <Text style={estilos.resumen}>
         {alertas.length} {alertas.length === 1 ? "alerta" : "alertas"} en {grupos.length} {grupos.length === 1 ? "vehículo" : "vehículos"}
       </Text>
-      <Text style={estilos.detalle}>Según la última orden cerrada de cada posición.</Text>
+      <Text style={estilos.detalle} testID="niveles-alertas">
+        {contarNiveles(alertas).inmediato} para cambio inmediato · {contarNiveles(alertas).programar} para programar
+        el cambio. Según la última orden cerrada de cada posición y los límites de tu empresa.
+      </Text>
       {grupos.map((g) => {
         const v = g[0] as AlertaLlanta;
         return (
@@ -87,7 +109,7 @@ export function AlertasLlantas({ cargar, onProgramar }: { cargar: () => Promise<
             </Text>
             <Text style={estilos.detalle}>{v.clienteNombre}</Text>
             {g.map((a, i) => {
-              const s = SEVERIDAD[a.severidad];
+              const s = TIPO_ALERTA[a.tipo] ?? SEVERIDAD[a.severidad];
               return (
                 <View key={`${a.posicion}-${a.tipo}-${i}`} style={estilos.alerta}>
                   <Insignia color={s?.color ?? colores.textoTenue} compacta>

@@ -1,4 +1,13 @@
-import { calcularDesgaste, leerDOT, presionFueraDeRango, type Veredicto } from "@tiretrack/domain";
+import {
+  calcularDesgaste,
+  leerDOT,
+  presionFueraDeRango,
+  ETIQUETA_NIVEL_CAMBIO,
+  LIMITES_POR_DEFECTO,
+  nivelDeCambio,
+  umbralesDeCambio,
+  type Veredicto,
+} from "@tiretrack/domain";
 import type { Casilla } from "./diagrama";
 import type { MedicionLocal } from "../datos/repositorio";
 
@@ -282,13 +291,22 @@ export function revisar(
       avisos.push({ campo: campoMedida(punto), severidad: "advertencia", mensaje: `${v} mm es inusual. ¿Seguro?` });
     }
   }
-  // La llanta se juzga por su punto más gastado: la mínima contra el mínimo del eje.
+  // La llanta se juzga por su punto más gastado: la mínima contra los
+  // límites de la posición (el mínimo del eje, o el de la empresa; R2).
   const minima = profundidadDelBorrador(b);
-  if (minima !== null && minima >= 0 && casilla.profundidadMinima !== null && minima < casilla.profundidadMinima) {
+  const u = casilla.umbrales ?? umbralesDeCambio(casilla.profundidadMinima, LIMITES_POR_DEFECTO);
+  const nivel = nivelDeCambio(minima, u);
+  if (nivel === "cambio_inmediato") {
     avisos.push({
       campo: "profundidad",
       severidad: "advertencia",
-      mensaje: `Bajo el mínimo del eje (${casilla.profundidadMinima} mm)`,
+      mensaje: `${ETIQUETA_NIVEL_CAMBIO.cambio_inmediato}: llegó al límite de ${u.inmediato} mm`,
+    });
+  } else if (nivel === "programar_cambio") {
+    avisos.push({
+      campo: "profundidad",
+      severidad: "informacion",
+      mensaje: `${ETIQUETA_NIVEL_CAMBIO.programar_cambio}: a ${u.inmediato} mm pide cambio inmediato`,
     });
   }
   // Basta una medida (decisión del usuario): lo que falta se dice, no bloquea.

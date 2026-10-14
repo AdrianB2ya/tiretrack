@@ -20,9 +20,24 @@ describe("alertas de llantas", () => {
     const onProgramar = vi.fn();
     render(<AlertasLlantas cargar={async () => ({ ok: true, datos: [alerta("CA-12", 3, "critica", "dot_vencido")] })} onProgramar={onProgramar} />);
     expect(await screen.findByText("1 alerta en 1 vehículo")).toBeTruthy();
-    expect(screen.getByText("Crítica")).toBeTruthy();
+    expect(screen.getByText("DOT VENCIDO")).toBeTruthy();
     await act(async () => { fireEvent.click(screen.getByText("Programar el cambio")); });
     expect(onProgramar).toHaveBeenCalled();
+  });
+
+  it("los dos niveles de profundidad se dicen con todas las letras y se cuentan (R2)", async () => {
+    render(
+      <AlertasLlantas
+        cargar={async () => ({
+          ok: true,
+          datos: [alerta("CA-12", 1, "critica", "profundidad_baja"), alerta("CA-12", 2, "alta", "programar_cambio"), alerta("CA-13", 1, "alta", "programar_cambio")],
+        })}
+        onProgramar={vi.fn()}
+      />,
+    );
+    expect(await screen.findByText("CAMBIO INMEDIATO")).toBeTruthy();
+    expect(screen.getAllByText("PROGRAMAR CAMBIO")).toHaveLength(2);
+    expect(screen.getByTestId("niveles-alertas").textContent).toContain("1 para cambio inmediato · 2 para programar");
   });
 
   it("sin alertas lo dice; sin señal también, y deja reintentar", async () => {

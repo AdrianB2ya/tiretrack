@@ -1,4 +1,6 @@
 import type { Rol } from "@tiretrack/domain";
+import { ServicioEmpresa } from "../empresa/servicio";
+import type { LimitesEmpresa } from "@tiretrack/domain";
 import { ServicioRecomendaciones, type RecomendacionVista } from "../recomendaciones/servicio";
 
 /**
@@ -67,6 +69,8 @@ export interface Paquete {
   readonly tecnicos: { id: string; nombre: string; sedeId: string; activo: boolean }[];
   /** Sedes de la empresa: la orden nueva las necesita, y su código arma la referencia sin señal. */
   readonly sedes: { id: string; nombre: string; codigo: string }[];
+  /** Límites de cambio de la empresa (R2): el técnico los usa sin señal. */
+  readonly limites: LimitesEmpresa;
 }
 
 export interface OrdenDescargada {
@@ -201,6 +205,7 @@ export class ServicioDescarga {
     const configuraciones = await this.configuraciones();
     const tecnicos = await this.tecnicos(ctx);
     const sedes = await this.sedes();
+    const limites = await new ServicioEmpresa(this.db).limites(ctx.empresaId);
     // Las órdenes en curso que la persona ve (RLS), aunque no hayan cambiado:
     // con descarga incremental, las de este paquete no bastan.
     const abiertas = await this.db.query<{ id: string }>(
@@ -210,7 +215,7 @@ export class ServicioDescarga {
       ...new Set([...ordenes.map((o) => o.id), ...abiertas.rows.map((r) => r.id)]),
     ]);
 
-    return { hasta, incremental: Boolean(desde), ordenes, mediciones, recomendaciones, catalogo, flota, configuraciones, tecnicos, sedes };
+    return { hasta, incremental: Boolean(desde), ordenes, mediciones, recomendaciones, catalogo, flota, configuraciones, tecnicos, sedes, limites };
   }
 
   /**

@@ -193,3 +193,9 @@ ALTER TABLE "ProgramacionRecurrente"
   ADD CONSTRAINT programacion_tecnico_sede_fk
   FOREIGN KEY ("tecnicoId", "sedeId")
   REFERENCES "UsuarioSede" ("usuarioId", "sedeId");
+
+-- ── Límites de cambio de la empresa (R2) ────────────────────────────────────
+-- El servidor ya los valida; la base lo garantiza aunque alguien escriba
+-- directo: un preventivo por debajo del inmediato dejaría la banda vacía.
+ALTER TABLE "Empresa" ADD CONSTRAINT "Empresa_limites_coherentes"
+  CHECK ("limiteCambioInmediato" > 0 AND "limiteProgramarCambio" > "limiteCambioInmediato");

@@ -4,6 +4,8 @@ import {
   PUNTOS_PROFUNDIDAD,
   profundidadDeReferencia,
   type TresProfundidades,
+  LIMITES_POR_DEFECTO,
+  type LimitesEmpresa,
 } from "@tiretrack/domain";
 import type { Conexion } from "./base";
 import { type Desmontada, firmaAContrato, fotoAContrato, medicionAContrato, ordenAContrato } from "./contrato";
@@ -1324,6 +1326,29 @@ export class RepositorioLocal {
   }
 
   // ── Descarga ──────────────────────────────────────────────────────────────
+
+  /**
+   * Límites de cambio de la empresa (R2), los de la última descarga. Sin
+   * descarga todavía, los de por defecto: mejor un umbral razonable que
+   * ninguno frente a una llanta gastada.
+   */
+  async limites(): Promise<LimitesEmpresa> {
+    const filas = await this.db.consultar<{ valor: string }>(`SELECT valor FROM ajuste WHERE clave = 'limites'`);
+    try {
+      const l = JSON.parse(filas[0]?.valor ?? "null") as LimitesEmpresa | null;
+      if (l && typeof l.cambioInmediato === "number" && typeof l.programarCambio === "number") return l;
+    } catch {
+      // Un valor corrupto no puede dejar sin umbral: se usan los de por defecto.
+    }
+    return LIMITES_POR_DEFECTO;
+  }
+
+  async guardarLimites(l: LimitesEmpresa): Promise<void> {
+    await this.db.ejecutar(
+      `INSERT INTO ajuste (clave, valor) VALUES ('limites', ?) ON CONFLICT (clave) DO UPDATE SET valor = excluded.valor`,
+      [JSON.stringify({ cambioInmediato: l.cambioInmediato, programarCambio: l.programarCambio })],
+    );
+  }
 
   /** Hasta dónde llegó la última descarga; null si nunca se descargó. */
   async marcaDeDescarga(): Promise<string | null> {

@@ -331,3 +331,14 @@ export const zRegistroAuditoria = z.object({
 });
 
 export const zObservacion = zTextoLargo;
+
+/** Límites de cambio de llanta de la empresa (R2), en mm. */
+export const zLimitesEmpresa = z
+  .object({
+    cambioInmediato: zProfundidad.refine((v) => v > 0, "Mayor que 0 mm"),
+    programarCambio: zProfundidad,
+  })
+  .refine((l) => l.programarCambio > l.cambioInmediato, {
+    message: "Programar el cambio tiene que empezar por encima del cambio inmediato",
+    path: ["programarCambio"],
+  });

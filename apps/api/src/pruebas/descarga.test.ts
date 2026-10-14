@@ -105,6 +105,8 @@ describe.skipIf(!disponible)("descarga", () => {
       expect(ids).toContain(SEMILLA.tecnico);
       expect(ids).not.toContain(SEMILLA.coordinador);
       expect(p.sedes.find((s) => s.id === SEMILLA.sede)?.codigo).toBeTruthy();
+      // Los límites de la empresa viajan como números, no como el texto de numeric (R2).
+      expect(p.limites).toEqual({ cambioInmediato: 3, programarCambio: 5 });
     } finally {
       cliente.release();
     }

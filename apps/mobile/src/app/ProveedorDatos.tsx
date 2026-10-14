@@ -305,7 +305,7 @@ export function ProveedorDatos({
         mediciones,
         posiciones,
         contexto,
-        diagrama: construirDiagrama(posiciones, mediciones),
+        diagrama: construirDiagrama(posiciones, mediciones, await repo.limites()),
       };
     },
     [repo],
@@ -444,7 +444,7 @@ export function ProveedorDatos({
           // El nombre congelado en la orden manda: si se reasignó, la bandeja
           // debe seguir mostrando quién la ejecutó.
           tecnicoNombre: orden.tecnicoNombre ?? orden.tecnicoId,
-          diagrama: construirDiagrama(posiciones, mediciones),
+          diagrama: construirDiagrama(posiciones, mediciones, await repo.limites()),
           diasEsperando: diasDesde(orden.enviadaRevisionEn),
         } satisfies OrdenEnBandeja;
       }),

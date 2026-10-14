@@ -128,7 +128,7 @@ borrador → programada → en_proceso → en_revisión → pendiente_cliente �
 |---|---|
 | Desgaste | `(1 − prof / profOriginal) × 100`. **profOriginal viene de diseño+medida**, no del diseño solo: un XZY-3 en 295/80R22.5 trae 16 mm y en 11R22.5 trae 14.5 |
 | Vencimiento DOT | DOT formato `SSAA` (semana+año) → fecha de fabricación → **+6 años**. El DOT NO es fecha de vencimiento, es de fabricación |
-| Bajo mínimo | `prof < eje.profMin`. Umbral por tipo de eje |
+| Cambio de llanta | `prof ≤ inmediato` → CAMBIO INMEDIATO; `≤ programar` → PROGRAMAR CAMBIO. Límites de la empresa; el mínimo del eje manda si lo tiene (R2) |
 | PSI fuera de rango | `abs(psiEnc − eje.psi) > eje.psi × 0.15` |
 | Recurrencia | Días hábiles saltando sábado y domingo |
 
@@ -3561,7 +3561,7 @@ D queda fuera.
 
 - [x] R1 Catálogo de llantas desde la app (marca, diseño, medida; en el
   editor y en "Catálogo de llantas"; revisión incluye medidas)
-- [ ] R2 Límites por empresa (cambio inmediato, programar cambio,
+- [x] R2 Límites por empresa (cambio inmediato, programar cambio,
   profundidad baja) y su pantalla; llantas para cambio con los dos niveles
 - [ ] R3 Listas con búsqueda para catálogos y menús largos
 - [ ] R4 Orden de levantamiento (tipo de orden)
@@ -3585,6 +3585,14 @@ D queda fuera.
 
 (Se agregan a medida que aparecen; mientras, se toma la opción más
 conservadora y se anota aquí.)
+
+1. **R2 — el límite se incluye**: "3 mm en rojo" se tomó como 3 mm **o
+   menos** es cambio inmediato (antes, "bajo el mínimo" era estrictamente
+   menor). ¿Correcto?
+2. **R2 — banda preventiva con mínimo de eje**: si un eje exige 4 mm y la
+   empresa usa 3/5, el preventivo de ese eje va hasta 6 mm (se conserva el
+   ancho de la banda). ¿O preferirían un valor fijo?
+3. **R2 — por defecto 3 y 5 mm** para toda empresa nueva. ¿Otros valores?
 
 ## Catálogo de llantas desde la app (R1, 2026-10-13)
 
@@ -3625,6 +3633,30 @@ diseño que una empresa creaba bajo una marca global (su "XZE" de Michelin)
 diseño sea global o de la empresa, y lo mismo la medida. Probado contra RLS
 real en `aislamiento.test.ts` (las tablas de diseño y medida no estaban en
 ese banco); con la política vieja, la prueba falla.
+
+## Límites de cambio por empresa (R2, 2026-10-13)
+
+Pendiente 13. Dominio `llanta/limites.ts`: dos niveles, **CAMBIO
+INMEDIATO** (`prof ≤ inmediato`) y **PROGRAMAR CAMBIO** (`≤ programar`).
+
+- **Por empresa** (`Empresa.limiteCambioInmediato` / `limiteProgramarCambio`,
+  3 y 5 mm por defecto, `Decimal`, CHECK de coherencia en la base;
+  migración `20261013130000_limites_empresa`). El **mínimo del eje** de la
+  plantilla manda cuando está definido y corre la banda preventiva con él.
+- **El inmediato es la "PROF BAJA"** del Excel de levantamiento: contra él se
+  calculará el % rodado (R9).
+- **Antes, un eje sin mínimo no alertaba nunca.** Ahora rige el de la
+  empresa: "sin umbral no se inventa nada" ya no aplica, porque el umbral
+  existe siempre. Sin profundidad medida sigue sin alertar.
+- `GET /empresa/limites` (todos) y `POST /empresa/limites` (administrador,
+  en línea, auditado con el antes y el después). "Más → Límites de cambio"
+  muestra qué significan antes de guardar.
+- **Viajan en la descarga** (`limites`, opcional) y quedan en `ajuste`: el
+  diagrama marca en rojo el cambio inmediato y el editor dice el nivel, sin
+  señal. Sin descarga todavía, los de por defecto.
+- **Llantas para cambiar** dice el nivel en la insignia ("CAMBIO
+  INMEDIATO", "PROGRAMAR CAMBIO", "DOT VENCIDO") y cuenta cuántas de cada
+  uno.
 
 ## Tres profundidades y punto decimal (2026-10-09)
 
@@ -3701,7 +3733,7 @@ identificador **`com.asistectire.app`**, rojo de la marca **como acento**.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 974/974, mobile 945 + recorrido 469.
+**Verificado:** `npm run verify` con base: raíz 986/986, mobile 954 + recorrido 479.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

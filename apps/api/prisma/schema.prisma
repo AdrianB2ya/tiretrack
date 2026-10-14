@@ -58,6 +58,11 @@ model Empresa {
   unidadProfundidad UnidadProfundidad @default(mm)
   moneda            String            @default("COP")
   zonaHoraria       String            @default("America/Bogota")
+  /// Límites de cambio de llanta (R2), en mm. A esta profundidad o menos,
+  /// cambio inmediato; hasta programarCambio, preventivo. El mínimo de cada
+  /// eje de la plantilla manda sobre ellos cuando está definido.
+  limiteCambioInmediato Decimal     @default(3) @db.Decimal(5, 2)
+  limiteProgramarCambio Decimal     @default(5) @db.Decimal(5, 2)
   activa            Boolean           @default(true)
   creadoEn          DateTime          @default(now())
   actualizadoEn     DateTime          @updatedAt

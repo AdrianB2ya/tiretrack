@@ -11,6 +11,7 @@ import {
   zCrearDiseno,
   zCrearMedida,
   zProfundidadOriginal,
+  zLimitesEmpresa,
   zCrearMarca,
   zCrearOrden,
   zActivarCuenta,
@@ -46,6 +47,7 @@ const zConsultaDescarga = z.object({ desde: zInstante.optional() });
 import { fechaEnColombia, MAX_ORDENES_PDF, puedeAprobar, puedeVerAuditoria, ROLES, type Rol, type Veredicto } from "@tiretrack/domain";
 import type { Claims, ResultadoActivacion, ResultadoLogin } from "../acceso/servicio";
 import { ServicioUsuarios } from "../usuarios/servicio";
+import { ServicioEmpresa } from "../empresa/servicio";
 import { ServicioProgramaciones } from "../programaciones/servicio";
 import { ServicioRecomendaciones } from "../recomendaciones/servicio";
 import { ServicioDocumento } from "../informe/documento";
@@ -316,6 +318,7 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
       flota: new ServicioFlota(new RepositorioFlotaPg(cliente)),
       informe: new ServicioInforme(db, reloj),
       usuarios: new ServicioUsuarios(db),
+      empresa: new ServicioEmpresa(db),
       programaciones: new ServicioProgramaciones(db),
       recomendaciones: new ServicioRecomendaciones(db),
       // Solo lectura de alertas: no abre transacciones propias.
@@ -741,6 +744,21 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
      * mínimo de su eje. Se calculaban en el servidor y no se le mostraban a
      * nadie. Solo la oficina, y solo sus sedes.
      */
+    // ── Límites de cambio de la empresa (R2) ──
+
+    app.get("/empresa/limites", consulta(async (s, ctx) => ({ status: 200, cuerpo: await s.empresa.limites(ctx.empresaId) })));
+
+    app.post("/empresa/limites", administracion(async (s, ctx, req) => {
+      const p = zLimitesEmpresa.safeParse(req.body ?? {});
+      if (!p.success) return datosInvalidos(p.error.issues);
+      const antes = await s.empresa.limites(ctx.empresaId);
+      const r = await s.empresa.guardarLimites(ctx, p.data);
+      if (!r.ok) return rechazo(r.veredicto);
+      // Mueve las alertas de toda la flota: queda quién y desde qué valores.
+      await s.informe.registrarAuditoria(ctx, "actualizar", { entidad: "limites_empresa", antes, despues: r.valor });
+      return { status: 200, cuerpo: r.valor };
+    }));
+
     app.get("/alertas", consulta(async (s, ctx) => {
       if (!puedeAprobar(ctx.rol)) return { status: 403, cuerpo: { error: { codigo: "SIN_PERMISO", mensaje: "Las alertas son de la oficina" } } };
       const db = s.consulta;

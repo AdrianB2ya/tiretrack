@@ -167,10 +167,18 @@ describe("estado de las casillas", () => {
     expect(d.ejes[0]?.izquierda[0]?.estado).toBe("alerta_profundidad");
   });
 
-  it("sin umbral configurado no alerta", () => {
+  it("sin mínimo en el eje rige el límite de la empresa (R2)", () => {
     const sinUmbral = [pos(1, 1, "izquierdo", { profundidadMinima: null })];
-    const d = construirDiagrama(sinUmbral, [med(1, { profundidad: 0.5 })]);
-    expect(d.conAlerta).toEqual([]);
+    const limites = { cambioInmediato: 4, programarCambio: 6 };
+    expect(construirDiagrama(sinUmbral, [med(1, { profundidad: 4 })], limites).conAlerta).toEqual([1]);
+    const preventiva = construirDiagrama(sinUmbral, [med(1, { profundidad: 5 })], limites);
+    expect(preventiva.conAlerta).toEqual([]);
+    expect(preventiva.ejes[0]?.izquierda[0]?.nivelCambio).toBe("programar_cambio");
+  });
+
+  it("el límite se incluye: justo en el mínimo del eje ya es cambio inmediato", () => {
+    const d = construirDiagrama([pos(1, 1, "izquierdo", { profundidadMinima: 3 })], [med(1, { profundidad: 3 })]);
+    expect(d.conAlerta).toEqual([1]);
   });
 
   it("sin profundidad capturada tampoco", () => {

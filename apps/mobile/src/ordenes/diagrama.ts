@@ -1,3 +1,4 @@
+import { LIMITES_POR_DEFECTO, nivelDeCambio, umbralesDeCambio, type LimitesEmpresa, type NivelCambio, type Umbrales } from "@tiretrack/domain";
 import type { PosicionEjeLocal } from "../datos/repositorio";
 import type { MedicionLocal } from "../datos/repositorio";
 
@@ -27,6 +28,13 @@ export interface Casilla {
   readonly profundidadMinima: number | null;
   readonly psiObjetivo: number | null;
   readonly tipoEje: string;
+  /**
+   * Límites de cambio de esta posición (R2): el mínimo del eje si lo tiene;
+   * si no, los de la empresa. Opcional para casillas armadas a mano.
+   */
+  readonly umbrales?: Umbrales;
+  /** Cambio inmediato o programar cambio, según la última medida. */
+  readonly nivelCambio?: NivelCambio | null;
 }
 
 export interface FilaEje {
@@ -53,6 +61,7 @@ export interface Diagrama {
 export function construirDiagrama(
   posiciones: readonly PosicionEjeLocal[],
   mediciones: readonly MedicionLocal[],
+  limites: LimitesEmpresa = LIMITES_POR_DEFECTO,
 ): Diagrama {
   const porNumero = new Map(mediciones.map((m) => [m.posicion, m]));
   const porEje = new Map<number, PosicionEjeLocal[]>();
@@ -68,7 +77,7 @@ export function construirDiagrama(
     .sort(([a], [b]) => a - b)
     .map(([numero, delEje]) => {
       const casillaDe = (p: PosicionEjeLocal): Casilla =>
-        armarCasilla(p, porNumero.get(p.numero));
+        armarCasilla(p, porNumero.get(p.numero), limites);
 
       return {
         numero,
@@ -99,31 +108,31 @@ export function construirDiagrama(
   };
 }
 
-function armarCasilla(p: PosicionEjeLocal, m: MedicionLocal | undefined): Casilla {
+function armarCasilla(p: PosicionEjeLocal, m: MedicionLocal | undefined, limites: LimitesEmpresa): Casilla {
+  const umbrales = umbralesDeCambio(p.profundidadMinima, limites);
   const base = {
     numero: p.numero,
     esInterna: p.esInterna,
     profundidadMinima: p.profundidadMinima,
     psiObjetivo: p.psiObjetivo,
     tipoEje: p.tipoEje,
+    umbrales,
   };
 
-  if (!m) return { ...base, estado: "vacia", profundidad: null };
+  if (!m) return { ...base, estado: "vacia", profundidad: null, nivelCambio: null };
 
-  // Una llanta bajo el mínimo del eje se marca aunque esté capturada: el
+  // Una llanta para cambio inmediato se marca aunque esté capturada: el
   // técnico tiene que verla al mirar el diagrama, no al abrir la posición.
-  const bajoMinimo =
-    m.profundidad !== null &&
-    p.profundidadMinima !== null &&
-    m.profundidad < p.profundidadMinima;
+  // El límite es el del eje, o el de la empresa si el eje no lo tiene (R2).
+  const nivelCambio = nivelDeCambio(m.profundidad, umbrales);
 
-  if (bajoMinimo) {
-    return { ...base, estado: "alerta_profundidad", profundidad: m.profundidad };
+  if (nivelCambio === "cambio_inmediato") {
+    return { ...base, estado: "alerta_profundidad", profundidad: m.profundidad, nivelCambio };
   }
   if (m.noIdentificada) {
-    return { ...base, estado: "no_identificada", profundidad: m.profundidad };
+    return { ...base, estado: "no_identificada", profundidad: m.profundidad, nivelCambio };
   }
-  return { ...base, estado: "capturada", profundidad: m.profundidad };
+  return { ...base, estado: "capturada", profundidad: m.profundidad, nivelCambio };
 }
 
 /**

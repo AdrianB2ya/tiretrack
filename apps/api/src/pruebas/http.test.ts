@@ -511,6 +511,50 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
     });
   });
 
+  describe("límites de cambio de la empresa (R2)", () => {
+    const leer = (token: string) =>
+      app.inject({ method: "GET", url: `${PREFIJO_API}/empresa/limites`, headers: { authorization: `Bearer ${token}` } });
+    const fijar = (token: string, cuerpo: unknown) =>
+      app.inject({
+        method: "POST", url: `${PREFIJO_API}/empresa/limites`,
+        headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+        payload: JSON.stringify(cuerpo),
+      });
+
+    it("todos los de la empresa los leen; por defecto 3 y 5 mm", async () => {
+      const r = await leer("tok-tecnico");
+      expect(r.statusCode).toBe(200);
+      expect(r.json()).toEqual({ cambioInmediato: 3, programarCambio: 5 });
+    });
+
+    it("solo el administrador los cambia, y queda en la auditoría con el antes y el después", async () => {
+      expect((await fijar("tok-coordinador", { cambioInmediato: 4, programarCambio: 6 })).statusCode).toBe(403);
+      const r = await fijar("tok-admin", { cambioInmediato: 4, programarCambio: 6 });
+      expect(r.statusCode).toBe(200);
+      expect((await leer("tok-tecnico")).json()).toEqual({ cambioInmediato: 4, programarCambio: 6 });
+      const aud = await pool.query(`SELECT detalle FROM "Auditoria" WHERE detalle->>'entidad' = 'limites_empresa'`);
+      expect(aud.rows[0]?.detalle).toMatchObject({ antes: { cambioInmediato: 3 }, despues: { cambioInmediato: 4 } });
+    });
+
+    it("rechaza límites incoherentes", async () => {
+      expect((await fijar("tok-admin", { cambioInmediato: 5, programarCambio: 4 })).statusCode).toBe(422);
+      expect((await fijar("tok-admin", { cambioInmediato: 0, programarCambio: 4 })).statusCode).toBe(422);
+    });
+
+    it("las alertas usan los límites de la empresa cuando el eje no tiene mínimo", async () => {
+      await pool.query(`UPDATE "PosicionEje" SET "profundidadMinima" = NULL`);
+      await guardarMedicion(medicion(1, { serial: "MX1", profundidad: 5.5 }));
+      await pool.query(`UPDATE "OrdenServicio" SET estado = 'cerrada' WHERE id = $1`, [ORDEN]);
+      await pool.query(`INSERT INTO "UsuarioSede" ("usuarioId","sedeId") VALUES ($1,$2)`, [SEMILLA.coordinador, SEMILLA.sede]);
+      const ver = async () =>
+        (await app.inject({ method: "GET", url: `${PREFIJO_API}/alertas`, headers: { authorization: "Bearer tok-coordinador" } }))
+          .json().map((a: { tipo: string }) => a.tipo);
+      expect(await ver()).toEqual([]);
+      await fijar("tok-admin", { cambioInmediato: 4, programarCambio: 6 });
+      expect(await ver()).toEqual(["programar_cambio"]);
+    });
+  });
+
   describe("auditoría (5.4)", () => {
     const ver = (consulta: string, token = "tok-admin") =>
       app.inject({ method: "GET", url: `${PREFIJO_API}/auditoria${consulta}`, headers: { authorization: `Bearer ${token}` } });

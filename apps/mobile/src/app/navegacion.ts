@@ -93,6 +93,9 @@ export function opcionesMas(rol: Rol | string): OpcionMas[] {
   if (puedeVerAuditoria(r)) {
     o.push({ clave: "auditoria", etiqueta: "Auditoría", detalle: "Quién sacó datos y quién cambió qué", ruta: "/auditoria" });
   }
+  if (r === "administrador") {
+    o.push({ clave: "limites", etiqueta: "Límites de cambio", detalle: "Desde qué profundidad una llanta pide cambio en tu empresa", ruta: "/limites" });
+  }
   if (puedeGestionarConfiguraciones(r)) {
     o.push({ clave: "plantillas", etiqueta: "Plantillas de ejes", detalle: "Cómo se dibuja cada tipo de vehículo", ruta: "/plantillas" });
   }

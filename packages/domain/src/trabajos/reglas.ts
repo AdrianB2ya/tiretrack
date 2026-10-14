@@ -1,4 +1,5 @@
 import { type Veredicto, PERMITIDO, negar } from "../tipos";
+import { ETIQUETA_NIVEL_CAMBIO, LIMITES_POR_DEFECTO, nivelDeCambio, umbralesDeCambio, type LimitesEmpresa } from "../llanta/limites";
 import { leerDOT, ANIOS_VIDA_DOT } from "../llanta/dot";
 import { ocurrencia, proximaEjecucion, siguienteHabil, type Frecuencia } from "../tiempo/habiles";
 
@@ -152,7 +153,11 @@ export interface Alerta {
   readonly vehiculoId: string;
   readonly posicion: number;
   readonly serial: string | null;
-  readonly tipo: "dot_vencido" | "dot_por_vencer" | "profundidad_baja";
+  /**
+   * `profundidad_baja` es el cambio inmediato (rojo); `programar_cambio`, el
+   * preventivo. Los límites son de la empresa (R2).
+   */
+  readonly tipo: "dot_vencido" | "dot_por_vencer" | "profundidad_baja" | "programar_cambio";
   readonly severidad: Severidad;
   readonly mensaje: string;
 }
@@ -163,7 +168,7 @@ export interface Alerta {
  * Una misma llanta puede disparar varias: estar vencida por DOT y además
  * bajo el mínimo de profundidad son dos motivos distintos para sacarla.
  */
-export function evaluarAlertas(l: LlantaParaRevisar, hoy: Date): Alerta[] {
+export function evaluarAlertas(l: LlantaParaRevisar, hoy: Date, limites: LimitesEmpresa = LIMITES_POR_DEFECTO): Alerta[] {
   const alertas: Alerta[] = [];
   const identificacion = l.serial ? `serial ${l.serial}` : `posición ${l.posicion}`;
 
@@ -191,16 +196,26 @@ export function evaluarAlertas(l: LlantaParaRevisar, hoy: Date): Alerta[] {
     });
   }
 
-  if (l.profundidad != null && l.profundidadMinima != null && l.profundidad < l.profundidadMinima) {
+  // El mínimo del eje manda; sin él, el límite de la empresa (R2).
+  const u = umbralesDeCambio(l.profundidadMinima, limites);
+  const nivel = nivelDeCambio(l.profundidad, u);
+  if (nivel === "cambio_inmediato") {
     alertas.push({
       vehiculoId: l.vehiculoId,
       posicion: l.posicion,
       serial: l.serial,
       tipo: "profundidad_baja",
       severidad: "critica",
-      mensaje:
-        `Profundidad de ${l.profundidad} bajo el mínimo del eje ` +
-        `(${l.profundidadMinima}) en ${identificacion}`,
+      mensaje: `${ETIQUETA_NIVEL_CAMBIO.cambio_inmediato}: ${l.profundidad} mm en ${identificacion} (límite ${u.inmediato} mm)`,
+    });
+  } else if (nivel === "programar_cambio") {
+    alertas.push({
+      vehiculoId: l.vehiculoId,
+      posicion: l.posicion,
+      serial: l.serial,
+      tipo: "programar_cambio",
+      severidad: "alta",
+      mensaje: `${ETIQUETA_NIVEL_CAMBIO.programar_cambio}: ${l.profundidad} mm en ${identificacion} (cambio inmediato a ${u.inmediato} mm)`,
     });
   }
 

@@ -12,6 +12,7 @@ import {
   type Frecuencia,
   type LlantaParaRevisar,
   fechaEnColombia,
+  LIMITES_POR_DEFECTO,
 } from "@tiretrack/domain";
 
 /**
@@ -310,6 +311,14 @@ export class TrabajosProgramados {
    */
   async revisarAlertas(empresaId: string, opciones: { soloSedesDe?: string } = {}): Promise<Alerta[]> {
     const ahora = this.reloj();
+    // Los límites de la empresa (R2): sin mínimo en el eje, mandan ellos.
+    const lim = await this.db.query<{ i: string; p: string }>(
+      `SELECT "limiteCambioInmediato" AS i, "limiteProgramarCambio" AS p FROM "Empresa" WHERE id = $1`,
+      [empresaId],
+    );
+    const limites = lim.rows[0]
+      ? { cambioInmediato: Number(lim.rows[0].i), programarCambio: Number(lim.rows[0].p) }
+      : LIMITES_POR_DEFECTO;
 
     const r = await this.db.query<LlantaParaRevisar & { fecha: string }>(
       `SELECT DISTINCT ON (o."vehiculoId", lr.posicion)
@@ -337,6 +346,7 @@ export class TrabajosProgramados {
           profundidadMinima: aNumero(fila.profundidadMinima),
         },
         ahora,
+        limites,
       ),
     );
 

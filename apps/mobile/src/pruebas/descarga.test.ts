@@ -101,6 +101,14 @@ describe("primera descarga", () => {
     expect(await repo.tecnicosDeSede("sede-fun")).toHaveLength(1);
   });
 
+  it("trae los límites de cambio de la empresa (R2); sin ellos, quedan los anteriores", async () => {
+    await descargador.descargar(servidorCon(unPaquete({ limites: { cambioInmediato: 4, programarCambio: 7 } })));
+    expect(await repo.limites()).toEqual({ cambioInmediato: 4, programarCambio: 7 });
+    // Un servidor anterior no los manda: no se borran los que había.
+    await descargador.descargar(servidorCon(unPaquete({ hasta: "2026-09-22T09:00:00.000Z" })));
+    expect(await repo.limites()).toEqual({ cambioInmediato: 4, programarCambio: 7 });
+  });
+
   it("los nombres de cliente y vehículo quedan resueltos", async () => {
     await descargador.descargar(servidorCon(unPaquete()));
     const ctx = await repo.contextoDeOrden("ord-1");

@@ -203,6 +203,7 @@ describe("alertas de llanta", () => {
     expect(a[0]?.tipo).toBe("profundidad_baja");
     expect(a[0]?.severidad).toBe("critica");
     expect(a[0]?.mensaje).toContain("2.5");
+    expect(a[0]?.mensaje).toContain("CAMBIO INMEDIATO");
   });
 
   it("una llanta puede disparar varias alertas a la vez", () => {
@@ -226,9 +227,23 @@ describe("alertas de llanta", () => {
     expect(evaluarAlertas({ ...base, dot: null }, HOY)).toHaveLength(0);
   });
 
-  it("sin umbral configurado no alerta por profundidad", () => {
-    const a = evaluarAlertas({ ...base, profundidad: 1, profundidadMinima: null }, HOY);
-    expect(a).toHaveLength(0);
+  it("sin mínimo en el eje usa el límite de la empresa", () => {
+    // R2: cada empresa fija sus límites; el eje sin mínimo no queda sin control.
+    const limites = { cambioInmediato: 4, programarCambio: 6 };
+    expect(evaluarAlertas({ ...base, profundidad: 4, profundidadMinima: null }, HOY, limites)[0]?.tipo).toBe("profundidad_baja");
+    expect(evaluarAlertas({ ...base, profundidad: 5.5, profundidadMinima: null }, HOY, limites)[0]?.tipo).toBe("programar_cambio");
+    expect(evaluarAlertas({ ...base, profundidad: 6.5, profundidadMinima: null }, HOY, limites)).toHaveLength(0);
+  });
+
+  it("el preventivo dice PROGRAMAR CAMBIO y pesa menos que el inmediato", () => {
+    const a = evaluarAlertas({ ...base, profundidad: 4 }, HOY);
+    expect(a[0]?.tipo).toBe("programar_cambio");
+    expect(a[0]?.severidad).toBe("alta");
+    expect(a[0]?.mensaje).toContain("PROGRAMAR CAMBIO");
+  });
+
+  it("sin profundidad medida no alerta por profundidad", () => {
+    expect(evaluarAlertas({ ...base, profundidad: null }, HOY)).toHaveLength(0);
   });
 });
 

@@ -207,10 +207,13 @@ describe("profundidad", () => {
     expect(aviso?.mensaje).toContain("3 mm");
   });
 
-  it("sin umbral configurado no se compara", () => {
-    const sinUmbral = { ...casillaDireccional, profundidadMinima: null };
-    const avisos = revisar(borrador({ profundidades: medidas({ exterior: 1, centro: 1, interior: 1 }), serial: "MX1" }), sinUmbral, HOY);
-    expect(avisos.filter((a) => a.campo === "profundidad")).toHaveLength(0);
+  it("sin mínimo en el eje se compara con el límite de la empresa (R2)", () => {
+    const sinUmbral = { ...casillaDireccional, profundidadMinima: null, umbrales: { inmediato: 4, programar: 6 } };
+    const gastada = revisar(borrador({ profundidades: medidas({ exterior: 4 }), serial: "MX1" }), sinUmbral, HOY);
+    expect(gastada.find((a) => a.campo === "profundidad")?.mensaje).toContain("CAMBIO INMEDIATO");
+    const preventiva = revisar(borrador({ profundidades: medidas({ exterior: 5, centro: 5, interior: 5 }), serial: "MX1" }), sinUmbral, HOY);
+    expect(preventiva.find((a) => a.campo === "profundidad")).toMatchObject({ severidad: "informacion" });
+    expect(preventiva.find((a) => a.campo === "profundidad")?.mensaje).toContain("PROGRAMAR CAMBIO");
   });
 
   it("basta una medida: lo que falta se dice, sin bloquear ni pedir confirmar", () => {
