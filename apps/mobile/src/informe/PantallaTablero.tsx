@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import type { Compras, Rendimiento } from "@tiretrack/domain";
+import type { Compras, Rendimiento, VidaUtil } from "@tiretrack/domain";
 import { Aviso, Boton, Opcion, Tarjeta, Vacio } from "../diseno/componentes";
 import { colores, espacio, texto } from "../diseno/tokens";
 
@@ -20,6 +20,8 @@ export interface Tablero {
   porDiseno: Rendimiento[];
   porPosicion: Rendimiento[];
   compras: Compras;
+  /** Brecha C: lo que rodaron las que ya terminaron su vida. Opcional: un servidor anterior no la manda. */
+  vidaUtil?: { retiradas: number; porMarca: VidaUtil[]; porDiseno: VidaUtil[] };
 }
 
 export interface FuentesTablero {
@@ -99,6 +101,23 @@ export function PantallaTablero({ fuentes }: { fuentes: FuentesTablero }) {
           <Text style={estilos.detalle}>{g.llantas} {g.llantas === 1 ? "llanta" : "llantas"}</Text>
         </Tarjeta>
       ))}
+      {tablero.vidaUtil && vista !== "posicion" ? (
+        <Tarjeta testID="vida-util">
+          <Text style={estilos.subtitulo}>Vida útil real</Text>
+          <Text style={estilos.detalle}>
+            Lo que rodaron las llantas que ya terminaron su vida (desechadas o a reencauche): {tablero.vidaUtil.retiradas}.
+          </Text>
+          {(vista === "marca" ? tablero.vidaUtil.porMarca : tablero.vidaUtil.porDiseno).length === 0 ? (
+            <Text style={estilos.detalle}>Todavía ninguna con kilómetros registrados al montar y al desmontar.</Text>
+          ) : (
+            (vista === "marca" ? tablero.vidaUtil.porMarca : tablero.vidaUtil.porDiseno).map((v) => (
+              <Text key={v.grupo} style={estilos.linea}>
+                {v.grupo}: {km(v.kmPromedio)} ({v.llantas} {v.llantas === 1 ? "llanta" : "llantas"})
+              </Text>
+            ))
+          )}
+        </Tarjeta>
+      ) : null}
     </ScrollView>
   );
 }

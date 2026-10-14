@@ -39,6 +39,15 @@ describe("tablero de la flota", () => {
     expect(screen.getByText("Posición 1")).toBeTruthy();
   });
 
+  it("muestra la vida útil real de las retiradas, por marca o por diseño", async () => {
+    const conVida = { ...tablero, vidaUtil: { retiradas: 2, porMarca: [{ grupo: "Michelin", llantas: 2, kmPromedio: 110000 }], porDiseno: [{ grupo: "Michelin XZE", llantas: 2, kmPromedio: 110000 }] } };
+    render(<PantallaTablero fuentes={{ cargar: vi.fn().mockResolvedValue({ ok: true, datos: conVida }) }} />);
+    const v = await screen.findByTestId("vida-util");
+    expect(v.textContent).toContain("Michelin: 110.000 km (2 llantas)");
+    await act(async () => { fireEvent.click(screen.getByTestId("vista-diseno")); });
+    expect(screen.getByTestId("vida-util").textContent).toContain("Michelin XZE");
+  });
+
   it("sin señal lo dice", async () => {
     render(<PantallaTablero fuentes={{ cargar: vi.fn().mockResolvedValue({ ok: false, status: 0, mensaje: "x" }) }} />);
     expect(await screen.findByText(/Sin señal/)).toBeTruthy();

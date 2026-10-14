@@ -131,3 +131,38 @@ export function proyeccionDeCompras(filas: readonly FilaTablero[], hoy: string):
   }
   return { yaPedidas: porMedida(ya), en30: porMedida(en[30]), en60: porMedida(en[60]), en90: porMedida(en[90]), sinEstimar };
 }
+
+// ── Vida útil (brecha C) ────────────────────────────────────────────────────
+
+/** Una llanta que terminó su vida: desechada o enviada a reencauche. */
+export interface LlantaRetirada {
+  readonly marca: string | null;
+  readonly diseno: string | null;
+  /** Kilómetros que rodó en esa vida; null si no se registraron odómetros. */
+  readonly km: number | null;
+}
+
+export interface VidaUtil {
+  readonly grupo: string;
+  /** Retiradas con km conocido: las que entran en el promedio. */
+  readonly llantas: number;
+  readonly kmPromedio: number;
+}
+
+/**
+ * Vida útil REAL: lo que rodaron las llantas que ya terminaron su vida. La
+ * proyección es lo que rendiría la que sigue montada; esta es lo que rindió
+ * la que ya salió. Sin km registrados no se promedia: no se inventa. La de
+ * mayor vida primero.
+ */
+export function vidaUtilPor(retiradas: readonly LlantaRetirada[], clave: (l: LlantaRetirada) => string | null): VidaUtil[] {
+  const grupos = new Map<string, number[]>();
+  for (const l of retiradas) {
+    if (l.km === null) continue;
+    const k = clave(l) ?? "Sin dato";
+    grupos.set(k, [...(grupos.get(k) ?? []), l.km]);
+  }
+  return [...grupos.entries()]
+    .map(([grupo, kms]) => ({ grupo, llantas: kms.length, kmPromedio: Math.round(kms.reduce((a, b) => a + b, 0) / kms.length) }))
+    .sort((a, b) => b.kmPromedio - a.kmPromedio || a.grupo.localeCompare(b.grupo));
+}

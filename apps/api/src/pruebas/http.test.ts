@@ -1300,6 +1300,29 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
       expect(t.compras).toMatchObject({ sinEstimar: 1 });
     });
 
+    it("el tablero da la vida útil real de las llantas que terminaron su vida, por marca", async () => {
+      await pool.query(
+        `INSERT INTO "Llanta" (id,"empresaId","clienteId",serial,estado,"marcaId","disenoId") VALUES
+           ('ll-vida-1',$1,$2,'VU1','desecho','mar-1','dis-1'),
+           ('ll-vida-2',$1,$2,'VU2','montada','mar-1','dis-1')`,
+        [SEMILLA.empresa, SEMILLA.cliente],
+      );
+      await pool.query(
+        `INSERT INTO "LlantaMovimiento" (id,"empresaId","llantaId",tipo,fecha,kilometraje) VALUES
+           ('mv-v1',$1,'ll-vida-1','montaje','2025-01-10',1000),
+           ('mv-v2',$1,'ll-vida-1','desmontaje','2026-09-01',101000),
+           ('mv-v3',$1,'ll-vida-2','montaje','2025-01-10',1000)`,
+        [SEMILLA.empresa],
+      );
+      const t = (await traer("/tablero")).json();
+      // La que sigue montada no cuenta: aún no terminó su vida.
+      expect(t.vidaUtil).toEqual({
+        retiradas: 1,
+        porMarca: [{ grupo: "Michelin", llantas: 1, kmPromedio: 100000 }],
+        porDiseno: [{ grupo: "Michelin XDN-2", llantas: 1, kmPromedio: 100000 }],
+      });
+    });
+
     it("un motivo inventado no pasa el contrato", async () => {
       const g = await guardarMedicion(medicion(2, { desmontada: { serial: "X", motivoRetiro: "mala suerte" } }));
       expect(g.statusCode).toBe(422);

@@ -3725,6 +3725,25 @@ diseño sea global o de la empresa, y lo mismo la medida. Probado contra RLS
 real en `aislamiento.test.ts` (las tablas de diseño y medida no estaban en
 ese banco); con la política vieja, la prueba falla.
 
+## Vida útil real en el tablero (2026-10-14)
+
+Brecha C ("vida útil promedio"), que el tablero de la R11 no tenía.
+
+- **Real, no proyectada**: lo que rodaron las llantas que **terminaron su
+  vida** en el período (desechadas o enviadas a reencauche, con el
+  desmontaje dentro del rango). La proyección (R9) es lo que rendiría la que
+  sigue montada; esta es lo que rindió la que ya salió. Las montadas no
+  cuentan.
+- Los km de **esa vida** (desde que empezó, si fue reencauchada), por tramos
+  con el odómetro de cada vehículo: el mismo `kmRecorridos` de los
+  indicadores. Sin km registrados no se promedia.
+- Por marca y por diseño (los unificados cuentan como el correcto), de mayor
+  a menor. `vidaUtilPor` (dominio), `llantasRetiradas` (servidor),
+  `vidaUtil` opcional en `GET /tablero`; mismo alcance por rol (RLS).
+- Limitación: una llanta que volvió de reencauche ya no está en "reencauche",
+  así que su vida anterior deja de contarse. Si se necesita, la historia de
+  vidas (`LlantaVida`) permite contarlas todas.
+
 ## Códigos de activación en lote desde la app (2026-10-14)
 
 Lineamiento 3. Antes, para varios usuarios a la vez solo existía la

@@ -1407,7 +1407,7 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
     app.get("/tablero", consulta(async (s, ctx, req) => {
       const p = zFiltroCausas.safeParse(req.query ?? {});
       if (!p.success) return datosInvalidos(p.error.issues);
-      return { status: 200, cuerpo: await tableroDeFlota(s.informe, ctx, p.data, reloj()) };
+      return { status: 200, cuerpo: await tableroDeFlota(s.informe, ctx, p.data, reloj(), s.consulta) };
     }));
 
     app.get("/informe/causas-retiro", consulta(async (s, ctx, req) => {

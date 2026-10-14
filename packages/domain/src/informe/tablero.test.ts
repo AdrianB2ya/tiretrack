@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { proyeccionDeCompras, proyectarCambio, rendimientoPor, ultimaPorLlanta, type FilaTablero } from "./tablero";
+import { proyeccionDeCompras, proyectarCambio, rendimientoPor, ultimaPorLlanta, vidaUtilPor, type FilaTablero } from "./tablero";
 
 const fila = (extra: Partial<FilaTablero> = {}): FilaTablero => ({
   llantaId: "ll-1", vehiculo: "CA-12", posicion: 1, fecha: "2026-10-01", marca: "Michelin", diseno: "XZE",
@@ -45,5 +45,23 @@ describe("tablero de la flota (R11)", () => {
     expect(c.en30).toEqual([{ medida: "11R22.5", cantidad: 1 }, { medida: "295/80R22.5", cantidad: 1 }]);
     expect(c.en60).toEqual([{ medida: "295/80R22.5", cantidad: 1 }]);
     expect(c.sinEstimar).toBe(1);
+  });
+});
+
+describe("vida útil (brecha C)", () => {
+  it("promedia lo que rodaron las retiradas por marca, sin contar las que no tienen km", () => {
+    const v = vidaUtilPor(
+      [
+        { marca: "Michelin", diseno: "XZE", km: 120000 },
+        { marca: "Michelin", diseno: "XZE", km: 100000 },
+        { marca: "Michelin", diseno: "XZE", km: null },
+        { marca: "Firestone", diseno: "FS591", km: 130000 },
+      ],
+      (l) => l.marca,
+    );
+    expect(v).toEqual([
+      { grupo: "Firestone", llantas: 1, kmPromedio: 130000 },
+      { grupo: "Michelin", llantas: 2, kmPromedio: 110000 },
+    ]);
   });
 });
