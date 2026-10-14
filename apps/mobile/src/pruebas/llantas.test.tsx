@@ -75,6 +75,18 @@ describe("ficha", () => {
     expect(mover).toHaveBeenCalledWith({ tipo: "desecho" });
   });
 
+  it("muestra el rendimiento: % rodado, km por mm, proyección y costo por km (R9)", async () => {
+    const datos = {
+      ...ficha(),
+      indicadores: { profInicial: 16, profBaja: 3, mmDesgaste: 7, pctRodado: 53.8, referencia: "PROYECCIÓN 50% - 70%", kmRecorrido: 70000, kmPorMm: 10000, proyeccionKm: 130000, costo: 1820000, cpk: 14 },
+    };
+    render(<FichaLlanta fuentes={{ cargar: vi.fn().mockResolvedValue({ ok: true, datos }), mover: null, sedes: [] }} />);
+    const bloque = await screen.findByTestId("indicadores-llanta");
+    expect(bloque.textContent).toContain("PROYECCIÓN 50% - 70%");
+    expect(bloque.textContent).toContain("Rodado 53,8 %");
+    expect(bloque.textContent).toContain("costo por km $14");
+  });
+
   it("quien no maneja el inventario solo la ve", async () => {
     render(<FichaLlanta fuentes={{ cargar: vi.fn().mockResolvedValue({ ok: true, datos: ficha() }), mover: null, sedes: [] }} />);
     expect(await screen.findByText("Historia")).toBeTruthy();

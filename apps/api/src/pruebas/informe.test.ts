@@ -33,7 +33,7 @@ describe.skipIf(!disponible)("informe", () => {
     await db.query(`
       DROP TABLE IF EXISTS "Auditoria", "LlantaServicio", "LlantaRegistro",
                            "OrdenServicio", "Servicio", "Diseno", "Marca",
-                           "Vehiculo", "Usuario", "PosicionEje" CASCADE;
+                           "Vehiculo", "Usuario", "PosicionEje", "Empresa", "DisenoMedida", "Llanta", "LlantaVida", "LlantaMovimiento" CASCADE;
       DROP TYPE IF EXISTS "EstadoOrden", "AccionAuditoria" CASCADE;
 
       CREATE TYPE "EstadoOrden" AS ENUM
@@ -67,8 +67,16 @@ describe.skipIf(!disponible)("informe", () => {
         "configuracionEjeId" text NOT NULL,
         numero integer NOT NULL,
         "tipoEje" text NOT NULL DEFAULT 'multiuso',
-        "psiObjetivo" numeric(6,2)
+        "psiObjetivo" numeric(6,2),
+        "profundidadMinima" numeric(5,2)
       );
+
+      -- R9: lo que leen los indicadores del levantamiento.
+      CREATE TABLE "Empresa" (id text PRIMARY KEY, "limiteCambioInmediato" numeric(5,2) NOT NULL DEFAULT 3, "limiteProgramarCambio" numeric(5,2) NOT NULL DEFAULT 5);
+      CREATE TABLE "DisenoMedida" (id text PRIMARY KEY, "empresaId" text, "disenoId" text NOT NULL, medida text NOT NULL, "profundidadOriginal" numeric(5,2));
+      CREATE TABLE "Llanta" (id text PRIMARY KEY, "clienteId" text NOT NULL, serial text, costo numeric(14,2));
+      CREATE TABLE "LlantaVida" (id text PRIMARY KEY, "llantaId" text NOT NULL, numero int NOT NULL, costo numeric(14,2), "profundidadInicial" numeric(5,2), inicio date NOT NULL);
+      CREATE TABLE "LlantaMovimiento" (id text PRIMARY KEY, "llantaId" text NOT NULL, tipo text NOT NULL, fecha date NOT NULL, kilometraje int, "creadoEn" timestamptz NOT NULL DEFAULT now());
 
       CREATE TABLE "LlantaRegistro" (
         id text PRIMARY KEY,
@@ -82,7 +90,8 @@ describe.skipIf(!disponible)("informe", () => {
         "desMedida" text, "desProfundidad" numeric(5,2),
         "desMarcaId" text, "desDisenoId" text, "desDestino" text, "desDetalle" text,
         "profExterior" numeric(5,2), "profCentro" numeric(5,2), "profInterior" numeric(5,2),
-        "desProfExterior" numeric(5,2), "desProfCentro" numeric(5,2), "desProfInterior" numeric(5,2)
+        "desProfExterior" numeric(5,2), "desProfCentro" numeric(5,2), "desProfInterior" numeric(5,2),
+        "llantaId" text, costo numeric(14,2)
       );
 
       CREATE TABLE "LlantaServicio" (
@@ -109,7 +118,7 @@ describe.skipIf(!disponible)("informe", () => {
 
   beforeEach(async () => {
     await db.query(`TRUNCATE "Auditoria","LlantaServicio","LlantaRegistro","OrdenServicio",
-                             "Servicio","Diseno","Marca","Vehiculo","PosicionEje" CASCADE`);
+                             "Servicio","Diseno","Marca","Vehiculo","PosicionEje","Empresa","DisenoMedida","Llanta","LlantaVida","LlantaMovimiento" CASCADE`);
     await db.query(`INSERT INTO "PosicionEje" (id,"configuracionEjeId",numero,"tipoEje","psiObjetivo")
       VALUES ('pe-1','cfg-1',1,'direccional',110),('pe-5','cfg-1',5,'traccion',100)`);
 
@@ -195,6 +204,23 @@ describe.skipIf(!disponible)("informe", () => {
       expect(pos1?.tipoEje).toBe("direccional");
       const csv = await servicio.exportar(ADMIN, { vehiculoId: "veh-1" });
       expect(csv.ok && csv.valor.contenido).toContain(`"110";"-5";"1.5";"Alinear, revisar calibración y balanceo"`);
+    });
+
+    it("calcula los indicadores del levantamiento con la historia de la llanta (R9)", async () => {
+      await db.query(`INSERT INTO "Empresa" (id) VALUES ($1)`, [EMP]);
+      await db.query(`INSERT INTO "DisenoMedida" (id,"disenoId",medida,"profundidadOriginal") VALUES ('dm-1','dis-1','295/80R22.5',16)`);
+      await db.query(`UPDATE "PosicionEje" SET "profundidadMinima" = 3 WHERE id = 'pe-1'`);
+      await db.query(`INSERT INTO "Llanta" (id,"clienteId",serial,costo) VALUES ('ll-1','cli-1','MX10023458',1820000)`);
+      await db.query(`INSERT INTO "LlantaVida" (id,"llantaId",numero,inicio) VALUES ('v0','ll-1',0,'2026-01-01')`);
+      // Montada a 8.900 km: a la fecha de la orden (78.900 km) rodó 70.000.
+      await db.query(`INSERT INTO "LlantaMovimiento" (id,"llantaId",tipo,fecha,kilometraje) VALUES ('mv1','ll-1','montaje','2026-01-01',8900)`);
+      await db.query(`UPDATE "LlantaRegistro" SET "profExterior" = 9, "profCentro" = 10, "profInterior" = 11, profundidad = 9 WHERE id = 'lr-1'`);
+      const filas = await servicio.consultar(ADMIN, { vehiculoId: "veh-1" });
+      expect(filas.find((x) => x.posicion === 1)?.indicadores).toEqual({
+        profInicial: 16, profBaja: 3, profMedia: 10, mmDesgaste: 7, pctRodado: 53.8,
+        referencia: "PROYECCIÓN 50% - 70%", kmMontaje: 8900, kmRecorrido: 70000, kmPorMm: 10000,
+        proyeccionKm: 130000, costo: 1820000, cpk: 14,
+      });
     });
 
     it("los numeric llegan como número, no como texto", async () => {

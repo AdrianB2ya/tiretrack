@@ -3570,7 +3570,7 @@ D queda fuera.
 - [x] R7 Bloqueo de órdenes (lo toma el técnico, lo liberan admin/coordinador)
 - [x] R8 La llanta como activo: ficha, número interno, estado, vidas,
   inventario por sede
-- [ ] R9 Kilómetros por llanta e indicadores del levantamiento (% rodado,
+- [x] R9 Kilómetros por llanta e indicadores del levantamiento (% rodado,
   referencia de desgaste, km/mm, proyección, costo, CPK)
 - [ ] R10 Retiro y fallas: motivos, foto si es falla, causas, garantías
 - [ ] R11 Tableros, proyección de compras, portal del cliente con indicadores
@@ -3608,6 +3608,12 @@ conservadora y se anota aquí.)
    manejan, o hay llantas propias de Asistectire (para vender o prestar)?
 9. **R8 — la historia se arma al aprobar la orden** (pasa a esperar al
    cliente), no al capturar: lo que el coordinador revisó. ¿Correcto?
+10. **R9 — profundidad inicial de una reencauchada**: se toma la de la banda
+    de su vida actual (la que anotó la oficina al recibirla); si no la anotó,
+    la de fábrica de la medida. ¿Correcto?
+11. **R9 — costo por km de una reencauchada**: el costo de ESA vida (el del
+    reencauche) y los km de esa vida. ¿O el costo acumulado de todas sus
+    vidas?
 
 ## Catálogo de llantas desde la app (R1, 2026-10-13)
 
@@ -3648,6 +3654,33 @@ diseño que una empresa creaba bajo una marca global (su "XZE" de Michelin)
 diseño sea global o de la empresa, y lo mismo la medida. Probado contra RLS
 real en `aislamiento.test.ts` (las tablas de diseño y medida no estaban en
 ese banco); con la política vieja, la prueba falla.
+
+## Kilómetros e indicadores del levantamiento (R9, 2026-10-14)
+
+Pendientes 12 y 15. Dominio `llanta/indicadores.ts`: `kmRecorridos` (por
+tramos montaje → desmontaje, más el tramo abierto hasta el km actual; si la
+llanta cambió de vehículo, cada tramo se mide con su odómetro; un tramo sin
+km o hacia atrás no se cuenta), `referenciaDesgaste` (fórmula del Excel, con
+0–50 % como inicio de ciclo) e `indicadoresLlanta` (prof. media, dif. de
+lados, mm de desgaste, % rodado = desgaste / (inicial − baja), km/mm,
+proyección = km/mm × (inicial − baja), CPK = costo / proyección).
+
+- **Profundidad inicial**: la de fábrica de la medida del catálogo; en una
+  reencauchada, la de la banda de su vida actual. **Profundidad baja**: el
+  límite de cambio inmediato de esa posición (R2).
+- **Costo**: se captura **en el levantamiento** (decisión del usuario): campo
+  "Costo de la llanta" en el editor, solo en órdenes de levantamiento.
+  `LlantaRegistro.costo` (`Decimal`, migración
+  `20261014150000_costo_llanta`; en el celular, la 17, guardado aparte del
+  INSERT OR REPLACE). Al aprobar la orden, pasa a la ficha de la llanta si no
+  tenía. Para el CPK vale el de la vida actual: compra (vida 0) o reencauche.
+- **CSV**: PROF INIC, PROF BAJA, PROF MEDIA, MM DESGASTE, % RODADO,
+  REFERENCIA DESGASTE, KM MONTAJE, KM RECORRIDO, KM/MM, PROYECCIÓN KM, COSTO
+  y CPK (el KM ACTUAL es la columna KILOMETRAJE). Se calculan en el servidor
+  (`informe/indicadores.ts`) en tres consultas para todas las filas.
+- **Ficha de la llanta**: bloque "Rendimiento" con la última medición. Sin
+  profundidad de fábrica lo dice y remite al catálogo.
+- Un dato faltante deja el indicador vacío: no se inventa.
 
 ## La llanta como activo (R8, 2026-10-14)
 
@@ -3881,7 +3914,7 @@ identificador **`com.asistectire.app`**, rojo de la marca **como acento**.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 1037/1037, mobile 977 + recorrido 544.
+**Verificado:** `npm run verify` con base: raíz 1044/1044, mobile 981 + recorrido 544.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

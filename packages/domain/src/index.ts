@@ -23,6 +23,7 @@ export * from "./llanta/profundidades";
 export * from "./llanta/limites";
 export * from "./llanta/hallazgos";
 export * from "./llanta/activo";
+export * from "./llanta/indicadores";
 export * from "./llanta/medicion";
 
 export * from "./catalogo/normalizacion";

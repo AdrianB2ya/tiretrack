@@ -51,6 +51,8 @@ export interface BorradorMedicion {
   /** Exterior, centro, interior. */
   profundidades: TresMedidas;
   observaciones: string | null;
+  /** Costo de la llanta (R9): se pide en las órdenes de levantamiento. */
+  costo: number | null;
   noIdentificada: boolean;
   motivoNoId: string | null;
   servicios: string[];
@@ -153,6 +155,7 @@ export function borradorNuevo(casilla: Casilla): BorradorMedicion {
     profundidad: null,
     profundidades: sinMedidas(),
     observaciones: null,
+    costo: null,
     noIdentificada: false,
     motivoNoId: null,
     servicios: [],
@@ -177,6 +180,7 @@ export function borradorDesde(m: MedicionLocal): BorradorMedicion {
     profundidad: m.profundidad,
     profundidades: { ...sinMedidas(), ...(m.profundidades ?? {}) },
     observaciones: m.observaciones,
+    costo: m.costo ?? null,
     noIdentificada: m.noIdentificada,
     motivoNoId: m.motivoNoId as BorradorMedicion["motivoNoId"],
     servicios: [...m.servicios],

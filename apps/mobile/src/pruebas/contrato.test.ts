@@ -303,6 +303,14 @@ describe("comandos contra sus contratos", () => {
     expect(zComandoActualizarOrden.safeParse(await ultimaDe("actualizar_orden")).success).toBe(true);
   });
 
+  it("el costo del levantamiento viaja y cumple el contrato (R9)", async () => {
+    await repo.guardarMedicion({ ordenId: ORDEN, posicion: 1, serial: "MX1", capturadoPorId: "u-tec1", costo: 1820000 });
+    const enviada = (await ultimaDe("guardar_medicion")) as Record<string, unknown>;
+    expect(enviada["costo"]).toBe(1820000);
+    expect(zMedicionLlanta.safeParse({ ...enviada, ordenId: ORDEN }).success).toBe(true);
+    expect((await repo.medicionesDe(ORDEN))[0]?.costo).toBe(1820000);
+  });
+
   it("una marca creada en campo cumple el contrato", async () => {
     await repo.crearMarcaLocal("  Firestone  ");
     const r = zCrearMarca.safeParse(await ultimaDe("crear_marca"));

@@ -27,6 +27,7 @@ export interface MedicionParaEnviar {
   readonly psiCalibrado?: number | null;
   readonly profundidad?: number | null;
   readonly observaciones?: string | null;
+  readonly costo?: number | null;
   readonly noIdentificada?: boolean;
   readonly motivoNoId?: string | null;
   /** Códigos de servicio del catálogo fijo (`CALI`, `RETO`…). */
@@ -96,6 +97,7 @@ export function medicionAContrato(m: MedicionParaEnviar): MedicionLlanta {
     ["psiCalibrado", m.psiCalibrado],
     ["profundidad", m.profundidad],
     ["observaciones", m.observaciones],
+    ["costo", m.costo],
     // El nombre local era distinto del contrato: se perdía sin error, porque
     // las claves desconocidas se descartan al validar.
     ["motivoNoIdentificada", m.motivoNoId],

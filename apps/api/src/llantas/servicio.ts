@@ -10,6 +10,7 @@ import {
   type Veredicto,
 } from "@tiretrack/domain";
 import type { z } from "zod";
+import { calcularIndicadores } from "../informe/indicadores";
 import type { zCrearLlanta, zFiltroLlantas, zMovimientoLlanta, zStockMinimo } from "@tiretrack/contracts";
 
 /**
@@ -127,6 +128,7 @@ export class ServicioLlantas {
     vidas: Record<string, unknown>[];
     movimientos: Record<string, unknown>[];
     mediciones: Record<string, unknown>[];
+    indicadores: Awaited<ReturnType<typeof calcularIndicadores>>[number] | null;
   }>> {
     const l = await this.db.query<Record<string, unknown>>(`${SELECCION} WHERE l.id = $1`, [id]);
     if (!l.rows[0]) return fallo("NO_EXISTE", "No existe");
@@ -149,7 +151,13 @@ export class ServicioLlantas {
     // Lo que se le midió: el recorrido de su profundidad en el tiempo.
     const mediciones = await this.db.query<Record<string, unknown>>(
       `SELECT to_char(o.fecha,'YYYY-MM-DD') AS fecha, o.folio, coalesce(o."vehiculoCodigo", v.codigo) AS "vehiculoCodigo",
-              lr.posicion, lr.profundidad, o.kilometraje
+              lr.posicion, lr.profundidad, o.kilometraje,
+              lr."profExterior", lr."profCentro", lr."profInterior", lr.costo AS "costoCapturado",
+              (SELECT pe."profundidadMinima" FROM "PosicionEje" pe
+                WHERE pe."configuracionEjeId" = o."configuracionEjeId" AND pe.numero = lr.posicion) AS "minimoEje",
+              (SELECT dmf."profundidadOriginal" FROM "DisenoMedida" dmf
+                WHERE dmf."disenoId" = lr."disenoId" AND dmf.medida = lr.medida
+                ORDER BY dmf."empresaId" NULLS LAST LIMIT 1) AS "profFabrica"
          FROM "LlantaRegistro" lr
          JOIN "OrdenServicio" o ON o.id = lr."ordenId"
          LEFT JOIN "Vehiculo" v ON v.id = o."vehiculoId"
@@ -164,6 +172,8 @@ export class ServicioLlantas {
         vidas: vidas.rows.map((v) => ({ ...v, costo: num(v["costo"]), profundidadInicial: num(v["profundidadInicial"]) })),
         movimientos: movimientos.rows,
         mediciones: mediciones.rows.map((m) => ({ ...m, profundidad: num(m["profundidad"]) })),
+        // R9: los indicadores, con la última medición.
+        indicadores: await this.indicadoresDe(id, mediciones.rows.at(-1)),
       },
     };
   }
@@ -189,6 +199,19 @@ export class ServicioLlantas {
       sedeId: String(f["sedeId"]), sedeNombre: String(f["sedeNombre"]), medida: String(f["medida"]),
       cantidad: Number(f["cantidad"]), minimo: num(f["minimo"]),
     }));
+  }
+
+  private async indicadoresDe(llantaId: string, ultima: Record<string, unknown> | undefined) {
+    if (!ultima) return null;
+    const empresa = (await this.db.query<{ e: string }>(`SELECT "empresaId" AS e FROM "Llanta" WHERE id = $1`, [llantaId])).rows[0]?.e;
+    if (!empresa) return null;
+    const [ind] = await calcularIndicadores(this.db, empresa, [{
+      fecha: String(ultima["fecha"]), kilometraje: num(ultima["kilometraje"]), profundidad: num(ultima["profundidad"]),
+      profExterior: num(ultima["profExterior"]), profCentro: num(ultima["profCentro"]), profInterior: num(ultima["profInterior"]),
+      minimoEje: num(ultima["minimoEje"]), profFabrica: num(ultima["profFabrica"]), llantaActivoId: llantaId,
+      costoCapturado: num(ultima["costoCapturado"]),
+    }]);
+    return ind ?? null;
   }
 
   // ── Oficina ──────────────────────────────────────────────────────────────
@@ -274,7 +297,7 @@ export class ServicioLlantas {
     if (!o) return resumen;
 
     const filas = (await this.db.query<Record<string, unknown>>(
-      `SELECT id, posicion, serial, "numCalor", dot, "marcaId", "disenoId", medida, "noIdentificada",
+      `SELECT id, posicion, serial, "numCalor", dot, "marcaId", "disenoId", medida, "noIdentificada", costo,
               "desSerial", "desNumCalor", "desDot", "desMarcaId", "desDisenoId", "desMedida", "desDestino"
          FROM "LlantaRegistro" WHERE "ordenId" = $1 ORDER BY posicion`,
       [ordenId],
@@ -333,6 +356,10 @@ export class ServicioLlantas {
         resumen.montadas++;
       }
       await this.db.query(`UPDATE "LlantaRegistro" SET "llantaId" = $2 WHERE id = $1`, [f["id"], id]);
+      // R9: el costo capturado en el levantamiento queda en la ficha si no tenía.
+      if (f["costo"] !== null && f["costo"] !== undefined) {
+        await this.db.query(`UPDATE "Llanta" SET costo = coalesce(costo, $2) WHERE id = $1`, [id, f["costo"]]);
+      }
     }
     return resumen;
   }

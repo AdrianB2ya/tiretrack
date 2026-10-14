@@ -150,6 +150,8 @@ export interface MedicionDescargada {
   /** Las tres medidas; sin ellas, corregir una posición las borraría. */
   readonly profundidades: TresMedidas;
   readonly observaciones: string | null;
+  /** R9: costo de la llanta, del levantamiento. */
+  readonly costo: number | null;
   readonly noIdentificada: boolean;
   readonly motivoNoIdentificada: string | null;
   readonly capturadoPorId: string;
@@ -339,7 +341,7 @@ export class ServicioDescarga {
     const r = await this.db.query<Record<string, unknown>>(
       `SELECT lr.id, lr."ordenId", lr.posicion, lr."marcaId", lr."disenoId", lr.medida, lr."numCalor",
               lr.serial, lr.dot, lr."estadoLlanta", lr."psiEncontrada", lr."psiCalibrado", lr.profundidad,
-              lr.observaciones, lr."noIdentificada", lr."motivoNoIdentificada", lr."capturadoPorId",
+              lr.observaciones, lr.costo, lr."noIdentificada", lr."motivoNoIdentificada", lr."capturadoPorId",
               lr."desPosicionOrigen", lr."desMarcaId", lr."desDisenoId", lr."desMedida", lr."desNumCalor",
               lr."desSerial", lr."desDot", lr."desProfundidad", lr."desDestino", lr."desDetalle",
               lr."profExterior", lr."profCentro", lr."profInterior",
@@ -369,6 +371,7 @@ export class ServicioDescarga {
       profundidad: num(f["profundidad"]),
       profundidades: { exterior: num(f["profExterior"]), centro: num(f["profCentro"]), interior: num(f["profInterior"]) },
       observaciones: txt(f["observaciones"]),
+      costo: num(f["costo"]),
       noIdentificada: Boolean(f["noIdentificada"]),
       motivoNoIdentificada: txt(f["motivoNoIdentificada"]),
       capturadoPorId: String(f["capturadoPorId"]),

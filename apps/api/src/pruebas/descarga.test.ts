@@ -193,7 +193,7 @@ describe.skipIf(!disponible)("descarga", () => {
         id: "lr-1", ordenId: orden, posicion: 1, marcaId: "mar-1", disenoId: null, medida: null, numCalor: null,
         serial: "MX1", dot: "3624", estadoLlanta: "Nueva", psiEncontrada: 98.5, psiCalibrado: 110, profundidad: 8.25,
         profundidades: { exterior: null, centro: null, interior: null },
-        observaciones: "Corte leve", noIdentificada: false, motivoNoIdentificada: null, capturadoPorId: SEMILLA.tecnico,
+        observaciones: "Corte leve", costo: null, noIdentificada: false, motivoNoIdentificada: null, capturadoPorId: SEMILLA.tecnico,
         servicios: ["CALI", "ROTA"], desmontada: null,
       });
     } finally {

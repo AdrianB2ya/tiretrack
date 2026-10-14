@@ -495,6 +495,14 @@ export const MIGRACIONES: readonly Migracion[] = [
       ALTER TABLE orden ADD COLUMN retirada INTEGER NOT NULL DEFAULT 0;
     `,
   },
+  {
+    version: 17,
+    nombre: "costo de la llanta",
+    sql: `
+      -- R9: el costo de la llanta, capturado en el levantamiento.
+      ALTER TABLE medicion ADD COLUMN costo REAL;
+    `,
+  },
 ];
 
 export const VERSION_ESQUEMA = MIGRACIONES[MIGRACIONES.length - 1]?.version ?? 0;

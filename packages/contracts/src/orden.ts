@@ -92,6 +92,8 @@ const camposMedicion = {
 
   servicios: z.array(zServicioLlanta).default([]),
   observaciones: zTextoLargo.optional(),
+  /** Costo de la llanta (R9): se captura en el levantamiento; da el costo por km. */
+  costo: z.number().min(0).max(1_000_000_000).optional(),
 
   /**
    * Cuando el flanco está borrado o la llanta es interna, el técnico no puede

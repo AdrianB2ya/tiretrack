@@ -142,6 +142,17 @@ describe("selección en cascada", () => {
     expect(onAgregar.medida).toHaveBeenCalledWith("11R22.5", null);
   });
 
+  it("en un levantamiento pide el costo de la llanta; en las demás órdenes no (R9)", async () => {
+    const { onCambiar } = montar({}, { levantamiento: true });
+    await act(async () => { fireEvent.change(screen.getByTestId("costo-llanta"), { target: { value: "1820000" } }); });
+    expect(onCambiar).toHaveBeenLastCalledWith(expect.objectContaining({ costo: 1820000 }));
+  });
+
+  it("fuera de un levantamiento no hay campo de costo", () => {
+    montar();
+    expect(screen.queryByTestId("costo-llanta")).toBeNull();
+  });
+
   it("sin permiso para agregar (onAgregar ausente) solo se elige", () => {
     montar();
     expect(screen.queryByTestId("lista-marca-agregar")).toBeNull();

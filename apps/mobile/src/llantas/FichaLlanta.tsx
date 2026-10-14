@@ -24,6 +24,12 @@ export interface FichaVista {
   vidas: { numero: number; banda: string | null; reencauchadora: string | null; costo: number | null; profundidadInicial: number | null; inicio: string }[];
   movimientos: { tipo: string; fecha: string; posicion: number | null; kilometraje: number | null; detalle: string | null; vehiculoCodigo: string | null; sedeNombre: string | null; folio: string | null }[];
   mediciones: { fecha: string; folio: string | null; vehiculoCodigo: string | null; posicion: number; profundidad: number | null; kilometraje: number | null }[];
+  /** R9: los del Excel de levantamiento, con la última medición. */
+  indicadores?: {
+    profInicial: number | null; profBaja: number | null; mmDesgaste: number | null; pctRodado: number | null;
+    referencia: string | null; kmRecorrido: number | null; kmPorMm: number | null; proyeccionKm: number | null;
+    costo: number | null; cpk: number | null;
+  } | null;
 }
 
 export interface MovimientoPedido {
@@ -61,6 +67,7 @@ export function FichaLlanta({ fuentes }: { fuentes: FuentesFicha }) {
         vidas: Array.isArray(r.datos.vidas) ? r.datos.vidas : [],
         movimientos: Array.isArray(r.datos.movimientos) ? r.datos.movimientos : [],
         mediciones: Array.isArray(r.datos.mediciones) ? r.datos.mediciones : [],
+        indicadores: r.datos.indicadores ?? null,
       });
       setError(null);
     } else setError(r.status === 0 ? "Sin señal: la ficha se consulta en línea." : r.mensaje);
@@ -96,6 +103,8 @@ export function FichaLlanta({ fuentes }: { fuentes: FuentesFicha }) {
         {dondeEsta(l)} · {l.clienteNombre}
         {l.numCalor ? ` · calor ${l.numCalor}` : ""}
       </Text>
+
+      {ficha.indicadores ? <Indicadores i={ficha.indicadores} /> : null}
 
       <Text style={estilos.subtitulo}>Vidas</Text>
       {ficha.vidas.map((v) => (
@@ -151,6 +160,28 @@ export function FichaLlanta({ fuentes }: { fuentes: FuentesFicha }) {
         </Tarjeta>
       ) : null}
     </ScrollView>
+  );
+}
+
+const km = (n: number | null) => (n === null ? "—" : `${Math.round(n).toLocaleString("es-CO")} km`);
+
+/** Lo que el Excel de levantamiento calculaba a mano, aquí ya hecho (R9). */
+function Indicadores({ i }: { i: NonNullable<FichaVista["indicadores"]> }) {
+  return (
+    <View testID="indicadores-llanta" style={estilos.formulario}>
+      <Text style={estilos.subtitulo}>Rendimiento</Text>
+      {i.referencia ? <Text style={estilos.cuerpo}>{i.referencia}</Text> : null}
+      <Text style={estilos.linea}>
+        Rodado {i.pctRodado === null ? "—" : `${String(i.pctRodado).replace(".", ",")} %`} · desgaste {mm(i.mmDesgaste)} de {mm(i.profInicial)} (baja {mm(i.profBaja)})
+      </Text>
+      <Text style={estilos.linea}>
+        Recorrido {km(i.kmRecorrido)} · {i.kmPorMm === null ? "—" : `${i.kmPorMm.toLocaleString("es-CO")} km/mm`} · proyección {km(i.proyeccionKm)}
+      </Text>
+      <Text style={estilos.linea}>
+        Costo {pesos(i.costo)} · costo por km {i.cpk === null ? "—" : `$${String(i.cpk).replace(".", ",")}`}
+      </Text>
+      {i.profInicial === null ? <Text style={estilos.detalle}>Sin profundidad de fábrica de la medida: complétala en el catálogo para calcular el rendimiento.</Text> : null}
+    </View>
   );
 }
 

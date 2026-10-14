@@ -67,6 +67,8 @@ export interface EditorPosicionProps {
    * Agregar al catálogo lo que no está (R1). Cada uno crea, elige lo creado y
    * devuelve un mensaje si no se pudo. Sin esto, solo se elige.
    */
+  /** Orden de levantamiento (R4/R9): pide además el costo de la llanta. */
+  levantamiento?: boolean;
   onAgregar?: {
     marca: (nombre: string) => Promise<string | null>;
     diseno: (nombre: string) => Promise<string | null>;
@@ -87,6 +89,7 @@ export function EditorPosicion({
   fotos,
   desmontadaSugerida = null,
   onAgregar,
+  levantamiento = false,
 }: EditorPosicionProps) {
   const [confirmando, setConfirmando] = useState(false);
 
@@ -251,6 +254,18 @@ export function EditorPosicion({
                   },
                 }
               : {})}
+          />
+        ) : null}
+
+        {levantamiento ? (
+          // R9: en el levantamiento se registra cuánto costó la llanta; con
+          // los km recorridos da el costo por kilómetro.
+          <CampoDecimal
+            etiqueta="Costo de la llanta"
+            ayuda="Lo que costó (sin puntos). Con él se calcula el costo por kilómetro."
+            valor={borrador.costo}
+            onCambio={(n) => cambiar("costo", n)}
+            testID="costo-llanta"
           />
         ) : null}
 

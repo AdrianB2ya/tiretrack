@@ -108,6 +108,7 @@ export default function PantallaPosicion() {
         profundidad: borrador.profundidad,
         profundidades: borrador.profundidades,
         observaciones: borrador.observaciones,
+        costo: borrador.costo,
         noIdentificada: borrador.noIdentificada,
         motivoNoId: borrador.motivoNoId,
         // Quien mide sale de la sesión. Antes iba el id de la ORDEN: toda
@@ -190,6 +191,7 @@ export default function PantallaPosicion() {
       onCopiarHermana={numeroHermana ? copiar : undefined}
       fotos={fotos}
       desmontadaSugerida={desmontadaSugerida}
+      levantamiento={datos.orden.tipo === "levantamiento"}
       // Lo que no está en el catálogo se agrega aquí y queda elegido: el
       // técnico sigue capturando sin salir de la posición.
       onAgregar={{

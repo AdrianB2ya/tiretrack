@@ -59,6 +59,21 @@ export interface FilaCruda {
   readonly psiRecomendada?: number | null;
   /** Tipo de eje de la posición: decide qué revisar por diferencia de lados. */
   readonly tipoEje?: string | null;
+  /** Indicadores del levantamiento (R9), ya calculados por el servidor. */
+  readonly indicadores?: {
+    readonly profInicial: number | null;
+    readonly profBaja: number | null;
+    readonly profMedia: number | null;
+    readonly mmDesgaste: number | null;
+    readonly pctRodado: number | null;
+    readonly referencia: string | null;
+    readonly kmMontaje: number | null;
+    readonly kmRecorrido: number | null;
+    readonly kmPorMm: number | null;
+    readonly proyeccionKm: number | null;
+    readonly costo: number | null;
+    readonly cpk: number | null;
+  } | null;
   readonly noIdentificada: boolean;
 
   readonly desPosicion: number | null;
@@ -87,6 +102,9 @@ export const BLOQUES = {
     "PROF EXT", "PROF CENTRO", "PROF INT", "PROF MÍN",
     // R6: hallazgos del levantamiento.
     "PSI RECOMENDADA", "DIF PRESIÓN", "DIF LADOS", "REVISAR",
+    // R9: indicadores del Excel de levantamiento.
+    "PROF INIC", "PROF BAJA", "PROF MEDIA", "MM DESGASTE", "% RODADO", "REFERENCIA DESGASTE",
+    "KM MONTAJE", "KM RECORRIDO", "KM/MM", "PROYECCIÓN KM", "COSTO", "CPK",
   ],
   desmontada: [
     "POS", "CALOR", "SERIAL", "DOT", "DIMENSION",
@@ -126,6 +144,7 @@ const texto = (v: unknown): string => (v === null || v === undefined ? "" : Stri
 export function aCeldas(f: FilaCruda): string[] {
   const dot = leerDOT(f.dot);
   const identificador = f.folio ?? f.codigoReferencia ?? "";
+  const i = f.indicadores ?? null;
   const lados = diferenciaDeLados({ exterior: f.profExterior ?? null, interior: f.profInterior ?? null });
 
   return [
@@ -160,6 +179,10 @@ export function aCeldas(f: FilaCruda): string[] {
     texto(diferenciaPresion(f.psiEncontrada, f.psiRecomendada)),
     texto(lados),
     recomendacionPorLados(lados, f.tipoEje) ?? "",
+    ...[
+      i?.profInicial, i?.profBaja, i?.profMedia, i?.mmDesgaste, i?.pctRodado, i?.referencia,
+      i?.kmMontaje, i?.kmRecorrido, i?.kmPorMm, i?.proyeccionKm, i?.costo, i?.cpk,
+    ].map(texto),
 
     texto(f.desPosicion),
     texto(f.desNumCalor),

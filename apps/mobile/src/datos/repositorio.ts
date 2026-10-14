@@ -90,6 +90,8 @@ export interface MedicionLocal {
   readonly servicios: readonly string[];
   /** La llanta que salió, si se cambió en esta orden. */
   readonly desmontada: Desmontada | null;
+  /** Costo de la llanta (R9). Opcional: lo capturan los levantamientos. */
+  readonly costo?: number | null;
 }
 
 export interface PosicionEjeLocal {
@@ -161,6 +163,8 @@ export interface MedicionDescargada {
   readonly capturadoPorId?: string;
   readonly servicios?: readonly string[];
   readonly desmontada?: Desmontada | null;
+  /** R9. Opcional: un servidor anterior no lo manda. */
+  readonly costo?: number | null;
 }
 
 /** Columnas de la llanta desmontada, en el orden de `valoresDesmontada`. */
@@ -524,6 +528,8 @@ export class RepositorioLocal {
     capturadoPorId: string;
     servicios?: readonly string[];
     desmontada?: Desmontada | null;
+    /** Costo de la llanta (R9), en el levantamiento. */
+    costo?: number | null;
   }): Promise<string> {
     // Corregir una posición es actualizar LA MISMA medición, no crear otra.
     // Antes se generaba un id nuevo en cada guardado: el servidor habría
@@ -554,6 +560,9 @@ export class RepositorioLocal {
          VALUES (${marcadores(valores.length)})`,
         valores,
       );
+      // Aparte, para no alargar la lista de columnas de arriba (REPLACE
+      // reescribe la fila entera: por eso va después, no antes).
+      await this.db.ejecutar(`UPDATE medicion SET costo = ? WHERE id = ?`, [m.costo ?? null, id]);
 
       await this.db.ejecutar(`DELETE FROM medicion_servicio WHERE medicion_id = ?`, [id]);
       for (const codigo of m.servicios ?? []) {
@@ -586,7 +595,7 @@ export class RepositorioLocal {
       // reabrir una posición y guardarla otra vez, se enviaban vacíos.
       `SELECT id, orden_id, posicion, marca_id, diseno_id, medida, num_calor, serial, dot,
               estado_llanta, psi_encontrada, psi_calibrado, profundidad, observaciones,
-              no_identificada, motivo_no_id, ${COLUMNAS_TRES}, ${COLUMNAS_DESMONTADA}
+              no_identificada, motivo_no_id, costo, ${COLUMNAS_TRES}, ${COLUMNAS_DESMONTADA}
          FROM medicion WHERE orden_id = ? ORDER BY posicion`,
       [ordenId],
     );
@@ -624,6 +633,7 @@ export class RepositorioLocal {
       observaciones: (f["observaciones"] as string) ?? null,
       noIdentificada: aBool(f["no_identificada"]),
       motivoNoId: (f["motivo_no_id"] as string) ?? null,
+      costo: f["costo"] === null || f["costo"] === undefined ? null : Number(f["costo"]),
       servicios: porMedicion.get(String(f["id"])) ?? [],
       desmontada: aDesmontada(f),
     }));
@@ -1544,6 +1554,7 @@ export class RepositorioLocal {
              capturado_por_id = excluded.capturado_por_id, actualizada_en = excluded.actualizada_en`,
           valoresDescarga,
         );
+        await this.db.ejecutar(`UPDATE medicion SET costo = ? WHERE id = ?`, [m.costo ?? null, m.id]);
         if (m.servicios) {
           await this.db.ejecutar(`DELETE FROM medicion_servicio WHERE medicion_id = ?`, [m.id]);
           for (const codigo of m.servicios) {

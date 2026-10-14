@@ -1,4 +1,5 @@
 import type pg from "pg";
+import { calcularIndicadores } from "./indicadores";
 import {
   aCSV,
   construirTrazabilidad,
@@ -180,7 +181,7 @@ export class ServicioInforme {
 
     const where = cond.length > 0 ? `WHERE ${cond.join(" AND ")}` : "";
 
-    const r = await this.db.query<FilaCruda>(
+    const r = await this.db.query<FilaCruda & { minimoEje?: unknown; profFabrica?: unknown; costoCapturado?: unknown; llantaActivoId?: string | null }>(
       `SELECT
          o.id AS "ordenId",
          to_char(o.fecha,'YYYY-MM-DD') AS fecha,
@@ -207,6 +208,15 @@ export class ServicioInforme {
          lr."psiEncontrada", lr."psiCalibrado", lr.profundidad, lr."noIdentificada",
          lr."profExterior", lr."profCentro", lr."profInterior",
          pe."psiObjetivo" AS "psiRecomendada", pe."tipoEje",
+         -- R9: lo que hace falta para los indicadores del levantamiento.
+         pe."profundidadMinima" AS "minimoEje", lr.costo AS "costoCapturado",
+         (SELECT dmf."profundidadOriginal" FROM "DisenoMedida" dmf
+           WHERE dmf."disenoId" = lr."disenoId" AND dmf.medida = lr.medida
+           ORDER BY dmf."empresaId" NULLS LAST LIMIT 1) AS "profFabrica",
+         coalesce(lr."llantaId", (SELECT la.id FROM "Llanta" la
+           WHERE la."clienteId" = o."clienteId"
+             AND la.serial = upper(regexp_replace(coalesce(lr.serial, ''), '[[:space:]-]', '', 'g'))
+           LIMIT 1)) AS "llantaActivoId",
          lr."desProfExterior", lr."desProfCentro", lr."desProfInterior",
          lr."desPosicionOrigen" AS "desPosicion", lr."desNumCalor", lr."desSerial", lr."desDot",
          lr."desMedida", lr."desProfundidad",
@@ -232,8 +242,11 @@ export class ServicioInforme {
 
     // pg devuelve numeric como texto: sin convertir, el informe mostraría
     // "9.00" y las comparaciones de profundidad fallarían en silencio.
-    return r.rows.map((fila) => ({
+    const filas = r.rows.map((fila) => ({
       ...fila,
+      minimoEje: aNumero(fila.minimoEje),
+      profFabrica: aNumero(fila.profFabrica),
+      costoCapturado: aNumero(fila.costoCapturado),
       psiEncontrada: aNumero(fila.psiEncontrada),
       psiCalibrado: aNumero(fila.psiCalibrado),
       profundidad: aNumero(fila.profundidad),
@@ -246,6 +259,9 @@ export class ServicioInforme {
       desProfCentro: aNumero(fila.desProfCentro),
       desProfInterior: aNumero(fila.desProfInterior),
     }));
+    // R9: los indicadores del levantamiento, con las reglas del dominio.
+    const indicadores = await calcularIndicadores(this.db, ctx.empresaId, filas as never);
+    return filas.map((fila, i) => ({ ...fila, indicadores: indicadores[i] ?? null }));
   }
 
   /**

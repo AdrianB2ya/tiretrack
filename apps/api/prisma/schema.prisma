@@ -690,6 +690,8 @@ model LlantaRegistro {
   /// identificar: un dato faltante no se inventa.
   llantaId     String?
   desLlantaId  String?
+  /// Costo de la llanta, capturado en el levantamiento (R9). Dinero: Decimal.
+  costo        Decimal? @db.Decimal(14, 2)
 
   marcaId      String?
   disenoId     String?
