@@ -53,7 +53,7 @@ export interface RepositorioCatalogo {
   listarMarcasGlobales(): Promise<Marca[]>;
   buscarMarca(id: string): Promise<Marca | null>;
   /** `esGlobal` no viaja: al crear siempre es false. Solo el superadmin promueve. */
-  crearMarca(m: Omit<Marca, "activa" | "esGlobal">): Promise<Marca>;
+  crearMarca(m: Omit<Marca, "activa" | "esGlobal"> & { esGlobal?: boolean }): Promise<Marca>;
   promoverMarca(id: string): Promise<Marca>;
   desactivarMarca(id: string, ahora: Date): Promise<void>;
   /** Cuántas mediciones referencian la marca. */
@@ -61,11 +61,11 @@ export interface RepositorioCatalogo {
 
   listarDisenos(marcaId: string, empresaId: string): Promise<Diseno[]>;
   buscarDiseno(id: string): Promise<Diseno | null>;
-  crearDiseno(d: Omit<Diseno, "activo" | "esGlobal">): Promise<Diseno>;
+  crearDiseno(d: Omit<Diseno, "activo" | "esGlobal"> & { esGlobal?: boolean }): Promise<Diseno>;
 
   /** Las globales y las de la empresa; nunca las de otra. */
   listarMedidas(disenoId: string, empresaId: string): Promise<Medida[]>;
-  crearMedida(m: Medida & { empresaId: string; creadaEnCampo: boolean }): Promise<Medida>;
+  crearMedida(m: Medida & { empresaId: string | null; creadaEnCampo: boolean }): Promise<Medida>;
   buscarMedida(id: string): Promise<Medida | null>;
   fijarProfundidadOriginal(id: string, profundidad: number | null): Promise<void>;
 
@@ -127,12 +127,12 @@ export class RepositorioCatalogoPg implements RepositorioCatalogo {
     return r.rows[0] ?? null;
   }
 
-  async crearMarca(m: Omit<Marca, "activa" | "esGlobal">): Promise<Marca> {
+  async crearMarca(m: Omit<Marca, "activa" | "esGlobal"> & { esGlobal?: boolean }): Promise<Marca> {
     const r = await this.db.query<Marca>(
       `INSERT INTO "Marca" (id, "empresaId", nombre, "esGlobal", "creadaEnCampo")
-       VALUES ($1, $2, $3, false, $4)
+       VALUES ($1, $2, $3, $5, $4)
        RETURNING id, "empresaId", nombre, "esGlobal", "creadaEnCampo", activa`,
-      [m.id, m.empresaId, m.nombre, m.creadaEnCampo],
+      [m.id, m.empresaId, m.nombre, m.creadaEnCampo, m.esGlobal ?? false],
     );
     return r.rows[0] as Marca;
   }
@@ -189,12 +189,12 @@ export class RepositorioCatalogoPg implements RepositorioCatalogo {
     return r.rows[0] ?? null;
   }
 
-  async crearDiseno(d: Omit<Diseno, "activo" | "esGlobal">): Promise<Diseno> {
+  async crearDiseno(d: Omit<Diseno, "activo" | "esGlobal"> & { esGlobal?: boolean }): Promise<Diseno> {
     const r = await this.db.query<Diseno>(
       `INSERT INTO "Diseno" (id, "empresaId", "marcaId", nombre, "tipoEje", "esGlobal", "creadaEnCampo")
-       VALUES ($1, $2, $3, $4, $5, false, $6)
+       VALUES ($1, $2, $3, $4, $5, $7, $6)
        RETURNING id, "empresaId", "marcaId", nombre, "tipoEje", "esGlobal", "creadaEnCampo", activo`,
-      [d.id, d.empresaId, d.marcaId, d.nombre, d.tipoEje, d.creadaEnCampo],
+      [d.id, d.empresaId, d.marcaId, d.nombre, d.tipoEje, d.creadaEnCampo, d.esGlobal ?? false],
     );
     return r.rows[0] as Diseno;
   }
@@ -211,7 +211,7 @@ export class RepositorioCatalogoPg implements RepositorioCatalogo {
     return r.rows.map(aMedida);
   }
 
-  async crearMedida(m: Medida & { empresaId: string; creadaEnCampo: boolean }): Promise<Medida> {
+  async crearMedida(m: Medida & { empresaId: string | null; creadaEnCampo: boolean }): Promise<Medida> {
     const r = await this.db.query<FilaMedida>(
       `INSERT INTO "DisenoMedida" (id, "empresaId", "disenoId", medida, "profundidadOriginal", "creadaEnCampo")
        VALUES ($1, $2, $3, $4, $5, $6)

@@ -22,7 +22,10 @@ import type { Claims } from "../acceso/servicio";
 
 const disponible = await hayBaseDeDatos();
 const ESQUEMA = esquemaDe(import.meta.url);
-const TABLAS = ["Empresa", "Sede", "Usuario", "UsuarioSede", "Servicio", "Auditoria", "SesionUsuario", "TokenRecuperacion", "SesionSuplantacion"];
+const TABLAS = [
+  "Empresa", "Sede", "Usuario", "UsuarioSede", "Servicio", "Auditoria", "SesionUsuario", "TokenRecuperacion", "SesionSuplantacion",
+  "Marca", "Diseno", "DisenoMedida",
+];
 const SUPER = "11111111-1111-4111-8111-00000000005a";
 
 const TOKENS: Record<string, Claims> = {
@@ -35,6 +38,15 @@ const ALTA = {
   sede: { nombre: "Valledupar", codigo: "vdp", ciudad: "Valledupar" },
   administrador: { nombre: "Laura Gómez", cedula: "1065443322", email: "laura@llantasnorte.co" },
 };
+
+/** Un tramo de rls.sql entre dos marcas de texto: el SQL real, no una copia. */
+function tramoDeRls(desde: string, hasta: string): string {
+  const texto = readFileSync(join(__dirname, "..", "..", "prisma", "rls.sql"), "utf-8");
+  const i = texto.indexOf(desde);
+  const j = texto.indexOf(hasta, i);
+  if (i < 0 || j < 0) throw new Error(`No se encontró el tramo ${desde} en rls.sql`);
+  return texto.slice(i, j);
+}
 
 function seccionDeRls(nombre: string): string {
   const texto = readFileSync(join(__dirname, "..", "..", "prisma", "rls.sql"), "utf-8");
@@ -72,6 +84,11 @@ describe.skipIf(!disponible)("plataforma: empresas", () => {
       `);
       await admin.query(seccionDeRls("plataforma"));
       await admin.query(seccionDeRls("soporte"));
+      // Las funciones de contexto y las políticas REALES del catálogo, más la
+      // sección nueva: la prueba ve lo mismo que producción.
+      await admin.query(tramoDeRls("CREATE OR REPLACE FUNCTION app_empresa_id", "-- ── La propia tabla de empresas"));
+      await admin.query(tramoDeRls('ALTER TABLE "Marca" ENABLE', "-- ── Auditoría: se lee"));
+      await admin.query(seccionDeRls("plataforma_catalogo"));
     });
     // Aislamiento como en producción sobre las tablas que el alta escribe.
     for (const t of ["Empresa", "Sede", "Usuario", "Servicio", "Auditoria", "SesionSuplantacion"]) {
@@ -159,6 +176,61 @@ describe.skipIf(!disponible)("plataforma: empresas", () => {
   it("datos incompletos son 422, y un administrador no da de alta empresas", async () => {
     expect((await pedir("POST", "/plataforma/empresas", "tok-super", { empresa: { nombre: "X" } })).statusCode).toBe(422);
     expect((await pedir("POST", "/plataforma/empresas", "tok-admin", ALTA)).statusCode).toBe(403);
+  });
+
+  describe("catálogo general", () => {
+    const EMPRESA = "22222222-2222-4222-8222-00000000000a";
+    const nuevo = () => crypto.randomUUID();
+
+    it("el superadmin arma marca → diseño → medida del catálogo general, y las empresas lo ven", async () => {
+      const marca = nuevo();
+      const diseno = nuevo();
+      expect((await pedir("POST", "/plataforma/catalogo/marcas", "tok-super", { id: marca, nombre: "Continental" })).statusCode).toBe(201);
+      expect((await pedir("POST", "/plataforma/catalogo/disenos", "tok-super", { id: diseno, marcaId: marca, nombre: "HSR2", tipoEje: "direccional" })).statusCode).toBe(201);
+      const m = await pedir("POST", "/plataforma/catalogo/medidas", "tok-super", { disenoId: diseno, medida: "295/80R22.5", profundidadOriginal: 15 });
+      expect(m.statusCode, m.body).toBe(201);
+      expect(m.json()).toMatchObject({ medida: "295/80R22.5", empresaId: null });
+      const fila = await admin.query(`SELECT "esGlobal", "empresaId" FROM "Marca" WHERE id = $1`, [marca]);
+      expect(fila.rows).toEqual([{ esGlobal: true, empresaId: null }]);
+      // Una empresa la ve (es del catálogo general).
+      const c = await pool.connect();
+      try {
+        await c.query("BEGIN");
+        await c.query(`SELECT set_config('app.rol', 'administrador', true), set_config('app.empresa_id', $1, true)`, [EMPRESA]);
+        expect((await c.query(`SELECT nombre FROM "Marca"`)).rows).toEqual([{ nombre: "Continental" }]);
+        await c.query("ROLLBACK");
+      } finally {
+        c.release();
+      }
+      // Corregir la profundidad de fábrica de una medida general.
+      expect((await pedir("POST", `/plataforma/catalogo/medidas/${m.json().id}/profundidad`, "tok-super", { profundidadOriginal: 16 })).statusCode).toBe(200);
+    });
+
+    it("una empresa no puede escribir el catálogo general, ni el superadmin a nombre de una empresa", async () => {
+      const c = await pool.connect();
+      try {
+        await c.query("BEGIN");
+        await c.query(`SELECT set_config('app.rol', 'administrador', true), set_config('app.empresa_id', $1, true)`, [EMPRESA]);
+        await expect(c.query(`INSERT INTO "Marca" (id, "empresaId", nombre, "esGlobal") VALUES ($1, NULL, 'Global falsa', true)`, [nuevo()]))
+          .rejects.toThrow(/row-level security|política|policy/i);
+        await c.query("ROLLBACK");
+        await c.query("BEGIN");
+        await c.query(`SELECT set_config('app.rol', 'superadmin', true), set_config('app.empresa_id', '', true)`);
+        await expect(c.query(`INSERT INTO "Marca" (id, "empresaId", nombre, "esGlobal") VALUES ($1, $2, 'De la empresa', false)`, [nuevo(), EMPRESA]))
+          .rejects.toThrow(/row-level security|política|policy/i);
+        await c.query("ROLLBACK");
+      } finally {
+        c.release();
+      }
+    });
+
+    it("el duplicado exacto se bloquea también en el catálogo general; un administrador no entra aquí", async () => {
+      await pedir("POST", "/plataforma/catalogo/marcas", "tok-super", { id: nuevo(), nombre: "Michelin" });
+      const r = await pedir("POST", "/plataforma/catalogo/marcas", "tok-super", { id: nuevo(), nombre: "michelín" });
+      expect(r.statusCode).toBe(409);
+      expect(r.json().error.codigo).toBe("YA_EXISTE");
+      expect((await pedir("GET", "/plataforma/catalogo/marcas", "tok-admin")).statusCode).toBe(403);
+    });
   });
 
   describe("sesión de soporte", () => {

@@ -5,7 +5,7 @@ import { BarraDeSesion } from "../../src/app/BarraDeSesion";
 import { NavegacionInferior } from "../../src/app/NavegacionInferior";
 import { useServicios } from "../../src/app/Arranque";
 import { useUsuario } from "../../src/app/ProveedorSesion";
-import { Tarjeta } from "../../src/diseno/componentes";
+import { Boton, Tarjeta } from "../../src/diseno/componentes";
 import { colores, espacio, texto } from "../../src/diseno/tokens";
 import { EmpresasPlataforma, type EmpresaListada, type FuentesEmpresas } from "../../src/plataforma/EmpresasPlataforma";
 import { sesionSoporte, type SesionSoporte } from "../../src/plataforma/soporte";
@@ -61,6 +61,9 @@ export default function PantallaPlataforma() {
             clientes ni mediciones de ninguna empresa.
           </Text>
         </Tarjeta>
+        <Boton ancho tipo="secundario" testID="catalogo-general" onPress={() => router.push("/catalogo-general" as never)}>
+          Catálogo general de llantas
+        </Boton>
         <EmpresasPlataforma fuentes={fuentes} />
       </ScrollView>
       <NavegacionInferior activa="plataforma" />

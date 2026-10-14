@@ -1117,6 +1117,79 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
       });
     });
 
+    // ── Catálogo GENERAL (plataforma) ──
+    // El superadmin crea y corrige las marcas, diseños y medidas que ven todas
+    // las empresas. Antes se llenaba con SQL en Neon. La base solo lo permite
+    // con un contexto de superadmin (rls.sql, @seccion:plataforma_catalogo).
+    // No queda en la auditoría de ninguna empresa: no es dato de una empresa.
+
+    async function enCatalogoGeneral(
+      req: FastifyRequest,
+      reply: FastifyReply,
+      fn: (catalogo: ServicioCatalogo, ctx: Contexto) => Promise<Respuesta>,
+      confirmar: boolean,
+    ) {
+      const s = superadminDe(req);
+      if (!s.ok) return reply.status(s.status).send(s.cuerpo);
+      const ctx: Contexto = { empresaId: "", rol: "superadmin", usuarioId: s.usuarioId, clienteId: null, vistaCliente: false };
+      const r = await enTransaccion(op.pool, ctx, async (db) => {
+        const x = await fn(new ServicioCatalogo(new RepositorioCatalogoPg(db), reloj), ctx);
+        return { confirmar: confirmar && x.status < 300, valor: x };
+      });
+      return reply.status(r.status).send(r.cuerpo);
+    }
+
+    app.get("/plataforma/catalogo/marcas", (req, reply) =>
+      enCatalogoGeneral(req, reply, async (c, ctx) => ({ status: 200, cuerpo: await c.marcasVisibles(ctx) }), false));
+
+    app.get("/plataforma/catalogo/marcas/:id/disenos", (req, reply) =>
+      enCatalogoGeneral(req, reply, async (c, ctx) => {
+        const id = zId.safeParse(params(req).id);
+        return id.success ? { status: 200, cuerpo: await c.disenosDeMarca(ctx, id.data) } : { status: 200, cuerpo: [] };
+      }, false));
+
+    app.get("/plataforma/catalogo/disenos/:id/medidas", (req, reply) =>
+      enCatalogoGeneral(req, reply, async (c, ctx) => {
+        const id = zId.safeParse(params(req).id);
+        return id.success ? { status: 200, cuerpo: await c.medidasDeDiseno(ctx, id.data) } : { status: 200, cuerpo: [] };
+      }, false));
+
+    // Lo parecido ya se avisó en la pantalla (la misma comparación del
+    // dominio): aquí se crea con `forzar`. El duplicado exacto sigue bloqueado.
+    app.post("/plataforma/catalogo/marcas", (req, reply) =>
+      enCatalogoGeneral(req, reply, async (c, ctx) => {
+        const p = zCrearMarca.safeParse(req.body ?? {});
+        if (!p.success) return datosInvalidos(p.error.issues);
+        const r = await c.crearMarca(ctx, { id: p.data.id, nombre: p.data.nombre, forzar: true });
+        return r.ok ? { status: 201, cuerpo: r.valor.marca } : rechazo(r.veredicto);
+      }, true));
+
+    app.post("/plataforma/catalogo/disenos", (req, reply) =>
+      enCatalogoGeneral(req, reply, async (c, ctx) => {
+        const p = zCrearDiseno.safeParse(req.body ?? {});
+        if (!p.success) return datosInvalidos(p.error.issues);
+        const r = await c.crearDiseno(ctx, { id: p.data.id, marcaId: p.data.marcaId, nombre: p.data.nombre, tipoEje: p.data.tipoEje, forzar: true });
+        return r.ok ? { status: 201, cuerpo: r.valor.diseno } : rechazo(r.veredicto);
+      }, true));
+
+    app.post("/plataforma/catalogo/medidas", (req, reply) =>
+      enCatalogoGeneral(req, reply, async (c, ctx) => {
+        const p = zCrearMedida.safeParse(req.body ?? {});
+        if (!p.success) return datosInvalidos(p.error.issues);
+        const r = await c.agregarMedida(ctx, sinIndefinidos(p.data));
+        return r.ok ? { status: 201, cuerpo: r.valor } : rechazo(r.veredicto);
+      }, true));
+
+    app.post("/plataforma/catalogo/medidas/:id/profundidad", (req, reply) =>
+      enCatalogoGeneral(req, reply, async (c, ctx) => {
+        const id = zId.safeParse(params(req).id);
+        if (!id.success) return { status: 404, cuerpo: { error: { codigo: "NO_EXISTE", mensaje: "No existe" } } };
+        const p = zProfundidadOriginal.safeParse(req.body ?? {});
+        if (!p.success) return datosInvalidos(p.error.issues);
+        const r = await c.fijarProfundidadOriginal(ctx, id.data, p.data.profundidadOriginal);
+        return r.ok ? { status: 200, cuerpo: {} } : rechazo(r.veredicto);
+      }, true));
+
     // ── Sesión de soporte (R16) ──
 
     app.post("/plataforma/soporte", async (req, reply) => {

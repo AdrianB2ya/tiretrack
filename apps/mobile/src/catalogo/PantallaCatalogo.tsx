@@ -23,7 +23,19 @@ export interface FuentesCatalogo {
   catalogo: AccionesCatalogo;
   /** Corrige la profundidad de fábrica en el servidor (oficina, en línea). */
   fijarProfundidad?: (medidaId: string, profundidad: number | null) => Promise<R>;
+  /** El texto de arriba: el catálogo general (plataforma) no funciona sin señal. */
+  descripcion?: string;
 }
+
+/** Crear devuelve el mensaje del fallo en vez de dejar escapar la excepción. */
+const intentar = async (f: () => Promise<void>): Promise<string | null> => {
+  try {
+    await f();
+    return null;
+  } catch (e) {
+    return (e as Error).message || "No se pudo crear";
+  }
+};
 
 const etiquetaEje = (t: string) => (tiposEje as Record<string, { etiqueta: string }>)[t]?.etiqueta ?? t;
 
@@ -51,8 +63,8 @@ export function PantallaCatalogo({ fuentes }: { fuentes: FuentesCatalogo }) {
   return (
     <ScrollView style={estilos.pantalla} contentContainerStyle={estilos.contenido} keyboardShouldPersistTaps="handled">
       <Text style={estilos.detalle}>
-        Marca, diseño y medida, con la profundidad de fábrica de cada medida: de ella sale el desgaste. Lo que agregas
-        aquí funciona sin señal y viaja con la próxima sincronización.
+        {fuentes.descripcion ??
+          "Marca, diseño y medida, con la profundidad de fábrica de cada medida: de ella sale el desgaste. Lo que agregas aquí funciona sin señal y viaja con la próxima sincronización."}
       </Text>
 
       <ListaBuscable
@@ -68,12 +80,12 @@ export function PantallaCatalogo({ fuentes }: { fuentes: FuentesCatalogo }) {
         alta={{
           etiqueta: "Agregar marca",
           evaluar: (t) => evaluarAltaNombre(t, marcas),
-          onCrear: async (v) => {
-            const m = await catalogo.crearMarca(v);
-            setMarcaId(m.id);
-            setDisenoId(null);
-            return null;
-          },
+          onCrear: (v) =>
+            intentar(async () => {
+              const m = await catalogo.crearMarca(v);
+              setMarcaId(m.id);
+              setDisenoId(null);
+            }),
         }}
       />
 
@@ -91,11 +103,11 @@ export function PantallaCatalogo({ fuentes }: { fuentes: FuentesCatalogo }) {
               etiqueta: "Agregar diseño",
               evaluar: (t) => evaluarAltaNombre(t, disenos),
               nota: `Se registra como ${etiquetaEje(tipoEjeNuevo).toLowerCase()} (elígelo abajo).`,
-              onCrear: async (v) => {
-                const d = await catalogo.crearDiseno(marca.id, v, tipoEjeNuevo);
-                setDisenoId(d.id);
-                return null;
-              },
+              onCrear: (v) =>
+                intentar(async () => {
+                  const d = await catalogo.crearDiseno(marca.id, v, tipoEjeNuevo);
+                  setDisenoId(d.id);
+                }),
             }}
           />
           <Text style={estilos.etiqueta}>Tipo de eje del diseño nuevo</Text>
@@ -127,11 +139,11 @@ export function PantallaCatalogo({ fuentes }: { fuentes: FuentesCatalogo }) {
                 etiqueta: "Profundidad de fábrica en mm",
                 ayuda: "Si no la sabes, déjala vacía: el desgaste se calcula cuando se complete.",
               },
-              onCrear: async (v, n) => {
-                await catalogo.crearMedida(diseno.id, v, n);
-                await cargar();
-                return null;
-              },
+              onCrear: (v, n) =>
+                intentar(async () => {
+                  await catalogo.crearMedida(diseno.id, v, n);
+                  await cargar();
+                }),
             }}
           />
         </>

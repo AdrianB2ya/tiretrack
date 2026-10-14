@@ -72,6 +72,16 @@ export class ServicioCatalogo {
     return e.esGlobal || e.empresaId === empresaId;
   }
 
+  /**
+   * El superadmin no tiene empresa: lo que crea es del catálogo GENERAL, el
+   * que ven todas las empresas. Ve solo lo global (su empresa es ""), así que
+   * los duplicados se comparan contra lo global. La base lo permite solo con
+   * un contexto de superadmin (rls.sql, @seccion:plataforma_catalogo).
+   */
+  private esPlataforma(ctx: Contexto): boolean {
+    return ctx.rol === "superadmin";
+  }
+
   // ── Creación ──────────────────────────────────────────────────────────────
 
   /**
@@ -115,7 +125,8 @@ export class ServicioCatalogo {
 
     const marca = await this.repo.crearMarca({
       id: entrada.id ?? nuevoId(),
-      empresaId: ctx.empresaId,
+      empresaId: this.esPlataforma(ctx) ? null : ctx.empresaId,
+      esGlobal: this.esPlataforma(ctx),
       nombre,
       // Lo que crea el técnico en campo queda marcado para revisión
       creadaEnCampo: ctx.rol === "tecnico",
@@ -160,7 +171,8 @@ export class ServicioCatalogo {
     const diseno = await this.repo.crearDiseno({
       id: entrada.id ?? nuevoId(),
       marcaId: entrada.marcaId,
-      empresaId: ctx.empresaId,
+      empresaId: this.esPlataforma(ctx) ? null : ctx.empresaId,
+      esGlobal: this.esPlataforma(ctx),
       nombre,
       tipoEje: entrada.tipoEje ?? "multiuso",
       creadaEnCampo: ctx.rol === "tecnico",
@@ -197,7 +209,7 @@ export class ServicioCatalogo {
     // duplicado, es la misma medida que ya llegó.
     if (entrada.id) {
       const previa = await this.repo.buscarMedida(entrada.id);
-      if (previa && previa.disenoId === entrada.disenoId && previa.empresaId === ctx.empresaId) {
+      if (previa && previa.disenoId === entrada.disenoId && previa.empresaId === (this.esPlataforma(ctx) ? null : ctx.empresaId)) {
         return { ok: true, valor: previa };
       }
     }
@@ -209,7 +221,7 @@ export class ServicioCatalogo {
 
     const creada = await this.repo.crearMedida({
       id: entrada.id ?? nuevoId(),
-      empresaId: ctx.empresaId,
+      empresaId: this.esPlataforma(ctx) ? null : ctx.empresaId,
       disenoId: entrada.disenoId,
       medida,
       profundidadOriginal: entrada.profundidadOriginal ?? null,
@@ -224,11 +236,14 @@ export class ServicioCatalogo {
    * ella no se calcula el desgaste; las globales las administra la plataforma.
    */
   async fijarProfundidadOriginal(ctx: Contexto, id: string, profundidad: number | null): Promise<Resultado<void>> {
-    if (ctx.rol !== "administrador" && ctx.rol !== "coordinador") {
+    if (ctx.rol !== "administrador" && ctx.rol !== "coordinador" && !this.esPlataforma(ctx)) {
       return fallo("SIN_PERMISO", "La profundidad de fábrica la corrige la oficina");
     }
     const m = await this.repo.buscarMedida(id);
-    if (!m || m.empresaId !== ctx.empresaId) return fallo("NO_EXISTE", "No existe, o es del catálogo general");
+    // Cada uno corrige lo suyo: la empresa sus medidas, la plataforma las del
+    // catálogo general.
+    const propia = this.esPlataforma(ctx) ? m?.empresaId === null : m?.empresaId === ctx.empresaId;
+    if (!m || !propia) return fallo("NO_EXISTE", "No existe, o es del catálogo general");
     await this.repo.fijarProfundidadOriginal(id, profundidad);
     return { ok: true, valor: undefined };
   }
