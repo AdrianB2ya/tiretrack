@@ -3551,6 +3551,41 @@ servicios, y el valor se agrega cuando D entre.
   soporte, copias).
 
 
+## Plan de la tercera ronda (2026-10-13)
+
+**Pedido del usuario:** desarrollar todos los puntos en orden, sin dejar
+nada pendiente; las preguntas se juntan para el final (sección "Preguntas
+para el final" de abajo). Cada tarea, su commit. Alcance: pendientes 8 a 15,
+lineamientos, brechas A, B, C, E y F, bloqueo de órdenes y envío de informes.
+D queda fuera.
+
+- [ ] R1 Catálogo de llantas desde la app (marca, diseño, medida; en el
+  editor y en "Catálogo de llantas"; revisión incluye medidas)
+- [ ] R2 Límites por empresa (cambio inmediato, programar cambio,
+  profundidad baja) y su pantalla; llantas para cambio con los dos niveles
+- [ ] R3 Listas con búsqueda para catálogos y menús largos
+- [ ] R4 Orden de levantamiento (tipo de orden)
+- [ ] R5 Vencimiento por DOT visible en el editor y el PDF
+- [ ] R6 Diferencia de lados y diferencia de presión
+- [ ] R7 Bloqueo de órdenes (lo toma el técnico, lo liberan admin/coordinador)
+- [ ] R8 La llanta como activo: ficha, número interno, estado, vidas,
+  inventario por sede
+- [ ] R9 Kilómetros por llanta e indicadores del levantamiento (% rodado,
+  referencia de desgaste, km/mm, proyección, costo, CPK)
+- [ ] R10 Retiro y fallas: motivos, foto si es falla, causas, garantías
+- [ ] R11 Tableros, proyección de compras, portal del cliente con indicadores
+- [ ] R12 Carga masiva desde Excel (flota, llantas, catálogo)
+- [ ] R13 Avisos y envío de informes por correo (WhatsApp: compartir)
+- [ ] R14 Cotización (sin precios hasta D)
+- [ ] R15 Código QR del vehículo
+- [ ] R16 Plataforma: alta de empresas, sesión de soporte, copias
+- [ ] R17 Rediseño de flujos (más intuitivo)
+
+### Preguntas para el final
+
+(Se agregan a medida que aparecen; mientras, se toma la opción más
+conservadora y se anota aquí.)
+
 ## Tres profundidades y punto decimal (2026-10-09)
 
 Pendientes 3 y 6 de las pruebas en campo. Decisiones del usuario: exterior,
