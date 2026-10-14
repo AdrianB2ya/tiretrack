@@ -1,22 +1,47 @@
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useMemo } from "react";
+import { ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { BarraDeSesion } from "../../src/app/BarraDeSesion";
 import { NavegacionInferior } from "../../src/app/NavegacionInferior";
+import { useServicios } from "../../src/app/Arranque";
 import { useUsuario } from "../../src/app/ProveedorSesion";
 import { Tarjeta } from "../../src/diseno/componentes";
 import { colores, espacio, texto } from "../../src/diseno/tokens";
+import { EmpresasPlataforma, type EmpresaListada, type FuentesEmpresas } from "../../src/plataforma/EmpresasPlataforma";
 
 /**
  * Pantalla del superadministrador (cuenta de plataforma).
  *
  * El superadmin no pertenece a ninguna empresa y, por diseño, no ve datos
- * operativos sin abrir una sesión de suplantación con motivo, ticket y
- * vencimiento —que todavía no está construida—. Antes entraba a un panel
- * vacío con un error de descarga; ahora se le explica qué es su cuenta.
- * Decisión del usuario (2026-10-06): esta pantalla ahora, la suplantación
- * antes de tener una segunda empresa o de dar soporte real.
+ * operativos. Desde aquí da de alta empresas (R16) sin scripts.
  */
 export default function PantallaPlataforma() {
   const usuario = useUsuario();
+  const { enLinea } = useServicios();
+  const fuentes = useMemo<FuentesEmpresas>(() => {
+    const llamar = async <T,>(metodo: "GET" | "POST", ruta: string, cuerpo?: unknown) => {
+      const r = await enLinea<T>(metodo, ruta, cuerpo);
+      return r.ok
+        ? { ok: true as const, datos: r.datos }
+        : { ok: false as const, mensaje: r.status === 0 ? "Sin señal: la plataforma se administra en línea" : r.mensaje };
+    };
+    return {
+      empresas: () => llamar<EmpresaListada[]>("GET", "/plataforma/empresas"),
+      crear: (f) =>
+        llamar<{ codigo: string | null; expiraEn: string | null }>("POST", "/plataforma/empresas", {
+          empresa: { nombre: f.nombre.trim(), nit: f.nit.trim() },
+          sede: { nombre: f.sedeNombre.trim(), codigo: f.sedeCodigo.trim(), ...(f.sedeCiudad.trim() ? { ciudad: f.sedeCiudad.trim() } : {}) },
+          administrador: {
+            nombre: f.adminNombre.trim(),
+            cedula: f.adminCedula.trim(),
+            email: f.adminEmail.trim().toLowerCase(),
+            ...(f.adminTelefono.trim() ? { telefono: f.adminTelefono.trim() } : {}),
+          },
+        }),
+      // La hoja de compartir del sistema: WhatsApp, SMS, lo que tenga.
+      compartir: (mensaje) => void Share.share({ message: mensaje }).catch(() => undefined),
+    };
+  }, [enLinea]);
+
   return (
     <View style={estilos.pantalla}>
       <BarraDeSesion />
@@ -28,19 +53,7 @@ export default function PantallaPlataforma() {
             clientes ni mediciones de ninguna empresa.
           </Text>
         </Tarjeta>
-        <Tarjeta>
-          <Text style={estilos.subtitulo}>Para ayudar a una empresa</Text>
-          <Text style={estilos.detalle}>
-            Hará falta abrir una sesión de soporte con motivo, número de ticket y vencimiento; todo lo que se haga
-            en ella quedará registrado. Esa función todavía no está disponible.
-          </Text>
-        </Tarjeta>
-        <Tarjeta>
-          <Text style={estilos.subtitulo}>Mientras tanto</Text>
-          <Text style={estilos.detalle}>
-            El administrador de cada empresa gestiona sus usuarios, sedes y plantillas desde su propia cuenta.
-          </Text>
-        </Tarjeta>
+        <EmpresasPlataforma fuentes={fuentes} />
       </ScrollView>
       <NavegacionInferior activa="plataforma" />
     </View>
@@ -49,9 +62,7 @@ export default function PantallaPlataforma() {
 
 const estilos = StyleSheet.create({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
-  contenido: { padding: espacio.lg, gap: espacio.md },
+  contenido: { padding: espacio.lg, gap: espacio.md, paddingBottom: espacio.xxl },
   titulo: { ...texto.subtitulo, color: colores.texto },
-  subtitulo: { ...texto.cuerpoFuerte, color: colores.texto },
   cuerpo: { ...texto.cuerpo, color: colores.texto },
-  detalle: { ...texto.ayuda, color: colores.textoTenue },
 });

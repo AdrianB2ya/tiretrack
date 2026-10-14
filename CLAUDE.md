@@ -3680,6 +3680,29 @@ diseño sea global o de la empresa, y lo mismo la medida. Probado contra RLS
 real en `aislamiento.test.ts` (las tablas de diseño y medida no estaban en
 ese banco); con la política vieja, la prueba falla.
 
+## Plataforma: alta de empresas desde la app (R16, parte 1, 2026-10-14)
+
+Brecha F. Rutas `GET/POST /plataforma/empresas` (solo superadmin, sin
+empresa en el token); app `src/plataforma/EmpresasPlataforma.tsx` en la
+pantalla `plataforma`. `crear-empresa` (línea de comandos) sigue existiendo.
+
+- **Con el rol de aplicación, bajo RLS**: `crearEmpresa(db, alta,
+  { comoSuperadmin })` fija como contexto la empresa NUEVA dentro de la
+  transacción; cada fila pasa las políticas como si la escribiera esa
+  empresa. No se conectó la API como dueño ni se dio `BYPASSRLS`.
+- **Dos funciones estrechas** (`rls.sql`, `@seccion:plataforma`,
+  migración `20261014180000_plataforma`): `empresas_para_plataforma()`
+  (id, nombre, NIT, activa, fecha) y `nit_de_empresa_en_uso(nit)`. Solo
+  responden si el contexto de la petición es de superadmin; para otro rol,
+  nada / false. Leen "Empresa" gracias a la política `trabajos_dueno`.
+- El NIT se compara **solo por dígitos** (también en la herramienta).
+- El administrador recibe su **código de activación**, emitido por el
+  servicio de acceso después de confirmar, mostrado una vez con el mensaje
+  para WhatsApp de siempre. Queda en la auditoría con el superadmin como
+  autor (`alta_desde_la_app`).
+- La prueba (`plataforma.test.ts`) corre como `tiretrack_app` con RLS
+  forzado, igual que la del planificador.
+
 ## Código QR del vehículo (R15, 2026-10-14)
 
 Brecha E. Dominio `flota/qr.ts`; servidor `flota/etiquetasQr.ts`,
@@ -4111,7 +4134,7 @@ identificador **`com.asistectire.app`**, rojo de la marca **como acento**.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 1098/1098, mobile 1009 + recorrido 649.
+**Verificado:** `npm run verify` con base: raíz 1103/1103, mobile 1013 + recorrido 649.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

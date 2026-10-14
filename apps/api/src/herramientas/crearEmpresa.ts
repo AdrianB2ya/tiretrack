@@ -37,18 +37,42 @@ export type ResultadoAlta =
 /** El código lo emite el servicio de acceso, el único que guarda su huella. */
 export type EmitirCodigo = (usuarioId: string) => Promise<{ codigo: string; expiraEn: Date } | null>;
 
-export async function crearEmpresa(db: pg.PoolClient | pg.Client, entrada: unknown): Promise<ResultadoAlta> {
+/**
+ * `comoSuperadmin`: el alta desde la app (R16). Corre con el rol de
+ * aplicación, bajo RLS: dentro de la transacción se fija como contexto la
+ * empresa nueva, así cada fila pasa las políticas como si la escribiera esa
+ * empresa. El NIT se comprueba con `nit_de_empresa_en_uso` (rls.sql), que
+ * solo responde a un contexto de superadmin. Sin la opción, la herramienta de
+ * línea de comandos corre como dueño, como antes.
+ */
+export async function crearEmpresa(
+  db: pg.PoolClient | pg.Client,
+  entrada: unknown,
+  opciones: { comoSuperadmin?: string } = {},
+): Promise<ResultadoAlta> {
   const p = zAltaEmpresa.safeParse(entrada);
   if (!p.success) return { ok: false, motivo: p.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ") };
   const d = p.data;
 
-  const nitRepetido = await db.query(`SELECT 1 FROM "Empresa" WHERE nit = $1`, [d.empresa.nit]);
-  if (nitRepetido.rowCount) return { ok: false, motivo: `Ya existe una empresa con NIT ${d.empresa.nit}` };
   const ids = { empresa: nuevoId(), sede: nuevoId(), admin: nuevoId() };
   const hashInutilizable = await bcrypt.hash(randomBytes(32).toString("base64url"), 12);
 
   await db.query("BEGIN");
   try {
+    if (opciones.comoSuperadmin) {
+      await db.query(
+        `SELECT set_config('app.empresa_id', $1, true), set_config('app.rol', 'superadmin', true),
+                set_config('app.usuario_id', $2, true), set_config('app.cliente_id', '', true)`,
+        [ids.empresa, opciones.comoSuperadmin],
+      );
+    }
+    const nitRepetido = opciones.comoSuperadmin
+      ? (await db.query<{ usado: boolean }>(`SELECT nit_de_empresa_en_uso($1) AS usado`, [d.empresa.nit])).rows[0]?.usado === true
+      : Boolean((await db.query(`SELECT 1 FROM "Empresa" WHERE regexp_replace(nit, '\\D', '', 'g') = regexp_replace($1, '\\D', '', 'g')`, [d.empresa.nit])).rowCount);
+    if (nitRepetido) {
+      await db.query("ROLLBACK");
+      return { ok: false, motivo: `Ya existe una empresa con NIT ${d.empresa.nit}` };
+    }
     await db.query(`INSERT INTO "Empresa" (id, nombre, nit) VALUES ($1,$2,$3)`, [ids.empresa, d.empresa.nombre, d.empresa.nit]);
     await db.query(
       `INSERT INTO "Sede" (id, "empresaId", nombre, codigo, ciudad) VALUES ($1,$2,$3,$4,$5)`,
@@ -70,9 +94,12 @@ export async function crearEmpresa(db: pg.PoolClient | pg.Client, entrada: unkno
     );
     await db.query(`INSERT INTO "UsuarioSede" ("usuarioId", "sedeId", "esPrincipal") VALUES ($1,$2,true)`, [ids.admin, ids.sede]);
     await db.query(
-      `INSERT INTO "Auditoria" (id, "empresaId", rol, accion, entidad, "entidadId", detalle)
-       VALUES ($1,$2,'superadmin','crear','empresa',$2,$3)`,
-      [nuevoId(), ids.empresa, JSON.stringify({ origen: "alta_de_empresa", administrador: d.administrador.email })],
+      `INSERT INTO "Auditoria" (id, "empresaId", "usuarioId", rol, accion, entidad, "entidadId", detalle)
+       VALUES ($1,$2,$3,'superadmin','crear','empresa',$2,$4)`,
+      [
+        nuevoId(), ids.empresa, opciones.comoSuperadmin ?? null,
+        JSON.stringify({ origen: opciones.comoSuperadmin ? "alta_desde_la_app" : "alta_de_empresa", administrador: d.administrador.email }),
+      ],
     );
     await db.query("COMMIT");
   } catch (e) {

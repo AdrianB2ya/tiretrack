@@ -60,6 +60,7 @@ import { ServicioLlantas } from "../llantas/servicio";
 import { ServicioReclamos } from "../llantas/reclamos";
 import { tableroDeFlota } from "../informe/tablero";
 import { ServicioCarga } from "../carga/servicio";
+import { crearEmpresa } from "../herramientas/crearEmpresa";
 import { MAX_ETIQUETAS, pdfEtiquetas, vehiculosParaEtiquetas } from "../flota/etiquetasQr";
 import { cotizacionDe, pdfCotizacion } from "../informe/cotizacion";
 import { CorreoDesactivado, type Correo } from "../correo/correo";
@@ -1011,6 +1012,64 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
         (_a, r, mensaje) =>
           correoLlantasParaCambio({ empresa: r.empresa, fecha: fechaEnColombia(reloj()), llantas, quien: r.quien, ...(mensaje ? { mensaje } : {}) }),
       );
+    });
+
+    // ── Plataforma (R16): alta y listado de empresas ──
+    // Solo el superadmin. No tiene empresa: con RLS no ve ninguna, y para
+    // listarlas y comprobar el NIT usa dos funciones estrechas de rls.sql que
+    // solo responden a un contexto de superadmin.
+
+    const superadminDe = (req: FastifyRequest): { ok: true; usuarioId: string } | { ok: false; status: number; cuerpo: unknown } => {
+      const auth = req.headers.authorization;
+      const claims = auth?.startsWith("Bearer ") ? op.verificarToken(auth.slice(7)) : null;
+      if (!claims) return { ok: false, status: 401, cuerpo: { error: { codigo: "NO_AUTENTICADO", mensaje: "Sesión inválida" } } };
+      if (claims.rol !== "superadmin" || claims.empresaId) {
+        return { ok: false, status: 403, cuerpo: { error: { codigo: "SIN_PERMISO", mensaje: "Solo la plataforma administra empresas" } } };
+      }
+      return { ok: true, usuarioId: claims.sub };
+    };
+
+    app.get("/plataforma/empresas", async (req, reply) => {
+      const s = superadminDe(req);
+      if (!s.ok) return reply.status(s.status).send(s.cuerpo);
+      const ctx: Contexto = { empresaId: "", rol: "superadmin", usuarioId: s.usuarioId, clienteId: null, vistaCliente: false };
+      const filas = await enTransaccion(op.pool, ctx, async (db) => ({
+        confirmar: false,
+        valor: (await db.query(`SELECT id, nombre, nit, activa, to_char("creadoEn", 'YYYY-MM-DD') AS "creadaEn" FROM empresas_para_plataforma()`)).rows,
+      }));
+      return reply.status(200).send(filas);
+    });
+
+    app.post("/plataforma/empresas", async (req, reply) => {
+      const s = superadminDe(req);
+      if (!s.ok) return reply.status(s.status).send(s.cuerpo);
+      const db = await op.pool.connect();
+      let r: Awaited<ReturnType<typeof crearEmpresa>>;
+      try {
+        r = await crearEmpresa(db, req.body ?? {}, { comoSuperadmin: s.usuarioId });
+      } catch (e) {
+        // Un código de sede o un correo que choca con una clave única: es un
+        // dato repetido, no una falla del servidor.
+        if ((e as { code?: string }).code === "23505") {
+          return reply.status(409).send({ error: { codigo: "YA_EXISTE", mensaje: "Algún dato ya está registrado (código de sede o correo)" } });
+        }
+        throw e;
+      } finally {
+        db.release();
+      }
+      if (!r.ok) {
+        const repetido = r.motivo.startsWith("Ya existe");
+        return reply.status(repetido ? 409 : 422).send({ error: { codigo: repetido ? "EMPRESA_EXISTENTE" : "DATOS_INVALIDOS", mensaje: r.motivo } });
+      }
+      // Ya confirmada: el código lo emite el servicio de acceso, el único que
+      // guarda su huella. Se muestra una sola vez.
+      const codigo = await op.auth.crearCodigoActivacion(r.administradorId);
+      return reply.status(200).send({
+        empresaId: r.empresaId,
+        administradorId: r.administradorId,
+        codigo: codigo?.codigo ?? null,
+        expiraEn: codigo?.expiraEn.toISOString() ?? null,
+      });
     });
 
     // ── Código QR del vehículo (R15) ──
