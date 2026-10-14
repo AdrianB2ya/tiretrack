@@ -14,3 +14,4 @@ export * from "./comunes";
 export * from "./auth";
 export * from "./orden";
 export * from "./catalogo";
+export * from "./llantas";

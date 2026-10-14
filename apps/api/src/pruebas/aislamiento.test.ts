@@ -226,6 +226,11 @@ cuando("aislamiento entre empresas", () => {
       clienteId: "cli-a",
     };
 
+    it("solo ve las llantas de su propia flota (R8)", async () => {
+      const r = await bd.comoUsuario(ctxCliente, `SELECT id FROM "Llanta" ORDER BY id`);
+      expect(r.rows.map((x) => x.id)).toEqual(["ll-a"]);
+    });
+
     it("solo ve las órdenes de su propio cliente", async () => {
       const r = await bd.comoUsuario(ctxCliente, `SELECT id FROM "OrdenServicio" ORDER BY id`);
       expect(r.rows.map((x) => x.id)).toEqual(["ord-a", "ord-a2"]);
@@ -252,6 +257,21 @@ cuando("aislamiento entre empresas", () => {
           `INSERT INTO "LlantaRegistro" (id, "ordenId", "configuracionEjeId", posicion, "capturadoPorId")
            VALUES ('lr-cli', 'ord-a', 'cfg-a', 1, 'tec-a')`,
         ),
+      ).rejects.toThrow(/row-level security|política|policy/i);
+    });
+  });
+
+  describe("llantas (R8)", () => {
+    it("cada empresa ve solo sus llantas", async () => {
+      const a = await bd.comoUsuario(CTX_COORDINADOR_A, `SELECT id FROM "Llanta" ORDER BY id`);
+      const b = await bd.comoUsuario(CTX_COORDINADOR_B, `SELECT id FROM "Llanta" ORDER BY id`);
+      expect(a.rows.map((x) => x.id)).toEqual(["ll-a", "ll-a-otro"]);
+      expect(b.rows.map((x) => x.id)).toEqual(["ll-b"]);
+    });
+
+    it("una empresa no crea llantas a nombre de otra", async () => {
+      await expect(
+        bd.comoUsuario(CTX_COORDINADOR_B, `INSERT INTO "Llanta" (id, "empresaId", "clienteId", serial) VALUES ('ll-x', 'emp-a', 'cli-a', 'X')`),
       ).rejects.toThrow(/row-level security|política|policy/i);
     });
   });

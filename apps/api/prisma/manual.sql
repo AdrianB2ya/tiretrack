@@ -204,3 +204,25 @@ ALTER TABLE "Empresa" ADD CONSTRAINT "Empresa_limites_coherentes"
 -- Bloqueada o no, nunca a medias: quién y desde cuándo van juntos.
 ALTER TABLE "OrdenServicio" ADD CONSTRAINT orden_bloqueo_completo
   CHECK (("bloqueadaPorId" IS NULL) = ("bloqueadaEn" IS NULL));
+
+-- ── La llanta como activo (R8) ──────────────────────────────────────────────
+-- Llaves compuestas con empresaId, y coherencia que la base garantiza.
+ALTER TABLE "Llanta" ADD CONSTRAINT "Llanta_cliente_empresa_fkey"
+  FOREIGN KEY ("clienteId", "empresaId") REFERENCES "Cliente"("id", "empresaId");
+ALTER TABLE "Llanta" ADD CONSTRAINT "Llanta_sede_empresa_fkey"
+  FOREIGN KEY ("sedeId", "empresaId") REFERENCES "Sede"("id", "empresaId");
+ALTER TABLE "LlantaVida" ADD CONSTRAINT "LlantaVida_llanta_empresa_fkey"
+  FOREIGN KEY ("llantaId", "empresaId") REFERENCES "Llanta"("id", "empresaId");
+ALTER TABLE "LlantaMovimiento" ADD CONSTRAINT "LlantaMovimiento_llanta_empresa_fkey"
+  FOREIGN KEY ("llantaId", "empresaId") REFERENCES "Llanta"("id", "empresaId");
+ALTER TABLE "StockMinimo" ADD CONSTRAINT "StockMinimo_sede_empresa_fkey"
+  FOREIGN KEY ("sedeId", "empresaId") REFERENCES "Sede"("id", "empresaId");
+ALTER TABLE "Llanta" ADD CONSTRAINT llanta_estado_valido
+  CHECK (estado IN ('bodega','montada','reencauche','reparacion','desecho'));
+ALTER TABLE "Llanta" ADD CONSTRAINT llanta_montada_tiene_lugar
+  CHECK (estado <> 'montada' OR ("vehiculoId" IS NOT NULL AND posicion IS NOT NULL));
+ALTER TABLE "Llanta" ADD CONSTRAINT llanta_identificable
+  CHECK (serial IS NOT NULL OR "numeroInterno" IS NOT NULL);
+ALTER TABLE "StockMinimo" ADD CONSTRAINT stock_minimo_no_negativo CHECK (cantidad >= 0);
+-- Una posición de un vehículo tiene a lo sumo una llanta montada.
+CREATE UNIQUE INDEX llanta_una_por_posicion ON "Llanta"("vehiculoId", posicion) WHERE estado = 'montada';

@@ -1027,6 +1027,46 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
     });
   });
 
+  describe("la llanta como activo (R8)", () => {
+    const traer = (ruta: string, token = "tok-coordinador") =>
+      app.inject({ method: "GET", url: PREFIJO_API + ruta, headers: { authorization: `Bearer ${token}` } });
+
+    it("aprobar la orden arma la historia de sus llantas, en la misma transacción", async () => {
+      const g = await guardarMedicion(medicion(1, { serial: "MX-500" }));
+      expect(g.statusCode, g.body).toBeLessThan(300);
+      // A revisión, con la firma vigente sobre el contenido actual.
+      await pool.query(
+        `UPDATE "OrdenServicio" SET estado = 'en_revision', "firmaNombre" = 'Luis', "firmaCedula" = '77',
+                "firmaVersion" = "versionContenido" WHERE id = $1`,
+        [ORDEN],
+      );
+      await pool.query(`INSERT INTO "UsuarioSede" ("usuarioId","sedeId") VALUES ($1,$2)`, [SEMILLA.coordinador, SEMILLA.sede]);
+      const r = await pedir({ ruta: `/ordenes/${ORDEN}/estado`, token: "tok-coordinador", cuerpo: { estado: "pendiente_cliente" } });
+      expect(r.statusCode, r.body).toBe(200);
+      const lista = await traer(`/llantas?vehiculoId=${SEMILLA.vehiculo}`);
+      expect(lista.json()).toEqual([expect.objectContaining({ serial: "MX500", estado: "montada", posicion: 1, vehiculoCodigo: "CA-12" })]);
+      const ficha = await traer(`/llantas/${lista.json()[0].id}`);
+      expect(ficha.json().movimientos.map((m: { tipo: string }) => m.tipo)).toEqual(["montaje"]);
+    });
+
+    it("la oficina da de alta en bodega y la mueve; el técnico solo consulta", async () => {
+      const id = nuevoId();
+      const cuerpo = { id, clienteId: SEMILLA.cliente, sedeId: SEMILLA.sede, numeroInterno: "A-17", medida: "11R22.5" };
+      expect((await pedir({ ruta: "/llantas", token: "tok-tecnico", clave: null, cuerpo })).statusCode).toBe(403);
+      expect((await pedir({ ruta: "/llantas", token: "tok-coordinador", clave: null, cuerpo })).statusCode).toBe(201);
+      const mal = await pedir({ ruta: `/llantas/${id}/movimientos`, token: "tok-coordinador", clave: null, cuerpo: { tipo: "retorno_reencauche" } });
+      expect(mal.statusCode).toBe(409);
+      const bien = await pedir({ ruta: `/llantas/${id}/movimientos`, token: "tok-coordinador", clave: null, cuerpo: { tipo: "envio_reencauche" } });
+      expect(bien.json().estado).toBe("reencauche");
+      expect((await traer("/llantas?estado=reencauche", "tok-tecnico")).json()).toHaveLength(1);
+    });
+
+    it("sin serial ni número interno no hay activo", async () => {
+      const r = await pedir({ ruta: "/llantas", token: "tok-coordinador", clave: null, cuerpo: { id: nuevoId(), clienteId: SEMILLA.cliente, sedeId: SEMILLA.sede } });
+      expect(r.statusCode).toBe(422);
+    });
+  });
+
   describe("bloqueo de la orden (R7)", () => {
     const bloquear = (token: string) => pedir({ ruta: `/ordenes/${ORDEN}/bloqueo`, token, clave: null });
     const liberar = (token: string, motivo?: string) =>

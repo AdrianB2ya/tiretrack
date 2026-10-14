@@ -347,6 +347,13 @@ export class BaseDePruebas {
         "esGlobal" boolean NOT NULL DEFAULT false
       );
 
+      CREATE TABLE "Llanta" (
+        id text PRIMARY KEY,
+        "empresaId" text NOT NULL REFERENCES "Empresa"(id),
+        "clienteId" text NOT NULL REFERENCES "Cliente"(id),
+        serial text
+      );
+
       CREATE TABLE "DisenoMedida" (
         id text PRIMARY KEY,
         "empresaId" text REFERENCES "Empresa"(id),
@@ -525,6 +532,13 @@ export class BaseDePruebas {
         ],
       );
     }
+
+    // Llantas (R8). 'll-a-otro' es de la empresa A pero de otro cliente: el
+    // portal del cliente A no debe verla aunque la empresa coincida.
+    await this.admin.query(
+      `INSERT INTO "Llanta" (id, "empresaId", "clienteId", serial)
+       VALUES ('ll-a', 'emp-a', 'cli-a', 'MX1'), ('ll-a-otro', 'emp-a', 'cli-b', 'MX2'), ('ll-b', 'emp-b', 'cli-b', 'MX3')`,
+    );
 
     // Marca global: visible para las dos empresas
     await this.admin.query(

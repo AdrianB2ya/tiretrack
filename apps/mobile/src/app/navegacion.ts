@@ -84,6 +84,13 @@ export function opcionesMas(rol: Rol | string): OpcionMas[] {
     o.push({ clave: "usuarios", etiqueta: "Usuarios", detalle: "Altas y códigos de activación", ruta: "/usuarios" });
     o.push({ clave: "sedes", etiqueta: "Sedes", detalle: "Sedes de la empresa", ruta: "/sedes" });
   }
+  // R8: el inventario lo consulta cualquiera de la empresa y el cliente (el suyo).
+  if (r !== "superadmin") {
+    o.push({ clave: "llantas", etiqueta: "Llantas", detalle: "Cada llanta: dónde está, sus vidas y su historia", ruta: "/llantas" });
+  }
+  if (puedeGestionarCatalogo(r)) {
+    o.push({ clave: "stock", etiqueta: "Stock de bodega", detalle: "Llantas en bodega por sede y medida, contra el mínimo", ruta: "/stock" });
+  }
   if (puedeGestionarCatalogo(r)) {
     o.push({ clave: "catalogo", etiqueta: "Catálogo de llantas", detalle: "Marcas, diseños y medidas con su profundidad de fábrica", ruta: "/catalogo" });
   }

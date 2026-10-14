@@ -686,6 +686,11 @@ model LlantaRegistro {
   posicion           Int
   posicionEje        PosicionEje @relation(fields: [configuracionEjeId, posicion], references: [configuracionEjeId, numero])
 
+  /// El activo medido y el que salió (R8). Nulos si la llanta no se pudo
+  /// identificar: un dato faltante no se inventa.
+  llantaId     String?
+  desLlantaId  String?
+
   marcaId      String?
   disenoId     String?
   medida       String?
@@ -955,4 +960,96 @@ model OperacionAplicada {
 
   @@id([empresaId, clave])
   @@index([creadaEn])
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// LA LLANTA COMO ACTIVO (R8)
+// ════════════════════════════════════════════════════════════════════════════
+// Las llaves foráneas van en la migración (compuestas con empresaId, como la
+// orden): una llanta no puede apuntar a un cliente de otra empresa.
+
+/// Una llanta física, del cliente, administrada por la empresa. Se sigue por
+/// serial o número interno; sin ninguno de los dos no es un activo.
+model Llanta {
+  id            String    @id
+  empresaId     String
+  clienteId     String
+  /// Sede de la empresa donde está guardada, cuando está en bodega.
+  sedeId        String?
+  /// Marcado a fuego o etiqueta: el que usa el taller para llamarla.
+  numeroInterno String?
+  serial        String?
+  numCalor      String?
+  dot           String?
+  marcaId       String?
+  disenoId      String?
+  medida        String?
+  /// bodega | montada | reencauche | reparacion | desecho (dominio llanta/activo)
+  estado        String    @default("bodega")
+  vehiculoId    String?
+  posicion      Int?
+  /// Reencauches hechos: 0 es la llanta original.
+  vidas         Int       @default(0)
+  /// Costo de compra (vida 0). Dinero: Decimal.
+  costo         Decimal?  @db.Decimal(14, 2)
+  activa        Boolean   @default(true)
+  creadoEn      DateTime  @default(now())
+  actualizadoEn DateTime  @updatedAt
+
+  @@unique([empresaId, clienteId, serial])
+  @@unique([empresaId, clienteId, numeroInterno])
+  @@unique([id, empresaId])
+  @@index([empresaId, estado])
+  @@index([empresaId, vehiculoId])
+  @@index([empresaId, sedeId, estado])
+}
+
+/// Cada vida de la llanta: la original (0) y cada reencauche.
+model LlantaVida {
+  id                 String   @id
+  empresaId          String
+  llantaId           String
+  numero             Int
+  /// Diseño de la banda de reencauche.
+  banda              String?
+  reencauchadora     String?
+  costo              Decimal? @db.Decimal(14, 2)
+  profundidadInicial Decimal? @db.Decimal(5, 2)
+  inicio             DateTime @db.Date
+  creadoEn           DateTime @default(now())
+
+  @@unique([llantaId, numero])
+  @@index([empresaId, llantaId])
+}
+
+/// La historia de la llanta: dónde estuvo y qué le pasó. Nada se borra.
+model LlantaMovimiento {
+  id          String   @id
+  empresaId   String
+  llantaId    String
+  /// dominio llanta/activo: ingreso, montaje, desmontaje, envio_reencauche…
+  tipo        String
+  fecha       DateTime @db.Date
+  vehiculoId  String?
+  posicion    Int?
+  ordenId     String?
+  kilometraje Int?
+  sedeId      String?
+  detalle     String?
+  usuarioId   String?
+  creadoEn    DateTime @default(now())
+
+  @@index([empresaId, llantaId])
+  @@index([empresaId, ordenId])
+}
+
+/// Cuántas llantas de una medida debería haber en bodega en una sede.
+model StockMinimo {
+  id        String @id
+  empresaId String
+  sedeId    String
+  medida    String
+  cantidad  Int
+
+  @@unique([empresaId, sedeId, medida])
 }

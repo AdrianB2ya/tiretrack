@@ -155,7 +155,9 @@ BEGIN
     'OperacionAplicada',
     -- Faltaba: con los permisos por defecto del rol de aplicación, cualquier
     -- empresa leía las suplantaciones de las demás, con motivo y ticket.
-    'SesionSuplantacion'
+    'SesionSuplantacion',
+    -- La llanta como activo (R8).
+    'Llanta', 'LlantaVida', 'LlantaMovimiento', 'StockMinimo'
   ]
   LOOP
     -- Se salta lo que no exista. Sin esto el bucle es atómico: una sola
@@ -341,6 +343,12 @@ DROP POLICY IF EXISTS cliente_solo_lo_suyo ON "Cliente";
 CREATE POLICY cliente_solo_lo_suyo ON "Cliente"
   AS RESTRICTIVE
   USING (app_rol() <> 'cliente' OR id = app_cliente_id());
+
+-- R8: el cliente ve sus llantas, no las de otra flota.
+DROP POLICY IF EXISTS cliente_solo_lo_suyo ON "Llanta";
+CREATE POLICY cliente_solo_lo_suyo ON "Llanta"
+  AS RESTRICTIVE
+  USING (app_rol() <> 'cliente' OR "clienteId" = app_cliente_id());
 
 DROP POLICY IF EXISTS cliente_solo_lo_suyo ON "SedeCliente";
 CREATE POLICY cliente_solo_lo_suyo ON "SedeCliente"

@@ -3568,7 +3568,7 @@ D queda fuera.
 - [x] R5 Vencimiento por DOT visible en el editor y el PDF
 - [x] R6 Diferencia de lados y diferencia de presión
 - [x] R7 Bloqueo de órdenes (lo toma el técnico, lo liberan admin/coordinador)
-- [ ] R8 La llanta como activo: ficha, número interno, estado, vidas,
+- [x] R8 La llanta como activo: ficha, número interno, estado, vidas,
   inventario por sede
 - [ ] R9 Kilómetros por llanta e indicadores del levantamiento (% rodado,
   referencia de desgaste, km/mm, proyección, costo, CPK)
@@ -3600,6 +3600,11 @@ conservadora y se anota aquí.)
    mm en adelante"). Se informa; no bloquea ni pide confirmar.
 6. **R7 — el técnico suelta la orden sin motivo** y la oficina con motivo
    de al menos 10 letras. ¿Correcto, o el técnico también debe decir por qué?
+8. **R8 — la llanta es del cliente** (la flota es suya) y la empresa la
+   administra; el inventario de bodega es por sede de la empresa. ¿Así lo
+   manejan, o hay llantas propias de Asistectire (para vender o prestar)?
+9. **R8 — la historia se arma al aprobar la orden** (pasa a esperar al
+   cliente), no al capturar: lo que el coordinador revisó. ¿Correcto?
 7. **R7 — un técnico con la orden bloqueada que la oficina reasigna**: hoy la
    oficina tiene que liberarla primero (decisión del usuario). Se tomó que
    anular también lo exige. ¿Correcto?
@@ -3643,6 +3648,41 @@ diseño que una empresa creaba bajo una marca global (su "XZE" de Michelin)
 diseño sea global o de la empresa, y lo mismo la medida. Probado contra RLS
 real en `aislamiento.test.ts` (las tablas de diseño y medida no estaban en
 ese banco); con la política vieja, la prueba falla.
+
+## La llanta como activo (R8, 2026-10-14)
+
+Brecha A. Dominio `llanta/activo.ts`: estados (bodega, montada, reencauche,
+reparación, desecho), movimientos y qué pasos valen desde cada estado
+(`evaluarMovimiento`), `estadoTrasDesmontaje` (el destino que anotó el
+técnico), `claveIdentificador` (serial sin espacios ni guiones).
+
+- **Tablas** `Llanta` (del cliente; serial o número interno obligatorio,
+  únicos dentro del cliente), `LlantaVida` (0 = original, cada reencauche
+  una más, con banda, reencauchadora, costo y profundidad inicial),
+  `LlantaMovimiento` (la historia; nada se borra) y `StockMinimo` (por sede
+  y medida). `LlantaRegistro.llantaId` / `desLlantaId` atan la medición al
+  activo. Migración `20261014140000_llanta_activo`: llaves compuestas con
+  `empresaId`, CHECK de estado válido, montada con lugar, identificable, y
+  **una sola llanta montada por posición** (índice único parcial). RLS por
+  empresa, y el cliente solo ve las suyas (probado contra RLS real).
+- **La historia se arma sola desde las órdenes**: al aprobarse una orden
+  (pasa a `pendiente_cliente`), en la misma transacción, cada posición con
+  serial queda como la llanta montada ahí (se crea si no existía), la que
+  salió va al estado que anotó el técnico, una que aparece en otra posición
+  se rotó, y una montada que nadie reportó y cuyo lugar ocupa otra pasa a
+  bodega. **El técnico no hace nada nuevo.** Una sola vez por orden (si se
+  vuelve a aprobar, no se repite la historia). Las no identificadas no son
+  activo: no se inventa.
+- **La oficina** (en línea, auditado): alta en bodega (compra, con costo),
+  enviar y recibir de reencauche (vida nueva) o reparación, trasladar de
+  sede, desechar (segundo toque). Solo se ofrecen los pasos posibles.
+- **Rutas**: `GET /llantas` (filtros: estado, cliente, sede, vehículo,
+  búsqueda por serial / interno / calor), `GET /llantas/:id` (ficha: vidas,
+  historia, mediciones), `GET /llantas/stock`, `POST /llantas`,
+  `POST /llantas/:id/movimientos`, `POST /llantas/stock-minimo`.
+- **App**: "Más → Llantas" (todos menos el superadmin; el cliente ve las
+  suyas), ficha `llanta/[id]`, alta `llanta-nueva`, "Stock de bodega"
+  (oficina) con lo que está **por debajo del mínimo** dicho en texto.
 
 ## Bloqueo de la orden (R7, 2026-10-14)
 
@@ -3841,7 +3881,7 @@ identificador **`com.asistectire.app`**, rojo de la marca **como acento**.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 1015/1015, mobile 968 + recorrido 479.
+**Verificado:** `npm run verify` con base: raíz 1037/1037, mobile 977 + recorrido 544.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

@@ -49,6 +49,10 @@ const TABLAS_OPERATIVAS = [
   "Recomendacion",
   "ProgramacionRecurrente",
   "Consecutivo",
+  "Llanta",
+  "LlantaVida",
+  "LlantaMovimiento",
+  "StockMinimo",
 ];
 
 /** Tablas que cuelgan de otra y heredan el aislamiento por su padre. */

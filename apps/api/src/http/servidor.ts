@@ -12,6 +12,10 @@ import {
   zCrearMedida,
   zProfundidadOriginal,
   zLimitesEmpresa,
+  zCrearLlanta,
+  zMovimientoLlanta,
+  zFiltroLlantas,
+  zStockMinimo,
   zCrearMarca,
   zCrearOrden,
   zActivarCuenta,
@@ -49,6 +53,7 @@ import { fechaEnColombia, MAX_ORDENES_PDF, puedeAprobar, puedeVerAuditoria, ROLE
 import type { Claims, ResultadoActivacion, ResultadoLogin } from "../acceso/servicio";
 import { ServicioUsuarios } from "../usuarios/servicio";
 import { ServicioEmpresa } from "../empresa/servicio";
+import { ServicioLlantas } from "../llantas/servicio";
 import { ServicioProgramaciones } from "../programaciones/servicio";
 import { ServicioRecomendaciones } from "../recomendaciones/servicio";
 import { ServicioDocumento } from "../informe/documento";
@@ -193,6 +198,8 @@ const ESTADO_POR_CODIGO: Record<string, number> = {
   ORDEN_BLOQUEADA: 409,
   NO_BLOQUEADA: 409,
   ESTADO_INVALIDO: 409,
+  // Inventario (R8): el estado de la llanta no permite ese paso.
+  MOVIMIENTO_INVALIDO: 409,
 };
 
 function estadoDe(v: Veredicto): number {
@@ -325,6 +332,7 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
       informe: new ServicioInforme(db, reloj),
       usuarios: new ServicioUsuarios(db),
       empresa: new ServicioEmpresa(db),
+      llantas: new ServicioLlantas(db, reloj),
       programaciones: new ServicioProgramaciones(db),
       recomendaciones: new ServicioRecomendaciones(db),
       // Solo lectura de alertas: no abre transacciones propias.
@@ -675,6 +683,9 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
         ...(p.data.motivo ? { motivo: p.data.motivo } : {}),
       });
       if (!r.ok) return rechazo(r.veredicto);
+      // R8: aprobada, lo que se midió arma la historia de cada llanta. En la
+      // misma transacción: o queda la aprobación con su inventario, o nada.
+      if (r.valor.estado === "pendiente_cliente") await s.llantas.procesarOrden(ctx, r.valor.id);
       return { status: 200, cuerpo: { estado: r.valor.estado } };
     }));
 
@@ -774,6 +785,51 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
      * mínimo de su eje. Se calculaban en el servidor y no se le mostraban a
      * nadie. Solo la oficina, y solo sus sedes.
      */
+    // ── La llanta como activo (R8) ──
+    // En línea: es gestión de inventario en la oficina, no captura de campo.
+
+    app.get("/llantas", consulta(async (s, _ctx, req) => {
+      const p = zFiltroLlantas.safeParse(req.query ?? {});
+      if (!p.success) return datosInvalidos(p.error.issues);
+      return { status: 200, cuerpo: await s.llantas.listar(p.data) };
+    }));
+
+    app.get("/llantas/stock", consulta(async (s) => ({ status: 200, cuerpo: await s.llantas.stock() })));
+
+    app.get("/llantas/:id", consulta(async (s, _ctx, req) => {
+      const id = zId.safeParse(params(req).id);
+      if (!id.success) return { status: 404, cuerpo: { error: { codigo: "NO_EXISTE", mensaje: "No existe" } } };
+      const r = await s.llantas.ficha(id.data);
+      return r.ok ? { status: 200, cuerpo: r.valor } : rechazo(r.veredicto);
+    }));
+
+    app.post("/llantas", administracion(async (s, ctx, req) => {
+      const p = zCrearLlanta.safeParse(req.body ?? {});
+      if (!p.success) return datosInvalidos(p.error.issues);
+      const r = await s.llantas.crear(ctx, p.data);
+      if (!r.ok) return rechazo(r.veredicto);
+      await s.informe.registrarAuditoria(ctx, "crear", { entidad: "llanta", id: p.data.id });
+      return { status: 201, cuerpo: r.valor };
+    }));
+
+    app.post("/llantas/:id/movimientos", administracion(async (s, ctx, req) => {
+      const id = zId.safeParse(params(req).id);
+      if (!id.success) return { status: 404, cuerpo: { error: { codigo: "NO_EXISTE", mensaje: "No existe" } } };
+      const p = zMovimientoLlanta.safeParse(req.body ?? {});
+      if (!p.success) return datosInvalidos(p.error.issues);
+      const r = await s.llantas.mover(ctx, id.data, p.data);
+      if (!r.ok) return rechazo(r.veredicto);
+      await s.informe.registrarAuditoria(ctx, "actualizar", { entidad: "llanta", id: id.data, movimiento: p.data.tipo });
+      return { status: 200, cuerpo: r.valor };
+    }));
+
+    app.post("/llantas/stock-minimo", administracion(async (s, ctx, req) => {
+      const p = zStockMinimo.safeParse(req.body ?? {});
+      if (!p.success) return datosInvalidos(p.error.issues);
+      const r = await s.llantas.fijarStockMinimo(ctx, p.data);
+      return r.ok ? { status: 200, cuerpo: {} } : rechazo(r.veredicto);
+    }));
+
     // ── Límites de cambio de la empresa (R2) ──
 
     app.get("/empresa/limites", consulta(async (s, ctx) => ({ status: 200, cuerpo: await s.empresa.limites(ctx.empresaId) })));

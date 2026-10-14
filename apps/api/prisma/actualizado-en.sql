@@ -31,7 +31,7 @@ DECLARE
 BEGIN
   FOREACH t IN ARRAY ARRAY[
     'Empresa', 'Sede', 'Usuario', 'Cliente', 'SedeCliente', 'Vehiculo',
-    'OrdenServicio', 'LlantaRegistro'
+    'OrdenServicio', 'LlantaRegistro', 'Llanta'
   ]
   LOOP
     -- to_regclass respeta el search_path: sirve igual en producción
