@@ -46,6 +46,9 @@ export interface Orden {
   readonly versionContenido: number;
   readonly clientRequestId: string | null;
   readonly creadoPorId: string;
+  /** Bloqueo (R7): quién se la llevó para trabajar sin señal, y desde cuándo. */
+  readonly bloqueadaPorId: string | null;
+  readonly bloqueadaEn: Date | null;
 }
 
 export interface DatosCongelado {
@@ -69,7 +72,7 @@ export interface FiltroOrdenes {
 
 export interface RepositorioOrdenes {
   siguienteFolio(empresaId: string, sedeId: string, codigoSede: string): Promise<string>;
-  crear(o: Omit<Orden, "version" | "versionContenido" | "estado"> & { estado: EstadoOrden }): Promise<Orden>;
+  crear(o: Omit<Orden, "version" | "versionContenido" | "estado" | "bloqueadaPorId" | "bloqueadaEn"> & { estado: EstadoOrden }): Promise<Orden>;
   buscarPorId(id: string): Promise<Orden | null>;
   buscarPorClientRequestId(clientRequestId: string): Promise<Orden | null>;
   listar(filtro: FiltroOrdenes): Promise<Orden[]>;
@@ -127,7 +130,8 @@ export class RepositorioOrdenesPg implements RepositorioOrdenes {
     "aprobadoPorId", "autoAprobada",
     to_char("enviadoClienteEn", 'YYYY-MM-DD') AS "enviadoClienteEn",
     to_char("limiteCliente", 'YYYY-MM-DD') AS "limiteCliente",
-    "cierreTacito", version, "versionContenido", "clientRequestId", "creadoPorId"
+    "cierreTacito", version, "versionContenido", "clientRequestId", "creadoPorId",
+    "bloqueadaPorId", "bloqueadaEn"
   `;
 
   /**
@@ -167,7 +171,7 @@ export class RepositorioOrdenesPg implements RepositorioOrdenes {
     return formatear(codigoSede, r.rows[0]?.valor ?? 1);
   }
 
-  async crear(o: Omit<Orden, "version" | "versionContenido" | "estado"> & { estado: EstadoOrden }): Promise<Orden> {
+  async crear(o: Omit<Orden, "version" | "versionContenido" | "estado" | "bloqueadaPorId" | "bloqueadaEn"> & { estado: EstadoOrden }): Promise<Orden> {
     const r = await this.db.query<Orden>(
       `INSERT INTO "OrdenServicio"
          (id, "empresaId", "sedeId", "clienteId", "sedeClienteId", "vehiculoId",

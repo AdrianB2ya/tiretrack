@@ -69,9 +69,13 @@ export function puedeEditarMediciones(c: ContextoEdicion): Veredicto {
     return negar("ESPERA_CLIENTE", "La orden está esperando la aprobación del cliente");
   }
   if (!c.esTecnicoAsignado) {
+    // R7: al técnico que la tuvo le llega este motivo en su teléfono, junto a
+    // lo que capturó y quedó apartado. Tiene que entender qué pasó.
     return negar(
       "SOLO_ASIGNADO",
-      "Solo el técnico asignado captura. Si algo está mal, devuelve la orden",
+      c.rol === "tecnico"
+        ? "Esta orden ya no está a tu cargo: la oficina la liberó o la reasignó. Lo que capturaste sigue en tu teléfono"
+        : "Solo el técnico asignado captura. Si algo está mal, devuelve la orden",
     );
   }
   return PERMITIDO;

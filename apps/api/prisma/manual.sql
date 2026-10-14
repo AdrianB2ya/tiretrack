@@ -199,3 +199,8 @@ ALTER TABLE "ProgramacionRecurrente"
 -- directo: un preventivo por debajo del inmediato dejaría la banda vacía.
 ALTER TABLE "Empresa" ADD CONSTRAINT "Empresa_limites_coherentes"
   CHECK ("limiteCambioInmediato" > 0 AND "limiteProgramarCambio" > "limiteCambioInmediato");
+
+-- ── Bloqueo de la orden (R7) ────────────────────────────────────────────────
+-- Bloqueada o no, nunca a medias: quién y desde cuándo van juntos.
+ALTER TABLE "OrdenServicio" ADD CONSTRAINT orden_bloqueo_completo
+  CHECK (("bloqueadaPorId" IS NULL) = ("bloqueadaEn" IS NULL));

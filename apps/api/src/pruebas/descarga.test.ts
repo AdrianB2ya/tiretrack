@@ -94,6 +94,31 @@ describe.skipIf(!disponible)("descarga", () => {
     }
   });
 
+  it("al técnico le llega la lista de sus órdenes abiertas; la reasignada ya no está (R7)", async () => {
+    const orden = "11111111-1111-4111-8111-0000000000dd";
+    await pool.query(
+      `INSERT INTO "OrdenServicio"
+         (id,"empresaId","sedeId","clienteId","sedeClienteId","vehiculoId",tecnico_id,
+          "configuracionEjeId",tipo,estado,fecha,"creadoPorId","bloqueadaPorId","bloqueadaEn")
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'preventivo','en_proceso','2026-09-21',$7,$7,now())`,
+      [orden, SEMILLA.empresa, SEMILLA.sede, SEMILLA.cliente, SEMILLA.sedeCliente,
+       SEMILLA.vehiculo, SEMILLA.tecnico, SEMILLA.configuracion],
+    );
+    const cliente = await pool.connect();
+    try {
+      const antes = await new ServicioDescarga(cliente, () => new Date()).paquete(ctx as never);
+      expect(antes.asignadas).toContain(orden);
+      const o = antes.ordenes.find((x) => x.id === orden);
+      expect(o?.bloqueadaPorId).toBe(SEMILLA.tecnico);
+      expect(o?.bloqueadaPorNombre).toBeTruthy();
+      await pool.query(`UPDATE "OrdenServicio" SET tecnico_id = $2, "bloqueadaPorId" = NULL, "bloqueadaEn" = NULL WHERE id = $1`, [orden, SEMILLA.otroTecnico]);
+      const despues = await new ServicioDescarga(cliente, () => new Date()).paquete(ctx as never);
+      expect(despues.asignadas).not.toContain(orden);
+    } finally {
+      cliente.release();
+    }
+  });
+
   it("los técnicos son solo técnicos, y las sedes viajan con su código", async () => {
     // Venían todos los usuarios de la sede: el coordinador aparecía como
     // técnico al reasignar.

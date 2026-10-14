@@ -24,6 +24,15 @@ export interface OrdenLocal {
   readonly folio: string | null;
   /** preventivo, correctivo o levantamiento (R4). */
   readonly tipo: string;
+  /** Bloqueo (R7): quién se la llevó para trabajar sin señal. */
+  readonly bloqueadaPorId?: string | null;
+  readonly bloqueadaPorNombre?: string | null;
+  readonly bloqueadaEn?: string | null;
+  /**
+   * Ya no está a cargo de este técnico: la oficina la liberó o la reasignó.
+   * Se conserva porque tiene trabajo sin enviar; se muestra y no se captura.
+   */
+  readonly retirada?: boolean;
   readonly codigoReferencia: string | null;
   readonly sedeId: string;
   readonly vehiculoId: string;
@@ -299,6 +308,8 @@ export interface OrdenDescargada {
   firmaVersion: number | null; firmaFechaHora: string | null;
   /** Opcionales: un servidor anterior no los manda. */
   limiteCliente?: string | null; enviadaRevisionEn?: string | null; tecnicoNombre?: string | null;
+  /** R7. Opcionales: un servidor anterior no los manda. */
+  bloqueadaPorId?: string | null; bloqueadaPorNombre?: string | null; bloqueadaEn?: string | null;
 }
 
 /** Quita lo vacío: el contrato espera ausencia, no null ni "" (tarea 5.1). */
@@ -1388,8 +1399,9 @@ export class RepositorioLocal {
           kilometraje, hallazgos, accion, motivo_devolucion, nota_coordinador,
           firma_nombre, firma_cedula, firma_cargo, firma_version, firma_fecha_hora,
           limite_cliente, enviada_revision_en, tecnico_nombre,
+          bloqueada_por_id, bloqueada_por_nombre, bloqueada_en, retirada,
           version, version_contenido, sincronizada, actualizada_en)
-       VALUES (?,?,?,?,?,?,?,?,?,?,'normal',?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?)
+       VALUES (?,?,?,?,?,?,?,?,?,?,'normal',?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,1,?)
        ON CONFLICT (id) DO UPDATE SET
          folio = excluded.folio,
          codigo_referencia = coalesce(excluded.codigo_referencia, orden.codigo_referencia),
@@ -1408,6 +1420,8 @@ export class RepositorioLocal {
          limite_cliente = excluded.limite_cliente,
          enviada_revision_en = coalesce(excluded.enviada_revision_en, orden.enviada_revision_en),
          tecnico_nombre = coalesce(excluded.tecnico_nombre, orden.tecnico_nombre),
+         bloqueada_por_id = excluded.bloqueada_por_id, bloqueada_por_nombre = excluded.bloqueada_por_nombre,
+         bloqueada_en = excluded.bloqueada_en, retirada = 0,
          version = excluded.version, version_contenido = excluded.version_contenido,
          sincronizada = 1, actualizada_en = excluded.actualizada_en`,
       [
@@ -1416,9 +1430,39 @@ export class RepositorioLocal {
         o.kilometraje, o.hallazgos, o.accion, o.motivoDevolucion, o.notaCoordinador,
         o.firmaNombre, o.firmaCedula, o.firmaCargo, o.firmaVersion, o.firmaFechaHora,
         o.limiteCliente ?? null, o.enviadaRevisionEn ?? null, o.tecnicoNombre ?? null,
+        o.bloqueadaPorId ?? null, o.bloqueadaPorNombre ?? null, o.bloqueadaEn ?? null,
         o.version, o.versionContenido, this.ahora(),
       ],
     );
+  }
+
+  // ── Bloqueo (R7) ───────────────────────────────────────────────────────
+
+  /** Lo que respondió el servidor al tomar o soltar el bloqueo, aquí también. */
+  async marcarBloqueo(ordenId: string, b: { porId: string | null; porNombre: string | null; en: string | null }): Promise<void> {
+    await this.db.ejecutar(
+      `UPDATE orden SET bloqueada_por_id = ?, bloqueada_por_nombre = ?, bloqueada_en = ? WHERE id = ?`,
+      [b.porId, b.porNombre, b.en, ordenId],
+    );
+  }
+
+  /**
+   * Órdenes abiertas del teléfono que el servidor YA conoce: no tienen una
+   * creación en la cola (pendiente o apartada). Solo con esas se puede
+   * concluir "ya no es mía" si el servidor no la lista.
+   */
+  async abiertasConocidasPorServidor(): Promise<{ id: string; sincronizada: boolean }[]> {
+    const filas = await this.db.consultar<{ id: string; sincronizada: number }>(
+      `SELECT o.id, o.sincronizada FROM orden o
+        WHERE o.estado NOT IN ('cerrada','anulada')
+          AND NOT EXISTS (SELECT 1 FROM operacion op WHERE op.tipo = 'crear_orden' AND op.orden_id = o.id)`,
+    );
+    return filas.map((f) => ({ id: f.id, sincronizada: aBool(f.sincronizada) }));
+  }
+
+  /** Ya no está a cargo de este técnico; tiene trabajo sin enviar y se conserva. */
+  async marcarRetirada(ordenId: string): Promise<void> {
+    await this.db.ejecutar(`UPDATE orden SET retirada = 1, bloqueada_por_id = NULL, bloqueada_por_nombre = NULL, bloqueada_en = NULL WHERE id = ?`, [ordenId]);
   }
 
   /** Quita una orden cerrada. Solo se llama sobre órdenes sincronizadas. */
@@ -1929,6 +1973,7 @@ export class RepositorioLocal {
 export const COLUMNAS_ORDEN = [
   "id", "folio", "codigo_referencia", "sede_id", "vehiculo_id", "cliente_id", "tecnico_id",
   "tecnico_nombre", "enviada_revision_en", "limite_cliente", "estado", "tipo",
+  "bloqueada_por_id", "bloqueada_por_nombre", "bloqueada_en", "retirada",
   "motivo_devolucion", "nota_coordinador", "fecha", "configuracion_eje_id",
   "kilometraje", "hallazgos", "accion",
   "firma_nombre", "firma_cedula", "firma_version", "firma_trazo", "firma_cargo", "firma_fecha_hora",
@@ -1940,6 +1985,10 @@ function aOrden(f: Record<string, unknown>): OrdenLocal {
     id: String(f["id"]),
     folio: (f["folio"] as string) ?? null,
     tipo: String(f["tipo"] ?? "preventivo"),
+    bloqueadaPorId: (f["bloqueada_por_id"] as string) ?? null,
+    bloqueadaPorNombre: (f["bloqueada_por_nombre"] as string) ?? null,
+    bloqueadaEn: (f["bloqueada_en"] as string) ?? null,
+    retirada: aBool(f["retirada"]),
     codigoReferencia: (f["codigo_referencia"] as string) ?? null,
     sedeId: String(f["sede_id"]),
     vehiculoId: String(f["vehiculo_id"]),

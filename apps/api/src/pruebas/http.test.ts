@@ -1027,6 +1027,51 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
     });
   });
 
+  describe("bloqueo de la orden (R7)", () => {
+    const bloquear = (token: string) => pedir({ ruta: `/ordenes/${ORDEN}/bloqueo`, token, clave: null });
+    const liberar = (token: string, motivo?: string) =>
+      pedir({ ruta: `/ordenes/${ORDEN}/bloqueo/liberar`, token, clave: null, cuerpo: motivo ? { motivo } : {} });
+    const reasignar = () =>
+      pedir({ ruta: `/ordenes/${ORDEN}/reasignar`, token: "tok-coordinador", cuerpo: { tecnicoId: SEMILLA.otroTecnico, motivo: "Cambio de turno" } });
+
+    it("el técnico se la lleva; la oficina no la reasigna sin liberarla primero, y liberar exige motivo", async () => {
+      expect((await bloquear("tok-tecnico")).statusCode).toBe(200);
+      const f = await pool.query(`SELECT "bloqueadaPorId", "bloqueadaEn" FROM "OrdenServicio" WHERE id = $1`, [ORDEN]);
+      expect(f.rows[0].bloqueadaPorId).toBe(SEMILLA.tecnico);
+      expect(f.rows[0].bloqueadaEn).not.toBeNull();
+
+      const r = await reasignar();
+      expect(r.statusCode).toBe(409);
+      expect(r.json().error.codigo).toBe("ORDEN_BLOQUEADA");
+
+      expect((await liberar("tok-coordinador", "ok")).statusCode).toBe(422);
+      expect((await liberar("tok-coordinador", "Carlos perdió el teléfono")).statusCode).toBe(200);
+      const aud = await pool.query(`SELECT detalle FROM "Auditoria" WHERE detalle->>'bloqueo' = 'liberado'`);
+      expect(aud.rows[0]?.detalle).toMatchObject({ teniaId: SEMILLA.tecnico, motivo: "Carlos perdió el teléfono" });
+      expect((await reasignar()).statusCode).toBe(200);
+    });
+
+    it("solo el técnico asignado se la lleva; volver a tomarla no es error", async () => {
+      expect((await bloquear("tok-coordinador")).statusCode).toBe(403);
+      expect((await bloquear("tok-tecnico")).statusCode).toBe(200);
+      expect((await bloquear("tok-tecnico")).statusCode).toBe(200);
+    });
+
+    it("anular una orden bloqueada también exige liberarla", async () => {
+      await bloquear("tok-tecnico");
+      const r = await pedir({ ruta: `/ordenes/${ORDEN}/estado`, token: "tok-coordinador", cuerpo: { estado: "anulada", motivo: "Vehículo vendido" } });
+      expect(r.statusCode).toBe(409);
+      expect(r.json().error.codigo).toBe("ORDEN_BLOQUEADA");
+    });
+
+    it("el técnico la suelta sin motivo", async () => {
+      await bloquear("tok-tecnico");
+      expect((await liberar("tok-tecnico")).statusCode).toBe(200);
+      const f = await pool.query(`SELECT "bloqueadaPorId" FROM "OrdenServicio" WHERE id = $1`, [ORDEN]);
+      expect(f.rows[0].bloqueadaPorId).toBeNull();
+    });
+  });
+
   describe("flota e informe", () => {
     // Estos servicios existían desde la fase 1 sin puerta de entrada: la
     // administración y la exportación eran inalcanzables.

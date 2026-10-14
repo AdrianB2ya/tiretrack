@@ -71,6 +71,13 @@ export interface Paquete {
   readonly sedes: { id: string; nombre: string; codigo: string }[];
   /** Límites de cambio de la empresa (R2): el técnico los usa sin señal. */
   readonly limites: LimitesEmpresa;
+  /**
+   * Solo para el técnico (R7): TODAS las órdenes abiertas que hoy son suyas.
+   * La descarga incremental no dice cuáles dejaron de serlo; con esta lista
+   * el teléfono reconoce la que le reasignaron o liberaron y le avisa, en
+   * vez de dejarla ahí como si siguiera siendo suya.
+   */
+  readonly asignadas?: string[];
 }
 
 export interface OrdenDescargada {
@@ -112,6 +119,10 @@ export interface OrdenDescargada {
   readonly limiteCliente: string | null;
   readonly enviadaRevisionEn: string | null;
   readonly tecnicoNombre: string | null;
+  /** Bloqueo (R7): quién se la llevó y desde cuándo; la oficina lo ve. */
+  readonly bloqueadaPorId: string | null;
+  readonly bloqueadaPorNombre: string | null;
+  readonly bloqueadaEn: string | null;
 }
 
 /**
@@ -206,6 +217,12 @@ export class ServicioDescarga {
     const tecnicos = await this.tecnicos(ctx);
     const sedes = await this.sedes();
     const limites = await new ServicioEmpresa(this.db).limites(ctx.empresaId);
+    const asignadas = ctx.rol === "tecnico"
+      ? (await this.db.query<{ id: string }>(
+          `SELECT id FROM "OrdenServicio" WHERE tecnico_id = $1 AND estado::text <> ALL($2::text[])`,
+          [ctx.usuarioId, ESTADOS_CERRADOS],
+        )).rows.map((r) => r.id)
+      : undefined;
     // Las órdenes en curso que la persona ve (RLS), aunque no hayan cambiado:
     // con descarga incremental, las de este paquete no bastan.
     const abiertas = await this.db.query<{ id: string }>(
@@ -215,7 +232,8 @@ export class ServicioDescarga {
       ...new Set([...ordenes.map((o) => o.id), ...abiertas.rows.map((r) => r.id)]),
     ]);
 
-    return { hasta, incremental: Boolean(desde), ordenes, mediciones, recomendaciones, catalogo, flota, configuraciones, tecnicos, sedes, limites };
+    return { hasta, incremental: Boolean(desde), ordenes, mediciones, recomendaciones, catalogo, flota, configuraciones, tecnicos, sedes, limites,
+      ...(asignadas ? { asignadas } : {}) };
   }
 
   /**
@@ -270,7 +288,9 @@ export class ServicioDescarga {
               -- El servidor no guarda cuándo entró a revisión: sale del historial.
               (SELECT max(h."creadoEn") FROM "OrdenEstadoHistorial" h
                 WHERE h."ordenId" = o.id AND h."estadoNuevo"::text = 'en_revision') AS "enviadaRevisionEn",
-              coalesce(o."tecnicoNombre", (SELECT u.nombre FROM "Usuario" u WHERE u.id = o.tecnico_id)) AS "tecnicoNombre"
+              coalesce(o."tecnicoNombre", (SELECT u.nombre FROM "Usuario" u WHERE u.id = o.tecnico_id)) AS "tecnicoNombre",
+              o."bloqueadaPorId", o."bloqueadaEn",
+              (SELECT u.nombre FROM "Usuario" u WHERE u.id = o."bloqueadaPorId") AS "bloqueadaPorNombre"
          FROM "OrdenServicio" o
         WHERE ${condiciones.join(" AND ")}
         ORDER BY o.fecha DESC
@@ -308,6 +328,9 @@ export class ServicioDescarga {
       limiteCliente: (f["limiteCliente"] as string) ?? null,
       enviadaRevisionEn: f["enviadaRevisionEn"] instanceof Date ? f["enviadaRevisionEn"].toISOString() : null,
       tecnicoNombre: (f["tecnicoNombre"] as string) ?? null,
+      bloqueadaPorId: (f["bloqueadaPorId"] as string) ?? null,
+      bloqueadaPorNombre: (f["bloqueadaPorNombre"] as string) ?? null,
+      bloqueadaEn: f["bloqueadaEn"] instanceof Date ? f["bloqueadaEn"].toISOString() : null,
     }));
   }
 

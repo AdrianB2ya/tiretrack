@@ -13,6 +13,9 @@ import {
   type Rol,
   type Veredicto,
   fechaEnColombia,
+  puedeTomarBloqueo,
+  puedeLiberarBloqueo,
+  exigeLiberar,
 } from "@tiretrack/domain";
 import type { Orden, RepositorioOrdenes } from "./repositorio";
 
@@ -404,10 +407,18 @@ export class ServicioOrdenes {
     });
     if (!veredicto.permitido) return { ok: false, veredicto };
 
+    // R7: anular la orden que un técnico se llevó exige liberarla primero.
+    if (destino === "anulada") {
+      const b = exigeLiberar(orden.bloqueadaPorId, ctx.usuarioId);
+      if (!b.permitido) return { ok: false, veredicto: b };
+    }
+
     const extra = await this.datosDeTransicion(orden, destino, ctx, opciones);
     if ("veredicto" in extra) return { ok: false, veredicto: extra.veredicto };
+    // R7: al enviarla a revisión el técnico ya terminó: el bloqueo se suelta solo.
+    const campos = destino === "en_revision" ? { ...extra.campos, bloqueadaPorId: null, bloqueadaEn: null } : extra.campos;
 
-    const actualizada = await this.repo.cambiarEstado(ordenId, version, destino, extra.campos);
+    const actualizada = await this.repo.cambiarEstado(ordenId, version, destino, campos);
     if (!actualizada) return "carrera";
 
     await this.repo.registrarHistorial({
@@ -530,6 +541,9 @@ export class ServicioOrdenes {
 
     let estadoAntes: EstadoOrden | null = null;
     const r = await this.escribirAsync(ordenId, pre, async (orden) => {
+      // R7: con la orden en manos de un técnico, primero se libera.
+      const b = exigeLiberar(orden.bloqueadaPorId, ctx.usuarioId);
+      if (!b.permitido) return { ok: false as const, veredicto: b };
       if (!(await pertenece(orden.sedeId))) {
         return fallo("TECNICO_AJENO_A_SEDE", "El técnico no está asignado a esa sede");
       }
@@ -553,6 +567,48 @@ export class ServicioOrdenes {
       visibleCliente: false,
     });
     return r;
+  }
+
+  // ── Bloqueo (R7) ────────────────────────────────────────────────────────
+
+  /**
+   * El técnico asignado se lleva la orden para trabajar sin señal. Es en
+   * línea: sin señal no se puede pedir ni comprobar un bloqueo, por eso se
+   * toma ANTES de salir.
+   */
+  async tomarBloqueo(ctx: Contexto, ordenId: string): Promise<Resultado<Orden>> {
+    const orden = await this.repo.buscarPorId(ordenId);
+    if (!orden) return fallo("NO_EXISTE", "La orden no existe");
+    const v = puedeTomarBloqueo({
+      rol: ctx.rol, usuarioId: ctx.usuarioId, tecnicoId: orden.tecnicoId,
+      estado: orden.estado, bloqueadaPorId: orden.bloqueadaPorId,
+    });
+    if (!v.permitido) return { ok: false, veredicto: v };
+    if (orden.bloqueadaPorId === ctx.usuarioId) return { ok: true, valor: orden };
+    const r = await this.repo.actualizar(ordenId, orden.version, { bloqueadaPorId: ctx.usuarioId, bloqueadaEn: this.reloj() });
+    return r ? { ok: true, valor: r } : fallo("CONFLICTO_VERSION", "La orden cambió. Recárgala");
+  }
+
+  /** La suelta quien la tiene, o la oficina con motivo (queda en la auditoría). */
+  async liberarBloqueo(ctx: Contexto, ordenId: string, motivo?: string | null): Promise<Resultado<{ orden: Orden; teniaId: string }>> {
+    const orden = await this.repo.buscarPorId(ordenId);
+    if (!orden) return fallo("NO_EXISTE", "La orden no existe");
+    const v = puedeLiberarBloqueo({
+      rol: ctx.rol, usuarioId: ctx.usuarioId, tecnicoId: orden.tecnicoId,
+      estado: orden.estado, bloqueadaPorId: orden.bloqueadaPorId, motivo: motivo ?? null,
+    });
+    if (!v.permitido) return { ok: false, veredicto: v };
+    const teniaId = orden.bloqueadaPorId as string;
+    const r = await this.repo.actualizar(ordenId, orden.version, { bloqueadaPorId: null, bloqueadaEn: null });
+    if (!r) return fallo("CONFLICTO_VERSION", "La orden cambió. Recárgala");
+    if (teniaId !== ctx.usuarioId) {
+      // Queda en el historial interno: el técnico entiende por qué ya no es suya.
+      await this.repo.registrarHistorial({
+        id: nuevoId(), ordenId, estadoAnterior: orden.estado, estadoNuevo: orden.estado,
+        usuarioId: ctx.usuarioId, motivo: `Bloqueo liberado: ${(motivo ?? "").trim()}`, visibleCliente: false,
+      });
+    }
+    return { ok: true, valor: { orden: r, teniaId } };
   }
 
   /**

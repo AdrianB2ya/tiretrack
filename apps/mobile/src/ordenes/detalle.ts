@@ -4,6 +4,9 @@ import {
   type EstadoOrden,
   type Rol,
   type Veredicto,
+  negar,
+  puedeTomarBloqueo,
+  ESTADOS_BLOQUEABLES,
 } from "@tiretrack/domain";
 import type { MedicionLocal, OrdenLocal } from "../datos/repositorio";
 
@@ -149,7 +152,9 @@ export function accionesDisponibles(
   d: DetalleOrden,
   ctx: ContextoUsuario,
 ): AccionDisponible[] {
-  const edicion = puedeEditarMediciones({
+  // R7: la que la oficina liberó o reasignó ya no se captura aquí, aunque
+  // el teléfono todavía la tenga por el trabajo sin enviar.
+  const edicion = d.orden.retirada ? negar("RETIRADA", MENSAJE_RETIRADA) : puedeEditarMediciones({
     estado: d.orden.estado as EstadoOrden,
     rol: ctx.rol,
     // De la orden y la sesión, nunca fijo: con "true" el coordinador veía
@@ -256,4 +261,34 @@ export function resumirPosiciones(
 
 export function posicionesFaltantes(posiciones: readonly PosicionResumen[]): number[] {
   return posiciones.filter((p) => !p.capturada).map((p) => p.numero);
+}
+
+// ── Bloqueo (R7) ────────────────────────────────────────────────────────────
+
+export const MENSAJE_RETIRADA =
+  "Esta orden ya no está a tu cargo: la oficina la liberó o la reasignó. Lo que capturaste sigue en tu teléfono; míralo en Mi cuenta";
+
+/** Qué mostrar del bloqueo, según quién mira. null: nada que mostrar. */
+export type SituacionBloqueoVista =
+  | { readonly tipo: "tomable" }
+  | { readonly tipo: "mia"; readonly desde: string | null }
+  | { readonly tipo: "de_otro"; readonly nombre: string; readonly desde: string | null; readonly puedeLiberar: boolean }
+  | { readonly tipo: "retirada" };
+
+export function situacionBloqueo(o: OrdenLocal, ctx: ContextoUsuario): SituacionBloqueoVista | null {
+  if (o.retirada) return { tipo: "retirada" };
+  if (o.bloqueadaPorId) {
+    if (o.bloqueadaPorId === ctx.usuarioId) return { tipo: "mia", desde: o.bloqueadaEn ?? null };
+    return {
+      tipo: "de_otro",
+      nombre: o.bloqueadaPorNombre ?? "un técnico",
+      desde: o.bloqueadaEn ?? null,
+      puedeLiberar: ctx.rol === "administrador" || ctx.rol === "coordinador",
+    };
+  }
+  const v = puedeTomarBloqueo({
+    rol: ctx.rol, usuarioId: ctx.usuarioId, tecnicoId: o.tecnicoId,
+    estado: o.estado as EstadoOrden, bloqueadaPorId: null,
+  });
+  return v.permitido && ESTADOS_BLOQUEABLES.includes(o.estado as EstadoOrden) ? { tipo: "tomable" } : null;
 }

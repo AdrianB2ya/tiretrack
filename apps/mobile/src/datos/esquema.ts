@@ -483,6 +483,18 @@ export const MIGRACIONES: readonly Migracion[] = [
       ALTER TABLE medida ADD COLUMN creada_local INTEGER NOT NULL DEFAULT 0;
     `,
   },
+  {
+    version: 16,
+    nombre: "bloqueo de la orden",
+    sql: `
+      -- R7: quién se llevó la orden para trabajar sin señal, y si dejó de
+      -- estar a cargo de este técnico (la oficina la liberó o la reasignó).
+      ALTER TABLE orden ADD COLUMN bloqueada_por_id TEXT;
+      ALTER TABLE orden ADD COLUMN bloqueada_por_nombre TEXT;
+      ALTER TABLE orden ADD COLUMN bloqueada_en TEXT;
+      ALTER TABLE orden ADD COLUMN retirada INTEGER NOT NULL DEFAULT 0;
+    `,
+  },
 ];
 
 export const VERSION_ESQUEMA = MIGRACIONES[MIGRACIONES.length - 1]?.version ?? 0;

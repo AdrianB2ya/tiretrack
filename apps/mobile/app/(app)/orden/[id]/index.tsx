@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
+import { BloqueoOrden } from "../../../../src/ordenes/BloqueoOrden";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { DiagramaLlantas, ResumenDiagrama } from "../../../../src/ordenes/DiagramaLlantas";
 import { Aviso, Boton, Insignia } from "../../../../src/diseno/componentes";
 import { useDatos, type DatosOrden } from "../../../../src/app/ProveedorDatos";
 import { useUsuario } from "../../../../src/app/ProveedorSesion";
-import { accionesDisponibles, requisitosParaEnviar, resumirFirma } from "../../../../src/ordenes/detalle";
+import { accionesDisponibles, requisitosParaEnviar, resumirFirma, situacionBloqueo } from "../../../../src/ordenes/detalle";
 import { siguienteSinCapturar } from "../../../../src/ordenes/diagrama";
 import { FotosDe } from "../../../../src/fotos/FotosDe";
 import { DecisionCliente } from "../../../../src/cliente/DecisionCliente";
@@ -28,9 +29,9 @@ import { useServicios } from "../../../../src/app/Arranque";
 export default function PantallaDetalle() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { cargarOrden, ordenes, fotosSinSubir, fotosDe, adjuntarFoto, cambiarEstado, recomendacionesDe, crearRecomendacion, resolverRecomendacion } = useDatos();
+  const { cargarOrden, ordenes, fotosSinSubir, fotosDe, adjuntarFoto, cambiarEstado, recomendacionesDe, crearRecomendacion, resolverRecomendacion, marcarBloqueoLocal } = useDatos();
   const [recomendaciones, setRecomendaciones] = useState<RecomendacionLocal[]>([]);
-  const { descargarArchivo } = useServicios();
+  const { descargarArchivo, enLinea } = useServicios();
 
   // Aprobar cierra la orden; objetar la devuelve al técnico con el motivo.
   const decidirCliente = async (estado: "cerrada" | "en_proceso", motivo?: string) => {
@@ -101,6 +102,9 @@ export default function PantallaDetalle() {
   const gestor = puedeAprobar(usuario.rol);
   const esCliente = usuario.rol === "cliente";
   const abierta = estaAbierta(orden.estado as EstadoOrden);
+  // R7: con la orden en manos de un técnico, la oficina solo la ve.
+  const bloqueo = situacionBloqueo(orden, { usuarioId: usuario.id, rol: usuario.rol });
+  const bloqueadaPorOtro = bloqueo?.tipo === "de_otro";
 
   return (
     <ScrollView style={estilos.pantalla} contentContainerStyle={estilos.contenido}>
@@ -126,6 +130,24 @@ export default function PantallaDetalle() {
       ) : null}
       {orden.notaCoordinador ? (
         <Aviso tono="info" titulo="Instrucciones" detalle={orden.notaCoordinador} />
+      ) : null}
+
+      {bloqueo ? (
+        <BloqueoOrden
+          situacion={bloqueo}
+          onTomar={async () => {
+            const r = await enLinea<{ bloqueadaPorId: string; bloqueadaEn: string }>("POST", `/ordenes/${orden.id}/bloqueo`, {});
+            if (!r.ok) return r.status === 0 ? "Sin señal: llévatela mientras tengas señal." : r.mensaje;
+            await marcarBloqueoLocal(orden.id, { porId: usuario.id, porNombre: usuario.nombre, en: r.datos.bloqueadaEn });
+            return null;
+          }}
+          onLiberar={async (motivo) => {
+            const r = await enLinea("POST", `/ordenes/${orden.id}/bloqueo/liberar`, motivo ? { motivo } : {});
+            if (!r.ok) return r.status === 0 ? "Sin señal: se libera en línea." : r.mensaje;
+            await marcarBloqueoLocal(orden.id, { porId: null, porNombre: null, en: null });
+            return null;
+          }}
+        />
       ) : null}
 
       <ResumenDiagrama diagrama={diagrama} />
@@ -254,7 +276,7 @@ export default function PantallaDetalle() {
           Aprobar o devolver
         </Boton>
       ) : null}
-      {gestor && abierta ? (
+      {gestor && abierta && !bloqueadaPorOtro ? (
         <Boton ancho tipo="fantasma" testID="reasignar" onPress={() => router.push(`/orden/${orden.id}/reasignar` as never)}>
           Reasignar a otro técnico
         </Boton>

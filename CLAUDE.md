@@ -3567,7 +3567,7 @@ D queda fuera.
 - [x] R4 Orden de levantamiento (tipo de orden)
 - [x] R5 Vencimiento por DOT visible en el editor y el PDF
 - [x] R6 Diferencia de lados y diferencia de presión
-- [ ] R7 Bloqueo de órdenes (lo toma el técnico, lo liberan admin/coordinador)
+- [x] R7 Bloqueo de órdenes (lo toma el técnico, lo liberan admin/coordinador)
 - [ ] R8 La llanta como activo: ficha, número interno, estado, vidas,
   inventario por sede
 - [ ] R9 Kilómetros por llanta e indicadores del levantamiento (% rodado,
@@ -3596,6 +3596,11 @@ conservadora y se anota aquí.)
 4. **R6 — "posiciones 1 y 2"** del Excel se tomó como **el eje
    direccional** (sirve con cualquier plantilla). ¿O son literalmente los
    números 1 y 2?
+6. **R7 — el técnico suelta la orden sin motivo** y la oficina con motivo
+   de al menos 10 letras. ¿Correcto, o el técnico también debe decir por qué?
+7. **R7 — un técnico con la orden bloqueada que la oficina reasigna**: hoy la
+   oficina tiene que liberarla primero (decisión del usuario). Se tomó que
+   anular también lo exige. ¿Correcto?
 5. **R6 — diferencia de lados ≥ 1 mm** incluye el 1 (como el Excel: "de 1
    mm en adelante"). Se informa; no bloquea ni pide confirmar.
 
@@ -3638,6 +3643,34 @@ diseño que una empresa creaba bajo una marca global (su "XZE" de Michelin)
 diseño sea global o de la empresa, y lo mismo la medida. Probado contra RLS
 real en `aislamiento.test.ts` (las tablas de diseño y medida no estaban en
 ese banco); con la política vieja, la prueba falla.
+
+## Bloqueo de la orden (R7, 2026-10-14)
+
+Decisiones del usuario (2026-10-13), ver "Decisiones abiertas". Dominio
+`orden/bloqueo.ts`: `puedeTomarBloqueo`, `puedeLiberarBloqueo`,
+`exigeLiberar`.
+
+- **Lo toma el técnico asignado, con señal** ("Llevármela para trabajar sin
+  señal"), en una orden programada o en curso. Es **en línea**: sin señal no
+  se puede pedir ni comprobar. Volver a tomarla quien ya la tiene no es error.
+- **Lo liberan** el técnico (sin motivo) o el coordinador/administrador (con
+  motivo de 10 letras o más, en la auditoría y en el historial interno). **Se
+  suelta solo al enviarla a revisión.** No vence con el tiempo.
+- **Con la orden bloqueada la oficina solo la ve**: reasignar y anular
+  responden `ORDEN_BLOQUEADA` (409) hasta liberarla; en la app el botón
+  "Reasignar" no aparece y el detalle dice quién la tiene.
+- Servidor: `bloqueadaPorId` / `bloqueadaEn` en la orden (migración
+  `20261014130000_bloqueo_orden`, con CHECK de "nunca a medias" y FK al
+  usuario); `POST /ordenes/:id/bloqueo` y `/bloqueo/liberar`.
+- **La orden que ya no es suya**: la descarga del técnico trae `asignadas`
+  (todas sus órdenes abiertas de hoy), porque la incremental no dice cuáles
+  dejó de tener. El teléfono quita las que ya no están si no tienen trabajo
+  pendiente, y si lo tienen las marca `retirada` (migración 16 del celular):
+  el detalle dice "Ya no está a tu cargo", no deja capturar y remite a Mi
+  cuenta, donde está lo que capturó y el servidor rechazó. Una creada sin
+  señal que el servidor aún no conoce no se toca.
+- El rechazo que recibe ese técnico ya no le dice "devuelve la orden" (era un
+  consejo para la oficina): "Esta orden ya no está a tu cargo…".
 
 ## Diferencia de lados y de presión (R6, 2026-10-14)
 
@@ -3808,7 +3841,7 @@ identificador **`com.asistectire.app`**, rojo de la marca **como acento**.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 1001/1001, mobile 959 + recorrido 479.
+**Verificado:** `npm run verify` con base: raíz 1015/1015, mobile 968 + recorrido 479.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):
@@ -3879,8 +3912,8 @@ minutos (bloqueo en la base); por separado y en la suite completa pasan.
 
 ## Decisiones abiertas
 
-- **Presencia en la orden — decisión del usuario (2026-10-13): debe
-  BLOQUEARSE**, no solo avisar. Antes se había descartado el bloqueo duro
+- **Hecho en la R7 (ver "Bloqueo de la orden").** Presencia en la orden — decisión del usuario (2026-10-13): debe
+  BLOQUEARSE, no solo avisar. Antes se había descartado el bloqueo duro
   porque choca con el trabajo sin conexión: un técnico que pierde señal con
   el bloqueo tomado dejaría la orden inaccesible, y sin señal el bloqueo no
   se puede pedir ni comprobar. **Al desarrollarlo, proponer el diseño antes

@@ -299,3 +299,8 @@ export const zOrdenCreada = z.object({
   version: z.number().int(),
 });
 export type OrdenCreada = z.infer<typeof zOrdenCreada>;
+
+/** Liberar el bloqueo de una orden (R7). La oficina debe decir por qué. */
+export const zLiberarBloqueo = z.object({
+  motivo: z.string().trim().max(300).optional(),
+});

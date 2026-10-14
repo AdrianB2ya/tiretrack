@@ -21,6 +21,11 @@ export interface PaqueteDescargado {
   readonly recomendaciones?: RecomendacionLocal[];
   /** Límites de cambio de la empresa (R2). Opcional: un servidor anterior no los manda. */
   readonly limites?: { cambioInmediato: number; programarCambio: number };
+  /**
+   * Solo al técnico (R7): todas sus órdenes abiertas hoy. La descarga
+   * incremental no dice cuáles dejaron de ser suyas; con esta lista se sabe.
+   */
+  readonly asignadas?: string[];
   readonly catalogo: {
     marcas: { id: string; nombre: string; esGlobal: boolean }[];
     disenos: { id: string; marcaId: string; nombre: string; tipoEje: string }[];
@@ -62,6 +67,8 @@ export interface ResumenDescarga {
   readonly ordenesActualizadas: number;
   readonly ordenesRespetadas: number;
   readonly cerradas: number;
+  /** Órdenes que dejaron de ser de este técnico (R7). */
+  readonly retiradas: number;
   readonly sinConexion: boolean;
 }
 
@@ -86,7 +93,8 @@ export class Descargador {
   async descargar(cliente: ClienteDescarga): Promise<ResumenDescarga> {
     const vacio: ResumenDescarga = {
       ordenesNuevas: 0, ordenesActualizadas: 0, ordenesRespetadas: 0,
-      cerradas: 0, sinConexion: false,
+      cerradas: 0,
+      retiradas: 0, sinConexion: false,
     };
     if (this.corriendo) return vacio;
     this.corriendo = true;
@@ -160,6 +168,19 @@ export class Descargador {
       // Completas, no incrementales: se reemplazan (respetando lo pendiente).
       if (paquete.recomendaciones) await this.repo.guardarRecomendacionesDescargadas(paquete.recomendaciones);
       if (paquete.limites) await this.repo.guardarLimites(paquete.limites);
+
+      // R7: la que la oficina liberó o reasignó ya no es de este técnico. Sin
+      // trabajo pendiente se quita, como una cerrada; con trabajo pendiente se
+      // conserva marcada, para que vea qué pasó con lo que capturó.
+      if (paquete.asignadas) {
+        const suyas = new Set(paquete.asignadas);
+        for (const o of await this.repo.abiertasConocidasPorServidor()) {
+          if (suyas.has(o.id)) continue;
+          if (o.sincronizada) await this.repo.olvidarOrden(o.id);
+          else await this.repo.marcarRetirada(o.id);
+          resumen.retiradas++;
+        }
+      }
 
       // La marca se guarda al final y solo si todo salió bien: si se guardara
       // antes, un fallo a la mitad haría que la próxima descarga se saltara

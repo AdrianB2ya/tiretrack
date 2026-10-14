@@ -90,6 +90,8 @@ export interface AccionesDatos {
   catalogoPara(marcaId: string | null, disenoId: string | null, tipoEje: string): Promise<CatalogoEditor>;
   /** Catálogo de llantas: leer y agregar (R1). Todo en el celular, por la cola. */
   accionesCatalogo: AccionesCatalogo;
+  /** Lo que respondió el servidor al tomar o soltar un bloqueo (R7), aquí también. */
+  marcarBloqueoLocal(ordenId: string, b: { porId: string | null; porNombre: string | null; en: string | null }): Promise<void>;
   /** Órdenes que esperan revisión, listas para la bandeja del coordinador. */
   bandejaRevision(): Promise<OrdenEnBandeja[]>;
   tecnicosDeSede(sedeId: string): Promise<TecnicoLocal[]>;
@@ -408,6 +410,14 @@ export function ProveedorDatos({
     [repo],
   );
 
+  const marcarBloqueoLocal = useCallback<AccionesDatos["marcarBloqueoLocal"]>(
+    async (ordenId, b) => {
+      await repo.marcarBloqueo(ordenId, b);
+      await refrescar();
+    },
+    [repo, refrescar],
+  );
+
   const catalogoPara = useCallback<AccionesDatos["catalogoPara"]>(
     async (marcaId, disenoId, tipoEje) => {
       const [marcas, servicios] = await Promise.all([repo.marcas(), repo.servicios()]);
@@ -564,6 +574,7 @@ export function ProveedorDatos({
       cambiarEstado,
       catalogoPara,
       accionesCatalogo,
+      marcarBloqueoLocal,
       bandejaRevision,
       tecnicosDeSede,
       reasignar,
@@ -586,7 +597,7 @@ export function ProveedorDatos({
     [
       cargando, ordenes, pendientesDeEnviar, sincronizando, ultimaSincronizacion, errorDescarga,
       refrescar, sincronizar, cargarOrden, guardarMedicion, actualizarDatosOrden,
-      firmar, cambiarEstado, catalogoPara, accionesCatalogo, bandejaRevision, tecnicosDeSede,
+      firmar, cambiarEstado, catalogoPara, accionesCatalogo, marcarBloqueoLocal, bandejaRevision, tecnicosDeSede,
       reasignar, medicionAnterior, fotosDe, fotosSinSubir, adjuntarFoto, fuentesOrden, crearOrden,
       fuentesFlota, recomendacionesDe, crearRecomendacion, resolverRecomendacion, posicionesPlantilla, accionesFlota,
       cambiosSinEnviar, reintentarCambio, descartarCambio,

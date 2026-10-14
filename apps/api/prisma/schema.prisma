@@ -598,6 +598,12 @@ model OrdenServicio {
   cierreTacito     Boolean   @default(false)
   motivoCierre     String?
 
+  /// Bloqueo (R7): el técnico asignado se la lleva para trabajar sin señal.
+  /// Mientras lo tenga, la oficina solo la ve; para reasignar o anular, la
+  /// libera primero. Se libera sola al enviarla a revisión.
+  bloqueadaPorId   String?
+  bloqueadaEn      DateTime?
+
   /// Bloqueo optimista: sube en TODA escritura. Si el cliente envía una
   /// versión vieja, se rechaza en vez de pisar el trabajo del otro usuario.
   version Int @default(0)

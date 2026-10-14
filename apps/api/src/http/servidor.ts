@@ -29,6 +29,7 @@ import {
   zFirma,
   zInstante,
   zReasignar,
+  zLiberarBloqueo,
   zTextoCorto,
 } from "@tiretrack/contracts";
 
@@ -187,6 +188,11 @@ const ESTADO_POR_CODIGO: Record<string, number> = {
   EN_REVISION: 409,
   ORDEN_CERRADA: 409,
   TRANSICION_INVALIDA: 409,
+  // Bloqueo (R7): no es un dato mal escrito, es el estado de la orden.
+  YA_BLOQUEADA: 409,
+  ORDEN_BLOQUEADA: 409,
+  NO_BLOQUEADA: 409,
+  ESTADO_INVALIDO: 409,
 };
 
 function estadoDe(v: Veredicto): number {
@@ -686,6 +692,30 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
       const r = await s.ordenes.reasignar(ctx, params(req).id as string, COMANDO, p.data.tecnicoId, p.data.motivo);
       if (!r.ok) return rechazo(r.veredicto);
       return { status: 200, cuerpo: { tecnicoId: r.valor.tecnicoId } };
+    }));
+
+    // ── Bloqueo de la orden (R7) ──
+    // En línea: sin señal no se puede pedir ni comprobar un bloqueo. El
+    // técnico se la lleva ANTES de salir; la oficina la libera con motivo.
+
+    app.post("/ordenes/:id/bloqueo", administracion(async (s, ctx, req) => {
+      const id = params(req).id as string;
+      const r = await s.ordenes.tomarBloqueo(ctx, id);
+      if (!r.ok) return rechazo(r.veredicto);
+      await s.informe.registrarAuditoria(ctx, "actualizar", { entidad: "orden", id, bloqueo: "tomado" });
+      return { status: 200, cuerpo: { bloqueadaPorId: r.valor.bloqueadaPorId, bloqueadaEn: r.valor.bloqueadaEn } };
+    }));
+
+    app.post("/ordenes/:id/bloqueo/liberar", administracion(async (s, ctx, req) => {
+      const p = zLiberarBloqueo.safeParse(req.body ?? {});
+      if (!p.success) return datosInvalidos(p.error.issues);
+      const id = params(req).id as string;
+      const r = await s.ordenes.liberarBloqueo(ctx, id, p.data.motivo ?? null);
+      if (!r.ok) return rechazo(r.veredicto);
+      await s.informe.registrarAuditoria(ctx, "actualizar", {
+        entidad: "orden", id, bloqueo: "liberado", teniaId: r.valor.teniaId, motivo: p.data.motivo ?? null,
+      });
+      return { status: 200, cuerpo: { bloqueadaPorId: null } };
     }));
 
     // ── Recomendaciones persistentes ──

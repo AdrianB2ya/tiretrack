@@ -97,6 +97,7 @@ describe.skipIf(!disponible)("órdenes de servicio", () => {
         "versionContenido" integer NOT NULL DEFAULT 0,
         "clientRequestId" text, "sincronizadoEn" timestamptz,
         "creadoPorId" text NOT NULL, "anuladaEn" timestamptz,
+        "bloqueadaPorId" text, "bloqueadaEn" timestamptz,
         UNIQUE ("empresaId", folio),
         UNIQUE ("empresaId", "clientRequestId")
       );
@@ -153,7 +154,11 @@ describe.skipIf(!disponible)("órdenes de servicio", () => {
 
   /** Lleva una orden hasta en_revision con firma vigente y una medición. */
   async function hastaRevision() {
-    let orden = await nuevaOrden();
+    return hastaRevisionDesde(await nuevaOrden());
+  }
+
+  async function hastaRevisionDesde(inicial: Awaited<ReturnType<typeof nuevaOrden>>) {
+    let orden = inicial;
     const enProceso = await servicio.cambiarEstado(TEC1, orden.id, enLinea(orden.version), "en_proceso");
     if (!enProceso.ok) throw new Error();
     orden = enProceso.valor;
@@ -338,6 +343,29 @@ describe.skipIf(!disponible)("órdenes de servicio", () => {
       const h = await servicio.historial(COORD, orden.id);
       expect(h).toHaveLength(1);
       expect(h[0]?.estadoNuevo).toBe("programada");
+    });
+  });
+
+  describe("bloqueo (R7)", () => {
+    it("enviar a revisión suelta el bloqueo solo: el técnico ya terminó", async () => {
+      let orden = await nuevaOrden();
+      const tomada = await servicio.tomarBloqueo(TEC1, orden.id);
+      if (!tomada.ok) throw new Error(tomada.veredicto.mensaje);
+      expect(tomada.valor.bloqueadaPorId).toBe("u-tec1");
+      orden = await hastaRevisionDesde(tomada.valor);
+      expect(orden.estado).toBe("en_revision");
+      expect(orden.bloqueadaPorId).toBeNull();
+      expect(orden.bloqueadaEn).toBeNull();
+    });
+
+    it("liberar la de otro deja constancia en el historial interno, no visible al cliente", async () => {
+      const orden = await nuevaOrden();
+      await servicio.tomarBloqueo(TEC1, orden.id);
+      const r = await servicio.liberarBloqueo(COORD, orden.id, "Carlos perdió el teléfono");
+      expect(r.ok).toBe(true);
+      const h = await servicio.historial(COORD, orden.id);
+      const libera = h.find((x) => (x.motivo ?? "").startsWith("Bloqueo liberado"));
+      expect(libera?.motivo).toBe("Bloqueo liberado: Carlos perdió el teléfono");
     });
   });
 
