@@ -4314,7 +4314,7 @@ identificador **`com.asistectire.app`**, rojo de la marca **como acento**.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 1114/1114, mobile 1021 + recorrido 659.
+**Verificado:** `npm run verify` con base: raíz 1123/1123, mobile 1030 + recorrido 669.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):
