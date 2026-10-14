@@ -3713,6 +3713,15 @@ reprodujo después.
   al construir: qué puede hacer la oficina con una orden bloqueada (verla sí;
   reasignar, devolver o anular, ¿sí o no?) y que liberar quede en la
   auditoría con motivo.
+  **Decidido (2026-10-13):** con la orden bloqueada la oficina **solo la
+  ve**; para reasignar, devolver o anular **primero la libera**. Y si al
+  liberarla otro técnico la trabaja y la envía o cierra, **lo que traiga el
+  técnico original al recuperar señal ya no actualiza la orden**: el
+  servidor lo rechaza (hoy ya rechaza a quien no es el asignado y lo que
+  llega a una orden fuera de captura). En su teléfono queda **apartado con
+  el motivo** ("La orden fue liberada y la trabajó otro técnico"), visible
+  en Mi cuenta, no borrado en silencio; la orden debe mostrarle que ya no es
+  suya.
 
 No decidir por cuenta propia. Preguntar cuando toque el tema.
 
