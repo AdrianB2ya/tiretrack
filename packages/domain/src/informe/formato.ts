@@ -1,4 +1,5 @@
 import { CODIGOS_SERVICIO_LLANTA, definicionDeServicio } from "../tipos";
+import { diferenciaDeLados, diferenciaPresion, recomendacionPorLados } from "../llanta/hallazgos";
 import { leerDOT } from "../llanta/dot";
 
 /**
@@ -54,6 +55,10 @@ export interface FilaCruda {
   readonly profExterior?: number | null;
   readonly profCentro?: number | null;
   readonly profInterior?: number | null;
+  /** PSI objetivo del eje de esa posición (R6). */
+  readonly psiRecomendada?: number | null;
+  /** Tipo de eje de la posición: decide qué revisar por diferencia de lados. */
+  readonly tipoEje?: string | null;
   readonly noIdentificada: boolean;
 
   readonly desPosicion: number | null;
@@ -80,6 +85,8 @@ export const BLOQUES = {
     "PSI ENCONTRADO", "PSI CALIBRADO",
     // Tres puntos de la banda y la mínima, que es la de la llanta.
     "PROF EXT", "PROF CENTRO", "PROF INT", "PROF MÍN",
+    // R6: hallazgos del levantamiento.
+    "PSI RECOMENDADA", "DIF PRESIÓN", "DIF LADOS", "REVISAR",
   ],
   desmontada: [
     "POS", "CALOR", "SERIAL", "DOT", "DIMENSION",
@@ -119,6 +126,7 @@ const texto = (v: unknown): string => (v === null || v === undefined ? "" : Stri
 export function aCeldas(f: FilaCruda): string[] {
   const dot = leerDOT(f.dot);
   const identificador = f.folio ?? f.codigoReferencia ?? "";
+  const lados = diferenciaDeLados({ exterior: f.profExterior ?? null, interior: f.profInterior ?? null });
 
   return [
     f.fecha,
@@ -148,6 +156,10 @@ export function aCeldas(f: FilaCruda): string[] {
     texto(f.profCentro),
     texto(f.profInterior),
     texto(f.profundidad),
+    texto(f.psiRecomendada),
+    texto(diferenciaPresion(f.psiEncontrada, f.psiRecomendada)),
+    texto(lados),
+    recomendacionPorLados(lados, f.tipoEje) ?? "",
 
     texto(f.desPosicion),
     texto(f.desNumCalor),

@@ -41,6 +41,7 @@ export const TIPO_ALERTA: Record<string, { etiqueta: string; color: string }> = 
   programar_cambio: { etiqueta: "PROGRAMAR CAMBIO", color: colores.advertencia },
   dot_vencido: { etiqueta: "DOT VENCIDO", color: colores.peligro },
   dot_por_vencer: { etiqueta: "DOT POR VENCER", color: colores.textoTenue },
+  diferencia_lados: { etiqueta: "DIFERENCIA DE LADOS", color: colores.secundario },
 };
 
 /** Cuántas de cada nivel de profundidad, para el resumen de arriba. */

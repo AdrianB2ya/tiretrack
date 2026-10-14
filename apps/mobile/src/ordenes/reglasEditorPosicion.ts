@@ -3,6 +3,9 @@ import {
   leerDOT,
   textoVencimientoDOT,
   presionFueraDeRango,
+  diferenciaDeLados,
+  diferenciaPresion,
+  recomendacionPorLados,
   ETIQUETA_NIVEL_CAMBIO,
   LIMITES_POR_DEFECTO,
   nivelDeCambio,
@@ -317,6 +320,16 @@ export function revisar(
       mensaje: `${ETIQUETA_NIVEL_CAMBIO.programar_cambio}: a ${u.inmediato} mm pide cambio inmediato`,
     });
   }
+  // R6: la banda gastada de un lado. Es un hallazgo, no un error: se informa.
+  const lados = diferenciaDeLados(b.profundidades);
+  const revisarLados = recomendacionPorLados(lados, casilla.tipoEje);
+  if (revisarLados && lados !== null) {
+    avisos.push({
+      campo: "profundidad",
+      severidad: "informacion",
+      mensaje: `Diferencia de lados ${String(lados).replace(".", ",")} mm: ${revisarLados.toLowerCase()}`,
+    });
+  }
   // Basta una medida (decisión del usuario): lo que falta se dice, no bloquea.
   const faltan = puntosSinMedir(b.profundidades);
   if (faltan.length > 0 && faltan.length < PUNTOS_PROFUNDIDAD.length) {
@@ -346,7 +359,8 @@ export function revisar(
       avisos.push({
         campo: "psiEncontrada",
         severidad: "informacion",
-        mensaje: `Presión ${signo} respecto al objetivo (${casilla.psiObjetivo} PSI)`,
+        // R6: la diferencia con su signo, como en el Excel de levantamiento.
+        mensaje: `Presión ${signo} respecto al objetivo (${casilla.psiObjetivo} PSI): ${formatoDif(diferenciaPresion(b.psiEncontrada, casilla.psiObjetivo))} PSI`,
       });
     }
   }
@@ -431,4 +445,11 @@ export function desgasteRespectoAFabrica(
   const porcentaje = calcularDesgaste(profundidad, profundidadOriginal);
   if (porcentaje === null) return null;
   return { porcentaje, restante: Number(profundidad.toFixed(1)) };
+}
+
+/** "+8" o "−15", con coma decimal: el signo dice si sobraba o faltaba aire. */
+function formatoDif(n: number | null): string {
+  if (n === null) return "";
+  const t = String(Math.abs(n)).replace(".", ",");
+  return n > 0 ? `+${t}` : n < 0 ? `−${t}` : "0";
 }

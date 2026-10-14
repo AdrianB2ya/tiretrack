@@ -35,6 +35,14 @@ describe("documento de la orden", () => {
     expect(d.cabecera).toContainEqual(["Tipo", "Levantamiento"]);
   });
 
+  it("la diferencia de lados desde 1 mm se dice bajo las profundidades (R6)", () => {
+    const d = armarDocumentoOrden({
+      ...base,
+      posiciones: [{ ...base.posiciones[0]!, profundidad: 8, profundidades: { exterior: 8, centro: 9, interior: 9.5 } }],
+    });
+    expect(d.filas[0]?.[4]).toContain("dif. lados 1,5 mm");
+  });
+
   it("el DOT lleva su vencimiento a la fecha del servicio (R5)", () => {
     const fila = armarDocumentoOrden(base).filas.find((f) => f[0] === "2");
     expect(fila?.[3]).toBe("3624\nVence 09/2030");
@@ -66,7 +74,8 @@ describe("documento de la orden", () => {
     const p = { ...base.posiciones[0]!, profundidad: 8.5, profundidades: { exterior: 9.5, centro: 9, interior: 8.5 } };
     const d = armarDocumentoOrden({ ...base, posiciones: [p] });
     expect(d.columnas[4]).toBe("Prof. ext · cen · int");
-    expect(d.filas[0]?.[4]).toBe("9,5 · 9 · 8,5\nmín 8,5 mm");
+    // Exterior e interior difieren 1 mm: se dice (R6).
+    expect(d.filas[0]?.[4]).toBe("9,5 · 9 · 8,5\nmín 8,5 mm\ndif. lados 1 mm");
   });
 
   it("la cabecera identifica a todos, y las recomendaciones dicen su prioridad", () => {

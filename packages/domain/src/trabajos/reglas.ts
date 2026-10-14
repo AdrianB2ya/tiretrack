@@ -1,4 +1,5 @@
 import { type Veredicto, PERMITIDO, negar } from "../tipos";
+import { diferenciaDeLados, recomendacionPorLados } from "../llanta/hallazgos";
 import { ETIQUETA_NIVEL_CAMBIO, LIMITES_POR_DEFECTO, nivelDeCambio, umbralesDeCambio, type LimitesEmpresa } from "../llanta/limites";
 import { leerDOT, ANIOS_VIDA_DOT } from "../llanta/dot";
 import { ocurrencia, proximaEjecucion, siguienteHabil, type Frecuencia } from "../tiempo/habiles";
@@ -147,6 +148,10 @@ export interface LlantaParaRevisar {
   readonly dot: string | null;
   readonly profundidad: number | null;
   readonly profundidadMinima: number | null;
+  /** Para la diferencia de lados (R6). Opcionales: órdenes de un solo punto. */
+  readonly profExterior?: number | null;
+  readonly profInterior?: number | null;
+  readonly tipoEje?: string | null;
 }
 
 export interface Alerta {
@@ -157,7 +162,7 @@ export interface Alerta {
    * `profundidad_baja` es el cambio inmediato (rojo); `programar_cambio`, el
    * preventivo. Los límites son de la empresa (R2).
    */
-  readonly tipo: "dot_vencido" | "dot_por_vencer" | "profundidad_baja" | "programar_cambio";
+  readonly tipo: "dot_vencido" | "dot_por_vencer" | "profundidad_baja" | "programar_cambio" | "diferencia_lados";
   readonly severidad: Severidad;
   readonly mensaje: string;
 }
@@ -216,6 +221,20 @@ export function evaluarAlertas(l: LlantaParaRevisar, hoy: Date, limites: Limites
       tipo: "programar_cambio",
       severidad: "alta",
       mensaje: `${ETIQUETA_NIVEL_CAMBIO.programar_cambio}: ${l.profundidad} mm en ${identificacion} (cambio inmediato a ${u.inmediato} mm)`,
+    });
+  }
+
+  // R6: la banda gastada de un lado pide revisar, no cambiar: pesa menos.
+  const lados = diferenciaDeLados({ exterior: l.profExterior ?? null, interior: l.profInterior ?? null });
+  const revisar = recomendacionPorLados(lados, l.tipoEje);
+  if (revisar && lados !== null) {
+    alertas.push({
+      vehiculoId: l.vehiculoId,
+      posicion: l.posicion,
+      serial: l.serial,
+      tipo: "diferencia_lados",
+      severidad: "media",
+      mensaje: `Diferencia de lados de ${lados} mm en ${identificacion}: ${revisar.toLowerCase()}`,
     });
   }
 

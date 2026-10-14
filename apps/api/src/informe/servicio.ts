@@ -206,6 +206,7 @@ export class ServicioInforme {
          lr.medida, lr."estadoLlanta",
          lr."psiEncontrada", lr."psiCalibrado", lr.profundidad, lr."noIdentificada",
          lr."profExterior", lr."profCentro", lr."profInterior",
+         pe."psiObjetivo" AS "psiRecomendada", pe."tipoEje",
          lr."desProfExterior", lr."desProfCentro", lr."desProfInterior",
          lr."desPosicionOrigen" AS "desPosicion", lr."desNumCalor", lr."desSerial", lr."desDot",
          lr."desMedida", lr."desProfundidad",
@@ -214,6 +215,8 @@ export class ServicioInforme {
        FROM "OrdenServicio" o
        JOIN "LlantaRegistro" lr ON lr."ordenId" = o.id
        LEFT JOIN "Vehiculo" v ON v.id = o."vehiculoId"
+       -- La posición en la configuración CONGELADA de la orden: su PSI y su eje (R6).
+       LEFT JOIN "PosicionEje" pe ON pe."configuracionEjeId" = o."configuracionEjeId" AND pe.numero = lr.posicion
        LEFT JOIN "Marca" m   ON m.id = lr."marcaId"
        LEFT JOIN "Diseno" d  ON d.id = lr."disenoId"
        LEFT JOIN "Marca" dm  ON dm.id = lr."desMarcaId"
@@ -238,6 +241,7 @@ export class ServicioInforme {
       profExterior: aNumero(fila.profExterior),
       profCentro: aNumero(fila.profCentro),
       profInterior: aNumero(fila.profInterior),
+      psiRecomendada: aNumero(fila.psiRecomendada),
       desProfExterior: aNumero(fila.desProfExterior),
       desProfCentro: aNumero(fila.desProfCentro),
       desProfInterior: aNumero(fila.desProfInterior),

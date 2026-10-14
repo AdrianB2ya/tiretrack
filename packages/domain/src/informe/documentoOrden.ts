@@ -1,3 +1,4 @@
+import { diferenciaDeLados, UMBRAL_DIFERENCIA_LADOS } from "../llanta/hallazgos";
 import { describirProfundidades, type TresProfundidades } from "../llanta/profundidades";
 import { textoVencimientoDOT } from "../llanta/dot";
 import { ETIQUETA_TIPO_SERVICIO, type TipoServicio } from "../tipos";
@@ -182,5 +183,8 @@ export const MAX_ORDENES_PDF = 30;
 function celdaProfundidad(minima: number | null, tres: TresProfundidades | null | undefined): string {
   const detalle = describirProfundidades(tres);
   if (!detalle) return minima === null ? "" : `${String(minima).replace(".", ",")} mm`;
-  return `${detalle}\nmín ${String(minima ?? "").replace(".", ",")} mm`;
+  const base = `${detalle}\nmín ${String(minima ?? "").replace(".", ",")} mm`;
+  // R6: la banda gastada de un lado se dice en el documento que guarda el cliente.
+  const lados = diferenciaDeLados({ exterior: tres?.exterior ?? null, interior: tres?.interior ?? null });
+  return lados !== null && lados >= UMBRAL_DIFERENCIA_LADOS ? `${base}\ndif. lados ${String(lados).replace(".", ",")} mm` : base;
 }

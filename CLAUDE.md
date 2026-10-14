@@ -3566,7 +3566,7 @@ D queda fuera.
 - [x] R3 Listas con búsqueda para catálogos y menús largos
 - [x] R4 Orden de levantamiento (tipo de orden)
 - [x] R5 Vencimiento por DOT visible en el editor y el PDF
-- [ ] R6 Diferencia de lados y diferencia de presión
+- [x] R6 Diferencia de lados y diferencia de presión
 - [ ] R7 Bloqueo de órdenes (lo toma el técnico, lo liberan admin/coordinador)
 - [ ] R8 La llanta como activo: ficha, número interno, estado, vidas,
   inventario por sede
@@ -3593,6 +3593,11 @@ conservadora y se anota aquí.)
    empresa usa 3/5, el preventivo de ese eje va hasta 6 mm (se conserva el
    ancho de la banda). ¿O preferirían un valor fijo?
 3. **R2 — por defecto 3 y 5 mm** para toda empresa nueva. ¿Otros valores?
+4. **R6 — "posiciones 1 y 2"** del Excel se tomó como **el eje
+   direccional** (sirve con cualquier plantilla). ¿O son literalmente los
+   números 1 y 2?
+5. **R6 — diferencia de lados ≥ 1 mm** incluye el 1 (como el Excel: "de 1
+   mm en adelante"). Se informa; no bloquea ni pide confirmar.
 
 ## Catálogo de llantas desde la app (R1, 2026-10-13)
 
@@ -3633,6 +3638,23 @@ diseño que una empresa creaba bajo una marca global (su "XZE" de Michelin)
 diseño sea global o de la empresa, y lo mismo la medida. Probado contra RLS
 real en `aislamiento.test.ts` (las tablas de diseño y medida no estaban en
 ese banco); con la política vieja, la prueba falla.
+
+## Diferencia de lados y de presión (R6, 2026-10-14)
+
+Pendientes 14 y 15 (presión). Dominio `llanta/hallazgos.ts`:
+`diferenciaDeLados` (|exterior − interior|; sin uno de los dos, nada),
+`recomendacionPorLados` (desde 1 mm: en el **eje direccional** "Alinear,
+revisar calibración y balanceo"; en los demás "Revisar calibración, rotación
+y balanceo") y `diferenciaPresion` (encontrada − recomendada, con signo).
+
+- **Editor**: aviso informativo "Diferencia de lados 1,5 mm: alinear…", y el
+  aviso de presión dice la diferencia ("−30 PSI"). No piden confirmar.
+- **Llantas para cambiar**: alerta `diferencia_lados`, severidad media
+  ("DIFERENCIA DE LADOS"): pide revisar, no cambiar.
+- **CSV**: PSI RECOMENDADA (la del eje de la configuración **congelada** de
+  la orden), DIF PRESIÓN, DIF LADOS y REVISAR, al final del bloque de la
+  llanta intervenida.
+- **PDF**: "dif. lados 1,5 mm" bajo las profundidades.
 
 ## Vencimiento por DOT a la vista (R5, 2026-10-14)
 
@@ -3786,7 +3808,7 @@ identificador **`com.asistectire.app`**, rojo de la marca **como acento**.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 994/994, mobile 957 + recorrido 479.
+**Verificado:** `npm run verify` con base: raíz 1001/1001, mobile 959 + recorrido 479.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

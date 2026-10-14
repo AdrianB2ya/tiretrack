@@ -324,6 +324,7 @@ export class TrabajosProgramados {
       `SELECT DISTINCT ON (o."vehiculoId", lr.posicion)
               o.id AS "ordenId", o."vehiculoId", lr.posicion, lr.serial, lr.dot,
               lr.profundidad, pe."profundidadMinima",
+              lr."profExterior", lr."profInterior", pe."tipoEje",
               to_char(o.fecha,'YYYY-MM-DD') AS fecha
          FROM "LlantaRegistro" lr
          JOIN "OrdenServicio" o ON o.id = lr."ordenId"
@@ -344,6 +345,8 @@ export class TrabajosProgramados {
           ...fila,
           profundidad: aNumero(fila.profundidad),
           profundidadMinima: aNumero(fila.profundidadMinima),
+          profExterior: aNumero(fila.profExterior ?? null),
+          profInterior: aNumero(fila.profInterior ?? null),
         },
         ahora,
         limites,

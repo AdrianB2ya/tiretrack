@@ -242,6 +242,13 @@ describe("alertas de llanta", () => {
     expect(a[0]?.mensaje).toContain("PROGRAMAR CAMBIO");
   });
 
+  it("diferencia de lados desde 1 mm: revisar, con menos peso que el cambio (R6)", () => {
+    const a = evaluarAlertas({ ...base, profExterior: 8, profInterior: 9.5, tipoEje: "direccional" }, HOY);
+    expect(a).toEqual([expect.objectContaining({ tipo: "diferencia_lados", severidad: "media" })]);
+    expect(a[0]?.mensaje).toContain("alinear");
+    expect(evaluarAlertas({ ...base, profExterior: 9, profInterior: 9.5 }, HOY)).toHaveLength(0);
+  });
+
   it("sin profundidad medida no alerta por profundidad", () => {
     expect(evaluarAlertas({ ...base, profundidad: null }, HOY)).toHaveLength(0);
   });

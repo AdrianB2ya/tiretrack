@@ -20,6 +20,7 @@ export * from "./orden/congelado";
 export * from "./llanta/dot";
 export * from "./llanta/profundidades";
 export * from "./llanta/limites";
+export * from "./llanta/hallazgos";
 export * from "./llanta/medicion";
 
 export * from "./catalogo/normalizacion";

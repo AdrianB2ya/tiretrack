@@ -33,7 +33,7 @@ describe.skipIf(!disponible)("informe", () => {
     await db.query(`
       DROP TABLE IF EXISTS "Auditoria", "LlantaServicio", "LlantaRegistro",
                            "OrdenServicio", "Servicio", "Diseno", "Marca",
-                           "Vehiculo", "Usuario" CASCADE;
+                           "Vehiculo", "Usuario", "PosicionEje" CASCADE;
       DROP TYPE IF EXISTS "EstadoOrden", "AccionAuditoria" CASCADE;
 
       CREATE TYPE "EstadoOrden" AS ENUM
@@ -58,7 +58,16 @@ describe.skipIf(!disponible)("informe", () => {
         estado "EstadoOrden" NOT NULL DEFAULT 'cerrada',
         fecha date NOT NULL,
         kilometraje integer,
-        "vehiculoCodigo" text, "vehiculoPlaca" text
+        "vehiculoCodigo" text, "vehiculoPlaca" text,
+        "configuracionEjeId" text
+      );
+
+      CREATE TABLE "PosicionEje" (
+        id text PRIMARY KEY,
+        "configuracionEjeId" text NOT NULL,
+        numero integer NOT NULL,
+        "tipoEje" text NOT NULL DEFAULT 'multiuso',
+        "psiObjetivo" numeric(6,2)
       );
 
       CREATE TABLE "LlantaRegistro" (
@@ -100,7 +109,9 @@ describe.skipIf(!disponible)("informe", () => {
 
   beforeEach(async () => {
     await db.query(`TRUNCATE "Auditoria","LlantaServicio","LlantaRegistro","OrdenServicio",
-                             "Servicio","Diseno","Marca","Vehiculo" CASCADE`);
+                             "Servicio","Diseno","Marca","Vehiculo","PosicionEje" CASCADE`);
+    await db.query(`INSERT INTO "PosicionEje" (id,"configuracionEjeId",numero,"tipoEje","psiObjetivo")
+      VALUES ('pe-1','cfg-1',1,'direccional',110),('pe-5','cfg-1',5,'traccion',100)`);
 
     await db.query(`INSERT INTO "Vehiculo" (id,codigo,placa) VALUES ('veh-1','CA-12','SXK482'),('veh-2','CV-07','TRD119')`);
     await db.query(`INSERT INTO "Marca" (id,nombre) VALUES ('mar-1','Michelin'),('mar-2','Bridgestone')`);
@@ -111,13 +122,13 @@ describe.skipIf(!disponible)("informe", () => {
 
     // Orden cerrada con dos posiciones
     await db.query(`INSERT INTO "OrdenServicio"
-      (id,"empresaId","clienteId","vehiculoId",folio,estado,fecha,kilometraje,"vehiculoCodigo","vehiculoPlaca")
-      VALUES ('ord-1',$1,'cli-1','veh-1','OS-FUN-000001','cerrada','2026-09-10',78900,'CA-12','SXK482')`, [EMP]);
+      (id,"empresaId","clienteId","vehiculoId",folio,estado,fecha,kilometraje,"vehiculoCodigo","vehiculoPlaca","configuracionEjeId")
+      VALUES ('ord-1',$1,'cli-1','veh-1','OS-FUN-000001','cerrada','2026-09-10',78900,'CA-12','SXK482','cfg-1')`, [EMP]);
 
     await db.query(`INSERT INTO "LlantaRegistro"
       (id,"ordenId",posicion,"marcaId","disenoId",medida,"numCalor",serial,dot,"estadoLlanta",
-       "psiEncontrada","psiCalibrado",profundidad)
-      VALUES ('lr-1','ord-1',1,'mar-1','dis-1','295/80R22.5','H2201','MX10023458','3624','Usada',105,110,9.5)`);
+       "psiEncontrada","psiCalibrado",profundidad,"profExterior","profInterior")
+      VALUES ('lr-1','ord-1',1,'mar-1','dis-1','295/80R22.5','H2201','MX10023458','3624','Usada',105,110,9.5,9.5,11)`);
     await db.query(`INSERT INTO "LlantaServicio" VALUES ('lr-1','srv-cal'),('lr-1','srv-ret')`);
 
     // Posición con montaje y llanta desmontada
@@ -175,6 +186,15 @@ describe.skipIf(!disponible)("informe", () => {
       expect(pos5?.desSerial).toBe("BS66110044");
       expect(pos5?.desDestino).toBe("Desecho");
       expect(pos5?.desMarca).toBe("Bridgestone");
+    });
+
+    it("trae la presión recomendada y el eje de la posición congelada (R6)", async () => {
+      const filas = await servicio.consultar(ADMIN, { vehiculoId: "veh-1" });
+      const pos1 = filas.find((f) => f.posicion === 1);
+      expect(pos1?.psiRecomendada).toBe(110);
+      expect(pos1?.tipoEje).toBe("direccional");
+      const csv = await servicio.exportar(ADMIN, { vehiculoId: "veh-1" });
+      expect(csv.ok && csv.valor.contenido).toContain(`"110";"-5";"1.5";"Alinear, revisar calibración y balanceo"`);
     });
 
     it("los numeric llegan como número, no como texto", async () => {
