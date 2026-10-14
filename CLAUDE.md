@@ -3416,8 +3416,8 @@ desarrollar.** Se marca qué ya existe y qué falta decidir.
    marcas, diseños, medidas…), en vez de las fichas actuales. Con guantes,
    mejor una lista con búsqueda que un desplegable diminuto.
 10. **Servicio "Levantamiento"** en el catálogo fijo (`CATALOGO_SERVICIOS`,
-    código estable nuevo). *Decidir:* ¿es un servicio por llanta, por
-    vehículo, o un **tipo de orden** (inspección sin intervención)?
+    código estable nuevo). **Decidido (2026-10-13): es un tipo de orden**
+    (junto a preventivo y correctivo), no un servicio por llanta.
 11. **Próximo vencimiento de la llanta** visible al registrarla y en los
     informes. *Ya existe:* el vencimiento por DOT (fabricación + 6 años) se
     calcula en el dominio, sale en el CSV (columna VENCIMIENTO) y genera
@@ -3429,27 +3429,31 @@ desarrollar.** Se marca qué ya existe y qué falta decidir.
     llanta sin identificar no se puede seguir.
 13. **Alertas de profundidad personalizables por tipo de vehículo y por
     empresa.** *Ya existe:* el mínimo por eje (`profundidadMinima`) en cada
-    plantilla de ejes, que es por empresa y por tipo de vehículo. *Decidir:*
-    si eso basta (editarlo en Plantillas de ejes) o hace falta otro nivel.
+    plantilla de ejes, que es por empresa y por tipo de vehículo.
+    **Pedido del usuario (2026-10-13):** un **informe de llantas para cambio**
+    con dos niveles: **≤ 3 mm en rojo, "CAMBIO INMEDIATO"**, y un nivel
+    preventivo **"PROGRAMAR CAMBIO"**. *Falta definir* el umbral del
+    preventivo (¿entre 3 mm y cuánto?) y si los 3 mm son fijos o salen del
+    mínimo del eje.
 14. **Alerta por diferencia de lados** (|exterior − interior| ≥ 1 mm):
     - posiciones 1 y 2: "Alinear, revisar calibración, balanceo";
     - posición 3 en adelante: "Revisar calibración, rotación, balanceo".
-    *Decidir:* "posiciones 1 y 2" ¿son las del **eje direccional** (así sirve
-    para cualquier plantilla) o literalmente los números 1 y 2?
+    *Por validar con el usuario:* "posiciones 1 y 2" ¿son las del **eje
+    direccional** (así sirve para cualquier plantilla) o los números 1 y 2?
 15. **Indicadores del Excel de levantamiento**, por llanta:
-    - PROF INIC (al montarla; *decidir* si es la de fábrica de la medida o se
-      captura al montar, porque una reencauchada no trae la de fábrica),
+    - PROF INIC: **decidido: la de la referencia de la llanta** (profundidad
+      de fábrica de la medida del catálogo; interpretación a confirmar),
       PROF BAJA (= mínimo del eje), PROF MEDIA (promedio de las 3), DIF LADOS
       (|ext − int|), MM DE DESGASTE (inicial − mínima), MM REMANENTE (mínima;
       ya es `profundidad`), % RODADO = desgaste / (inicial − baja).
     - REFERENCIA DE DESGASTE por % rodado: >99% "FINAL 100%"; >71%
       "TENDENCIA DE RENDIMIENTO 71% - 98%"; >50% "PROYECCIÓN 50% - 70%";
-      >1% "INICIO DE CICLO 0% - 50%". *Decidir:* qué se muestra con ≤1% (la
-      fórmula del Excel deja la celda en FALSO).
+      de 0% a 50% "INICIO DE CICLO 0% - 50%" (**decidido**: incluye el 0–1%
+      que la fórmula del Excel dejaba en FALSO).
     - KM: MONTAJE, ACTUAL, KM RECORRIDO, KM/mm, PROYE = KM/mm × (inicial −
       baja). Depende del punto 12.
-    - COSTO de la llanta y CPK = costo / km proyectados. *Nuevo dato:* hoy no
-      se registra el costo. *Decidir:* dónde y quién lo captura.
+    - COSTO de la llanta y CPK = costo / km proyectados. **Decidido: el costo
+      se captura en el levantamiento**, por ahora. Es dinero: `Decimal`.
     - PRESIÓN: recomendada (= PSI objetivo del eje, ya existe), encontrada
       (ya existe), DIFERENCIA (nuevo cálculo).
 
