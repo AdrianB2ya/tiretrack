@@ -20,7 +20,7 @@ const item = (o: Parameters<typeof unaOrden>[0]): OrdenParaLista => ({
 describe("plazo del cliente", () => {
   it("cuenta los días que quedan", () => {
     expect(diasHasta("2026-10-08", "2026-10-05")).toBe(3);
-    expect(textoPlazo("2026-10-08", "2026-10-05")).toMatch(/3 días.*se aprueba sola/);
+    expect(textoPlazo("2026-10-08", "2026-10-05")).toMatch(/3 días.*se cierra por vencimiento del plazo, no como aprobada por ti/);
     expect(textoPlazo("2026-10-05", "2026-10-05")).toMatch(/Hoy vence/);
     expect(textoPlazo("2026-10-01", "2026-10-05")).toMatch(/venció/);
     expect(textoPlazo(null, "2026-10-05")).toBeNull();

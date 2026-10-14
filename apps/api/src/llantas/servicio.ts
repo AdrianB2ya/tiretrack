@@ -281,11 +281,13 @@ export class ServicioLlantas {
   // ── Desde las órdenes ────────────────────────────────────────────────────
 
   /**
-   * Al aprobarse una orden: las llantas que se midieron quedan montadas donde
-   * estaban, y las que salieron pasan a donde dijo el técnico.
+   * Al CERRARSE una orden (el cliente la aprueba o vence su plazo): las
+   * llantas que se midieron quedan montadas donde estaban, y las que salieron
+   * pasan a donde dijo el técnico. Decisión del usuario (2026-10-14): al
+   * cierre y no al aprobar, porque una orden objetada todavía puede cambiar.
    *
-   * Una sola vez por orden: si ya dejó movimientos (se aprobó, la objetaron y
-   * se volvió a aprobar), no se repite la historia.
+   * Una sola vez por orden: si ya dejó movimientos, no se repite la historia
+   * (las órdenes aprobadas antes de este cambio ya la tienen).
    */
   async procesarOrden(ctx: Contexto, ordenId: string): Promise<{ montadas: number; desmontadas: number }> {
     const hecho = await this.db.query(`SELECT 1 FROM "LlantaMovimiento" WHERE "ordenId" = $1 LIMIT 1`, [ordenId]);

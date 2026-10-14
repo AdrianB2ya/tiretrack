@@ -7,7 +7,7 @@ import { colores, espacio, texto } from "../diseno/tokens";
 /**
  * Inventario de llantas (R8): cada llanta del cliente como activo, con su
  * estado y dónde está. Se consulta en línea: el inventario es de la oficina,
- * y lo que pasa en las órdenes llega al aprobarlas.
+ * y lo que pasa en las órdenes llega al cerrarlas.
  */
 
 type R<T> = { ok: true; datos: T } | { ok: false; status: number; mensaje: string };
@@ -103,7 +103,7 @@ export function PantallaLlantas({
       ) : null}
       {!lista && !error ? <Vacio mensaje="Cargando el inventario…" /> : null}
       {lista && lista.length === 0 ? (
-        <Vacio mensaje="Ninguna llanta con ese filtro. Las de los vehículos aparecen al aprobarse sus órdenes." />
+        <Vacio mensaje="Ninguna llanta con ese filtro. Las de los vehículos aparecen al cerrarse sus órdenes." />
       ) : null}
       {lista && lista.length > 0 ? <Text style={estilos.detalle}>{lista.length} llantas</Text> : null}
       {(lista ?? []).map((l) => (

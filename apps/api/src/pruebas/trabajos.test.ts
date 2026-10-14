@@ -28,6 +28,7 @@ const TABLAS = [
   "ConfiguracionEje", "PosicionEje", "Vehiculo", "Consecutivo",
   "OrdenServicio", "OrdenEstadoHistorial", "LlantaRegistro",
   "ProgramacionRecurrente", "Auditoria", "SesionUsuario", "TokenRecuperacion",
+  "Llanta", "LlantaVida", "LlantaMovimiento",
 ];
 
 /** Las de producción (manual.sql y Prisma) que estos trabajos pueden violar. */
@@ -114,6 +115,19 @@ describe.skipIf(!disponible)("trabajos programados", () => {
       const f = await db.query(`SELECT estado::text AS estado, "cierreTacito" FROM "OrdenServicio"`);
       expect(f.rows[0].estado).toBe("cerrada");
       expect(f.rows[0].cierreTacito).toBe(true);
+    });
+
+    it("al cerrarse por vencimiento, sus llantas arman su historia a nombre de Sistema (R8)", async () => {
+      await orden("o1", { limiteCliente: "2026-09-11" });
+      await db.query(
+        `INSERT INTO "LlantaRegistro" (id,"ordenId","configuracionEjeId","capturadoPorId",posicion,serial,profundidad)
+         VALUES ('lr-1','o1','cfg-1','u-tec1',1,'MX77',9)`,
+      );
+      expect((await trabajos.cerrarPlazosVencidos()).exitosos).toBe(1);
+      const l = await db.query(`SELECT estado::text AS estado, posicion FROM "Llanta"`);
+      expect(l.rows).toEqual([{ estado: "montada", posicion: 1 }]);
+      const m = await db.query(`SELECT "usuarioId" FROM "LlantaMovimiento" WHERE "ordenId" = 'o1'`);
+      expect(m.rows).toEqual([{ usuarioId: null }]);
     });
 
     it("el motivo dice que fue por vencimiento", async () => {

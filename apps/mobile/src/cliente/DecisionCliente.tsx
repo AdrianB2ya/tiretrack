@@ -23,9 +23,11 @@ export function diasHasta(limite: string | null, hoy: string): number | null {
 export function textoPlazo(limite: string | null, hoy: string): string | null {
   const d = diasHasta(limite, hoy);
   if (d === null) return null;
-  if (d < 0) return "El plazo venció: se cerrará automáticamente.";
+  if (d < 0) return "El plazo venció: se cerrará por vencimiento, no como aprobada por ti.";
   if (d === 0) return "Hoy vence el plazo para responder.";
-  return `Tienes ${d} día${d === 1 ? "" : "s"} para responder. Si no respondes, se aprueba sola.`;
+  // El vencimiento NUNCA se presenta como aprobación (regla del negocio): se
+  // cierra por vencimiento del plazo y así queda registrado.
+  return `Tienes ${d} día${d === 1 ? "" : "s"} para responder. Si no respondes, se cierra por vencimiento del plazo, no como aprobada por ti.`;
 }
 
 export interface DecisionClienteProps {

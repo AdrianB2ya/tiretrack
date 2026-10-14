@@ -1,3 +1,4 @@
+import { ServicioLlantas } from "../llantas/servicio";
 import type pg from "pg";
 import {
   avanzaAlSaltar,
@@ -133,6 +134,13 @@ export class TrabajosProgramados {
            VALUES ($1,$2,'pendiente_cliente','cerrada',NULL,
                    'Cerrada por vencimiento del plazo de aprobación', true)`,
           [nuevoId(), orden.id],
+        );
+
+        // R8: cerrada, sus llantas arman su historia (a nombre de Sistema), en
+        // la misma transacción que el cierre.
+        await new ServicioLlantas(this.db, this.reloj).procesarOrden(
+          { empresaId: orden.empresaId, rol: "administrador", usuarioId: "" },
+          orden.id,
         );
 
         // Una orden cerrada sola sin rastro es indistinguible de una

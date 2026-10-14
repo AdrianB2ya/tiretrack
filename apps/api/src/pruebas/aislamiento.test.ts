@@ -259,6 +259,19 @@ cuando("aislamiento entre empresas", () => {
         ),
       ).rejects.toThrow(/row-level security|política|policy/i);
     });
+
+    it("al aprobar el cierre, el servidor escribe la historia como Sistema: el cambio de rol es lo que lo permite (R8)", async () => {
+      // Lo que hace la ruta de cambio de estado cuando el cliente cierra la
+      // orden. Sin el cambio de rol, la escritura se rechaza (prueba anterior).
+      const r = await bd.comoUsuario(
+        ctxCliente,
+        `SELECT set_config('app.rol', 'sistema', true);
+         INSERT INTO "LlantaRegistro" (id, "ordenId", "configuracionEjeId", posicion, "capturadoPorId")
+         VALUES ('lr-sis', 'ord-a', 'cfg-a', 9, 'tec-a');
+         DELETE FROM "LlantaRegistro" WHERE id = 'lr-sis';`,
+      );
+      expect(Array.isArray(r)).toBe(true);
+    });
   });
 
   describe("llantas (R8)", () => {

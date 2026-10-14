@@ -1169,7 +1169,7 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
     const traer = (ruta: string, token = "tok-coordinador") =>
       app.inject({ method: "GET", url: PREFIJO_API + ruta, headers: { authorization: `Bearer ${token}` } });
 
-    it("aprobar la orden arma la historia de sus llantas, en la misma transacción", async () => {
+    it("la historia de las llantas se arma al CERRAR la orden (lo aprueba el cliente), no al aprobarla la oficina", async () => {
       const g = await guardarMedicion(medicion(1, { serial: "MX-500" }));
       expect(g.statusCode, g.body).toBeLessThan(300);
       // A revisión, con la firma vigente sobre el contenido actual.
@@ -1181,10 +1181,16 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
       await pool.query(`INSERT INTO "UsuarioSede" ("usuarioId","sedeId") VALUES ($1,$2)`, [SEMILLA.coordinador, SEMILLA.sede]);
       const r = await pedir({ ruta: `/ordenes/${ORDEN}/estado`, token: "tok-coordinador", cuerpo: { estado: "pendiente_cliente" } });
       expect(r.statusCode, r.body).toBe(200);
+      expect((await traer(`/llantas?vehiculoId=${SEMILLA.vehiculo}`)).json()).toEqual([]);
+      const c = await pedir({ ruta: `/ordenes/${ORDEN}/estado`, token: "tok-cliente", cuerpo: { estado: "cerrada" } });
+      expect(c.statusCode, c.body).toBe(200);
       const lista = await traer(`/llantas?vehiculoId=${SEMILLA.vehiculo}`);
       expect(lista.json()).toEqual([expect.objectContaining({ serial: "MX500", estado: "montada", posicion: 1, vehiculoCodigo: "CA-12" })]);
       const ficha = await traer(`/llantas/${lista.json()[0].id}`);
       expect(ficha.json().movimientos.map((m: { tipo: string }) => m.tipo)).toEqual(["montaje"]);
+      // A nombre de Sistema, no del cliente que aprobó.
+      const autor = await pool.query(`SELECT "usuarioId" FROM "LlantaMovimiento" WHERE "ordenId" = $1`, [ORDEN]);
+      expect(autor.rows).toEqual([{ usuarioId: null }]);
     });
 
     it("la oficina da de alta en bodega y la mueve; el técnico solo consulta", async () => {

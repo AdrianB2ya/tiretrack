@@ -732,9 +732,19 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
         ...(p.data.motivo ? { motivo: p.data.motivo } : {}),
       });
       if (!r.ok) return rechazo(r.veredicto);
-      // R8: aprobada, lo que se midió arma la historia de cada llanta. En la
-      // misma transacción: o queda la aprobación con su inventario, o nada.
-      if (r.valor.estado === "pendiente_cliente") await s.llantas.procesarOrden(ctx, r.valor.id);
+      // R8: CERRADA, lo que se midió arma la historia de cada llanta (decisión
+      // del usuario, 2026-10-14: al cierre, no al aprobar: una orden objetada
+      // vuelve al técnico y todavía puede cambiar). En la misma transacción: o
+      // queda el cierre con su inventario, o nada.
+      //
+      // Quien cierra es el cliente, y la base no le deja escribir datos
+      // operativos (cliente_no_escribe). La historia la escribe el SISTEMA:
+      // el rol del contexto cambia solo para esta llamada y se restituye.
+      if (r.valor.estado === "cerrada") {
+        await s.consulta.query(`SELECT set_config('app.rol', 'sistema', true)`);
+        await s.llantas.procesarOrden({ empresaId: ctx.empresaId, rol: ctx.rol, usuarioId: "" }, r.valor.id);
+        await s.consulta.query(`SELECT set_config('app.rol', $1, true)`, [ctx.rol]);
+      }
       return { status: 200, cuerpo: { estado: r.valor.estado } };
     }));
 

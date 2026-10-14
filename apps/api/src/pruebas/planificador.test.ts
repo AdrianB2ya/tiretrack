@@ -23,6 +23,7 @@ const ESQUEMA = esquemaDe(import.meta.url);
 const TABLAS = [
   "Empresa", "Sede", "Usuario", "UsuarioSede", "Vehiculo", "Consecutivo",
   "OrdenServicio", "OrdenEstadoHistorial", "ProgramacionRecurrente", "Auditoria",
+  "LlantaRegistro", "Llanta", "LlantaVida", "LlantaMovimiento",
 ];
 const RELOJ = () => new Date("2026-09-14T15:00:00.000Z");
 
