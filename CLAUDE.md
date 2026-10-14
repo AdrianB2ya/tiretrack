@@ -3705,6 +3705,14 @@ reprodujo después.
   pasa con lo capturado sin señal por quien no tenía el bloqueo (hoy el
   servidor ya rechaza mediciones de quien no es el técnico asignado, y una
   posición ocupada se aparta).
+  **Precisión del usuario (2026-10-13):** el bloqueo lo toma **el técnico**,
+  con señal, **antes de salir a trabajar sin señal** ("me llevo esta
+  orden"); mientras lo tenga, nadie más la edita. Lo **liberan el
+  administrador o el coordinador** (además del propio técnico al terminar o
+  al enviarla). Sin vencimiento automático: no lo pidió. Queda por definir
+  al construir: qué puede hacer la oficina con una orden bloqueada (verla sí;
+  reasignar, devolver o anular, ¿sí o no?) y que liberar quede en la
+  auditoría con motivo.
 
 No decidir por cuenta propia. Preguntar cuando toque el tema.
 
