@@ -3602,7 +3602,12 @@ conservadora y se anota aquí.)
   reasignar es de la oficina (ya era así).
 - **7**: el coordinador **puede anular una orden bloqueada sin liberarla**;
   al anularla el bloqueo se suelta solo. Reasignar sigue exigiendo liberar.
-  **Hueco encontrado:** la app no tiene botón para anular (solo la API).
+  **Hueco encontrado y cerrado:** la app no tenía botón para anular (solo la
+  API). Ahora "Anular la orden" en el detalle (`src/coordinador/AnularOrden.tsx`):
+  coordinador o administrador, orden abierta (regla del dominio), motivo de 10
+  letras o más, segundo toque; por la cola (`cambiar_estado`), también sin
+  señal. Si un técnico se la llevó, lo dice: lo que traiga se rechaza y le
+  queda apartado.
 - **8**: Asistectire también tiene llantas para vender, pero **por ahora solo
   se maneja el inventario del cliente** (las de sus vehículos). Como estaba.
 - **9**: **la historia de la llanta se arma al CERRAR la orden** (aprobación

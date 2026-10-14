@@ -17,6 +17,7 @@ import { OrdenNoDisponible } from "../../../../src/ordenes/OrdenNoDisponible";
 import { Recomendaciones } from "../../../../src/ordenes/Recomendaciones";
 import type { RecomendacionLocal } from "../../../../src/datos/repositorio";
 import { BotonPdf } from "../../../../src/ordenes/BotonPdf";
+import { AnularOrden } from "../../../../src/coordinador/AnularOrden";
 import { EnviarPorCorreo } from "../../../../src/informe/EnviarPorCorreo";
 import { bajarACache, compartirUri } from "../../../../src/informe/compartirArchivo";
 import { useServicios } from "../../../../src/app/Arranque";
@@ -286,6 +287,17 @@ export default function PantallaDetalle() {
         <Boton ancho tipo="fantasma" testID="reasignar" onPress={() => router.push(`/orden/${orden.id}/reasignar` as never)}>
           Reasignar a otro técnico
         </Boton>
+      ) : null}
+      {gestor ? (
+        <AnularOrden
+          estado={orden.estado}
+          rol={usuario.rol}
+          bloqueadaPorOtro={bloqueadaPorOtro}
+          onAnular={async (motivo) => {
+            await cambiarEstado(orden.id, "anulada", motivo);
+            router.replace("/ordenes" as never);
+          }}
+        />
       ) : null}
     </ScrollView>
   );
