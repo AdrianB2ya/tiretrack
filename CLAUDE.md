@@ -3605,8 +3605,9 @@ conservadora y se anota aquí.)
   **Hueco encontrado:** la app no tiene botón para anular (solo la API).
 - **8**: Asistectire también tiene llantas para vender, pero **por ahora solo
   se maneja el inventario del cliente** (las de sus vehículos). Como estaba.
-- **9**: el usuario preguntó cuál es lo ideal; se le respondió con la
-  recomendación (ver abajo) y queda pendiente su decisión.
+- **9**: **la historia de la llanta se arma al CERRAR la orden** (aprobación
+  del cliente o cierre tácito), no al aprobarla la oficina: una orden objetada
+  todavía puede cambiar. Hecho: la escribe el Sistema (ver la sección R8).
 - **13 a 20**: quedan pendientes, a decisión del usuario.
 - **21**: "varias" pantallas; falta que diga cuáles.
 
@@ -4029,12 +4030,19 @@ técnico), `claveIdentificador` (serial sin espacios ni guiones).
   `empresaId`, CHECK de estado válido, montada con lugar, identificable, y
   **una sola llanta montada por posición** (índice único parcial). RLS por
   empresa, y el cliente solo ve las suyas (probado contra RLS real).
-- **La historia se arma sola desde las órdenes**: al aprobarse una orden
-  (pasa a `pendiente_cliente`), en la misma transacción, cada posición con
+- **La historia se arma sola desde las órdenes**: al **cerrarse** una orden
+  (el cliente la aprueba o vence su plazo; decisión del usuario 2026-10-14,
+  antes era al aprobarla la oficina), en la misma transacción, cada posición con
   serial queda como la llanta montada ahí (se crea si no existía), la que
   salió va al estado que anotó el técnico, una que aparece en otra posición
   se rotó, y una montada que nadie reportó y cuyo lugar ocupa otra pasa a
-  bodega. **El técnico no hace nada nuevo.** Una sola vez por orden (si se
+  bodega. **El técnico no hace nada nuevo.** La escribe el **Sistema**: quien
+  cierra es el cliente, y la base no le deja escribir datos operativos
+  (`cliente_no_escribe`); la ruta cambia `app.rol` a `sistema` solo para esa
+  llamada y lo restituye (probado contra RLS real en `aislamiento.test.ts`).
+  El cierre tácito la arma en su propia transacción. El texto del cliente
+  decía "si no respondes, se aprueba sola": contradecía la regla del cierre
+  tácito; ahora dice que se cierra por vencimiento, no como aprobada. Una sola vez por orden (si se
   vuelve a aprobar, no se repite la historia). Las no identificadas no son
   activo: no se inventa.
 - **La oficina** (en línea, auditado): alta en bodega (compra, con costo),
