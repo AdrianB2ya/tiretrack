@@ -3596,13 +3596,13 @@ conservadora y se anota aquí.)
 4. **R6 — "posiciones 1 y 2"** del Excel se tomó como **el eje
    direccional** (sirve con cualquier plantilla). ¿O son literalmente los
    números 1 y 2?
+5. **R6 — diferencia de lados ≥ 1 mm** incluye el 1 (como el Excel: "de 1
+   mm en adelante"). Se informa; no bloquea ni pide confirmar.
 6. **R7 — el técnico suelta la orden sin motivo** y la oficina con motivo
    de al menos 10 letras. ¿Correcto, o el técnico también debe decir por qué?
 7. **R7 — un técnico con la orden bloqueada que la oficina reasigna**: hoy la
    oficina tiene que liberarla primero (decisión del usuario). Se tomó que
    anular también lo exige. ¿Correcto?
-5. **R6 — diferencia de lados ≥ 1 mm** incluye el 1 (como el Excel: "de 1
-   mm en adelante"). Se informa; no bloquea ni pide confirmar.
 
 ## Catálogo de llantas desde la app (R1, 2026-10-13)
 
