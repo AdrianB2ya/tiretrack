@@ -89,7 +89,11 @@ export async function calcularIndicadores(db: Consultable, empresaId: string, fi
       exterior: f.profExterior ?? null, centro: f.profCentro ?? null, interior: f.profInterior ?? null,
       remanente: f.profundidad, inicial: profInicial, baja: profBaja, kmRecorrido: km.kmRecorrido, costo,
     });
+    // El montaje que abrió el tramo actual: desde ahí se mide el ritmo de desgaste (R11).
+    const montajes = deLaVida.filter((m) => m.tipo === "montaje" && m.fecha <= f.fecha);
+    const fechaMontaje = montajes.at(-1)?.fecha ?? null;
     return {
+      fechaMontaje,
       profInicial, profBaja, profMedia: ind.profMedia, mmDesgaste: ind.mmDesgaste, pctRodado: ind.pctRodado,
       referencia: ind.referencia, kmMontaje: km.kmMontaje, kmRecorrido: km.kmRecorrido, kmPorMm: ind.kmPorMm,
       proyeccionKm: ind.proyeccionKm, costo, cpk: ind.cpk,

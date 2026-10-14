@@ -3573,7 +3573,7 @@ D queda fuera.
 - [x] R9 Kilómetros por llanta e indicadores del levantamiento (% rodado,
   referencia de desgaste, km/mm, proyección, costo, CPK)
 - [x] R10 Retiro y fallas: motivos, foto si es falla, causas, garantías
-- [ ] R11 Tableros, proyección de compras, portal del cliente con indicadores
+- [x] R11 Tableros, proyección de compras, portal del cliente con indicadores
 - [ ] R12 Carga masiva desde Excel (flota, llantas, catálogo)
 - [ ] R13 Avisos y envío de informes por correo (WhatsApp: compartir)
 - [ ] R14 Cotización (sin precios hasta D)
@@ -3657,6 +3657,28 @@ diseño que una empresa creaba bajo una marca global (su "XZE" de Michelin)
 diseño sea global o de la empresa, y lo mismo la medida. Probado contra RLS
 real en `aislamiento.test.ts` (las tablas de diseño y medida no estaban en
 ese banco); con la política vieja, la prueba falla.
+
+## Tablero de la flota (R11, 2026-10-14)
+
+Brecha C. Dominio `informe/tablero.ts`; servidor `informe/tablero.ts`,
+`GET /tablero` (filtros `desde`, `hasta`, `clienteId`).
+
+- **Sale de las mismas filas del informe** (con sus indicadores, R9): una
+  cifra del tablero se puede rastrear hasta su fila en el CSV. Mismo alcance:
+  oficina, técnico, y el cliente con lo aprobado o cerrado de su flota.
+- **Cada llanta cuenta una vez**, con su última medición (sin serial, por
+  vehículo y posición).
+- **Rendimiento** por marca, diseño y posición: costo por km, km/mm y
+  proyección promedio; **ordenado por costo por km**, el más barato primero
+  (lo que le importa al dueño de la flota).
+- **Proyección de compras**: con el ritmo de desgaste desde el montaje (mm
+  por día), cuándo llega cada llanta a su profundidad baja; agrupado por
+  medida: ya en su límite, en 30, 60 y 90 días, y cuántas no se pueden
+  estimar (sin profundidad de fábrica, sin fecha de montaje o sin desgaste).
+  Los indicadores ganan `fechaMontaje`.
+- **App**: "Indicadores de la flota" (oficina y cliente). **El portal del
+  cliente** lleva a sus indicadores y a sus llantas desde arriba: es lo que
+  vende el servicio, no solo la lista de órdenes.
 
 ## Retiro, fallas y garantías (R10, 2026-10-14)
 
@@ -3943,7 +3965,7 @@ identificador **`com.asistectire.app`**, rojo de la marca **como acento**.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 1051/1051, mobile 987 + recorrido 564.
+**Verificado:** `npm run verify` con base: raíz 1056/1056, mobile 991 + recorrido 574.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

@@ -1082,6 +1082,16 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
       expect(causas.porPosicion).toEqual([{ grupo: "2", motivo: "corte", cantidad: 1 }]);
     });
 
+    it("el tablero agrupa el rendimiento y proyecta compras (R11)", async () => {
+      await guardarMedicion(medicion(1, { serial: "MX-1", profundidades: { exterior: 9, centro: 9, interior: 9 } }));
+      const r = await traer("/tablero");
+      expect(r.statusCode).toBe(200);
+      const t = r.json();
+      expect(t.llantas).toBe(1);
+      expect(t.porPosicion[0]).toMatchObject({ grupo: "1", llantas: 1 });
+      expect(t.compras).toMatchObject({ sinEstimar: 1 });
+    });
+
     it("un motivo inventado no pasa el contrato", async () => {
       const g = await guardarMedicion(medicion(2, { desmontada: { serial: "X", motivoRetiro: "mala suerte" } }));
       expect(g.statusCode).toBe(422);

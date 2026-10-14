@@ -22,7 +22,13 @@ export default function RutaCliente() {
           <RefreshControl refreshing={sincronizando} onRefresh={() => void sincronizar()} tintColor={colores.primario} />
         }
       >
-        <PortalCliente ordenes={ordenes} hoy={hoy} onAbrir={(id) => router.push(`/orden/${id}` as never)} />
+        <PortalCliente
+          ordenes={ordenes}
+          hoy={hoy}
+          onAbrir={(id) => router.push(`/orden/${id}` as never)}
+          onIndicadores={() => router.push("/tablero" as never)}
+          onLlantas={() => router.push("/llantas" as never)}
+        />
       </ScrollView>
       <NavegacionInferior activa="cliente" />
     </View>

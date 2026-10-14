@@ -58,6 +58,7 @@ import { ServicioUsuarios } from "../usuarios/servicio";
 import { ServicioEmpresa } from "../empresa/servicio";
 import { ServicioLlantas } from "../llantas/servicio";
 import { ServicioReclamos } from "../llantas/reclamos";
+import { tableroDeFlota } from "../informe/tablero";
 import { ServicioProgramaciones } from "../programaciones/servicio";
 import { ServicioRecomendaciones } from "../recomendaciones/servicio";
 import { ServicioDocumento } from "../informe/documento";
@@ -836,6 +837,13 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
     }));
 
     // ── Retiro y garantías (R10) ──
+
+    // ── Tablero de la flota (R11) ──
+    app.get("/tablero", consulta(async (s, ctx, req) => {
+      const p = zFiltroCausas.safeParse(req.query ?? {});
+      if (!p.success) return datosInvalidos(p.error.issues);
+      return { status: 200, cuerpo: await tableroDeFlota(s.informe, ctx, p.data, reloj()) };
+    }));
 
     app.get("/informe/causas-retiro", consulta(async (s, ctx, req) => {
       const p = zFiltroCausas.safeParse(req.query ?? {});

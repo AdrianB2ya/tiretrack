@@ -217,6 +217,7 @@ describe.skipIf(!disponible)("informe", () => {
       await db.query(`UPDATE "LlantaRegistro" SET "profExterior" = 9, "profCentro" = 10, "profInterior" = 11, profundidad = 9 WHERE id = 'lr-1'`);
       const filas = await servicio.consultar(ADMIN, { vehiculoId: "veh-1" });
       expect(filas.find((x) => x.posicion === 1)?.indicadores).toEqual({
+        fechaMontaje: "2026-01-01",
         profInicial: 16, profBaja: 3, profMedia: 10, mmDesgaste: 7, pctRodado: 53.8,
         referencia: "PROYECCIÓN 50% - 70%", kmMontaje: 8900, kmRecorrido: 70000, kmPorMm: 10000,
         proyeccionKm: 130000, costo: 1820000, cpk: 14,

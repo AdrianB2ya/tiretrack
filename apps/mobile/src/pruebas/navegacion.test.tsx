@@ -26,7 +26,7 @@ describe("navegación de la oficina", () => {
 
   it("'Más' ofrece a cada rol solo lo que puede hacer", () => {
     const coordinador = opcionesMas("coordinador").map((o) => o.clave);
-    expect(coordinador).toEqual(["nueva-orden", "programaciones", "flota", "alertas", "informe", "llantas", "causas-retiro", "reclamos", "stock", "catalogo", "cuenta"]);
+    expect(coordinador).toEqual(["nueva-orden", "programaciones", "flota", "alertas", "informe", "llantas", "tablero", "causas-retiro", "reclamos", "stock", "catalogo", "cuenta"]);
     const admin = opcionesMas("administrador").map((o) => o.clave);
     expect(admin).toEqual(expect.arrayContaining(["usuarios", "sedes", "plantillas", "auditoria", "revision-catalogo", "catalogo"]));
     expect(coordinador).not.toContain("usuarios");
@@ -36,7 +36,7 @@ describe("navegación de la oficina", () => {
     // informe de sus órdenes (decisión del usuario); no administra. El
     // cliente ve el informe de su flota y su cuenta.
     expect(opcionesMas("tecnico").map((o) => o.clave)).toEqual(["nueva-orden", "flota", "informe", "llantas", "cuenta"]);
-    expect(opcionesMas("cliente").map((o) => o.clave)).toEqual(["informe", "llantas", "causas-retiro", "cuenta"]);
+    expect(opcionesMas("cliente").map((o) => o.clave)).toEqual(["informe", "llantas", "tablero", "causas-retiro", "cuenta"]);
     expect(opcionesMas("superadmin").map((o) => o.clave)).toEqual(["cuenta"]);
   });
 

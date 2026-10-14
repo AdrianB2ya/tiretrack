@@ -62,6 +62,8 @@ export interface FilaCruda {
   readonly tipoEje?: string | null;
   /** Indicadores del levantamiento (R9), ya calculados por el servidor. */
   readonly indicadores?: {
+    /** Desde cuándo está montada (R11: ritmo de desgaste). */
+    readonly fechaMontaje?: string | null;
     readonly profInicial: number | null;
     readonly profBaja: number | null;
     readonly profMedia: number | null;

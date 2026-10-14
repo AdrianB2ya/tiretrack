@@ -1,5 +1,5 @@
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { Insignia, Tarjeta, Vacio } from "../diseno/componentes";
+import { Insignia, Tarjeta, Vacio, Boton } from "../diseno/componentes";
 import { colores, espacio, texto } from "../diseno/tokens";
 import type { OrdenParaLista } from "../ordenes/lista";
 import { diasHasta } from "./DecisionCliente";
@@ -26,14 +26,33 @@ export function PortalCliente({
   ordenes,
   hoy,
   onAbrir,
+  onIndicadores,
+  onLlantas,
 }: {
   ordenes: readonly OrdenParaLista[];
   hoy: string;
   onAbrir: (ordenId: string) => void;
+  /** R11: el portal muestra su flota, no solo sus órdenes. */
+  onIndicadores?: () => void;
+  onLlantas?: () => void;
 }) {
   const { porAprobar, cerradas } = seccionesCliente(ordenes);
   return (
     <ScrollView contentContainerStyle={estilos.contenido}>
+      {onIndicadores || onLlantas ? (
+        <View style={estilos.accesos}>
+          {onIndicadores ? (
+            <Boton tipo="secundario" testID="portal-indicadores" onPress={onIndicadores}>
+              Indicadores de mi flota
+            </Boton>
+          ) : null}
+          {onLlantas ? (
+            <Boton tipo="fantasma" testID="portal-llantas" onPress={onLlantas}>
+              Mis llantas
+            </Boton>
+          ) : null}
+        </View>
+      ) : null}
       <Text style={estilos.seccion}>Esperando tu aprobación ({porAprobar.length})</Text>
       {porAprobar.length === 0 ? <Vacio mensaje="No hay servicios pendientes de aprobar." /> : null}
       {porAprobar.map((o) => {
@@ -67,6 +86,7 @@ export function PortalCliente({
 }
 
 const estilos = StyleSheet.create({
+  accesos: { gap: 8 },
   contenido: { padding: espacio.lg, gap: espacio.md },
   seccion: { ...texto.subtitulo, color: colores.texto, marginTop: espacio.sm },
   fila: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
