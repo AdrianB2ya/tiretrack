@@ -144,6 +144,11 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
       await pool.query(`INSERT INTO "UsuarioSede" ("usuarioId","sedeId") VALUES ($1,$2)`, [SEMILLA.coordinador, SEMILLA.sede]);
     });
 
+    it("se puede programar un levantamiento recurrente (R4)", async () => {
+      const r = await enviar("POST", "/programaciones", "tok-coordinador", nueva({ tipo: "levantamiento" }));
+      expect(r.statusCode).toBe(201);
+    });
+
     it("el coordinador programa; la primera visita pasa del sábado al lunes; queda a su nombre", async () => {
       const p = nueva();
       const r = await enviar("POST", "/programaciones", "tok-coordinador", p);

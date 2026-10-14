@@ -105,6 +105,12 @@ export function TarjetaOrden({
         ) : null}
 
         <View style={{ flex: 1 }} />
+        {/* La inspección se distingue de reojo: no se va a intervenir (R4). */}
+        {orden.tipo === "levantamiento" ? (
+          <Insignia color={colores.secundario} compacta>
+            Levantamiento
+          </Insignia>
+        ) : null}
         {estado ? (
           <Insignia color={estado.color} compacta>
             {estado.etiqueta}

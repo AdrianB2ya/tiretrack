@@ -3564,7 +3564,7 @@ D queda fuera.
 - [x] R2 Límites por empresa (cambio inmediato, programar cambio,
   profundidad baja) y su pantalla; llantas para cambio con los dos niveles
 - [x] R3 Listas con búsqueda para catálogos y menús largos
-- [ ] R4 Orden de levantamiento (tipo de orden)
+- [x] R4 Orden de levantamiento (tipo de orden)
 - [ ] R5 Vencimiento por DOT visible en el editor y el PDF
 - [ ] R6 Diferencia de lados y diferencia de presión
 - [ ] R7 Bloqueo de órdenes (lo toma el técnico, lo liberan admin/coordinador)
@@ -3633,6 +3633,21 @@ diseño que una empresa creaba bajo una marca global (su "XZE" de Michelin)
 diseño sea global o de la empresa, y lo mismo la medida. Probado contra RLS
 real en `aislamiento.test.ts` (las tablas de diseño y medida no estaban en
 ese banco); con la política vieja, la prueba falla.
+
+## Orden de levantamiento (R4, 2026-10-14)
+
+Pendiente 10. **Decisión del usuario: es un tipo de orden**, junto a
+preventivo y correctivo.
+
+- `TIPOS_SERVICIO` gana `levantamiento` y `ETIQUETA_TIPO_SERVICIO` (dominio)
+  es la única fuente de las etiquetas: la orden nueva, las visitas
+  recurrentes y el PDF las leen de ahí (antes cada una tenía su lista
+  copiada). Enum de Prisma: migración `20261014120000_orden_levantamiento`.
+- **En el teléfono**: `OrdenLocal.tipo` (la columna existía desde la 2.2 sin
+  leerse). La tarjeta lleva la insignia "Levantamiento" y el detalle dice el
+  tipo, y en un levantamiento: "inspección; marca servicios solo si hiciste
+  alguno".
+- El costo y los indicadores del Excel se capturan en el levantamiento (R9).
 
 ## Listas con búsqueda (R3, 2026-10-13)
 
@@ -3750,7 +3765,7 @@ identificador **`com.asistectire.app`**, rojo de la marca **como acento**.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 986/986, mobile 956 + recorrido 479.
+**Verificado:** `npm run verify` con base: raíz 989/989, mobile 957 + recorrido 479.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):
@@ -3815,7 +3830,9 @@ Instalar con `npm ci --include=dev`: con `NODE_ENV=production` se omite
 
 **Inestabilidad sin cerrar:** en una de 14 corridas completas bajo carga
 fuerte, `aislamiento` y `rol-acceso` fallaron juntas al preparar. No se
-reprodujo después.
+reprodujo después. **Otra vez (2026-10-14):** corriendo juntos solo
+`ordenes.test`, `http.test` y los paquetes, dos pruebas esperaron 25
+minutos (bloqueo en la base); por separado y en la suite completa pasan.
 
 ## Decisiones abiertas
 

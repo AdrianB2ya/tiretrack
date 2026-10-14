@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { ListaBuscable, MAX_SIN_BUSQUEDA } from "../diseno/ListaBuscable";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
-import type { Prioridad, TipoServicio } from "@tiretrack/domain";
+import { type Prioridad, type TipoServicio, TIPOS_SERVICIO, ETIQUETA_TIPO_SERVICIO } from "@tiretrack/domain";
 import { Aviso, Boton, Campo } from "../diseno/componentes";
 import { colores, conOpacidad, espacio, radio, tactil, texto } from "../diseno/tokens";
 import {
@@ -53,10 +53,8 @@ export interface FormularioNuevaOrdenProps {
   recarga?: number;
 }
 
-const TIPOS: { valor: TipoServicio; etiqueta: string }[] = [
-  { valor: "preventivo", etiqueta: "Preventivo" },
-  { valor: "correctivo", etiqueta: "Correctivo" },
-];
+// Del dominio: la lista y su etiqueta viven en un solo lugar.
+const TIPOS: { valor: TipoServicio; etiqueta: string }[] = TIPOS_SERVICIO.map((t) => ({ valor: t, etiqueta: ETIQUETA_TIPO_SERVICIO[t] }));
 const PRIORIDADES: { valor: Prioridad; etiqueta: string }[] = [
   { valor: "baja", etiqueta: "Baja" },
   { valor: "normal", etiqueta: "Normal" },

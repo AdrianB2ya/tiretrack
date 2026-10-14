@@ -202,6 +202,11 @@ describe("crear orden", () => {
     expect(r.success).toBe(true);
   });
 
+  it("acepta una orden de levantamiento (R4)", () => {
+    expect(zCrearOrden.safeParse({ ...base, tipo: "levantamiento", sinConductor: true }).success).toBe(true);
+    expect(zCrearOrden.safeParse({ ...base, tipo: "inspeccion", sinConductor: true }).success).toBe(false);
+  });
+
   it("acepta un vehículo estacionado sin conductor", () => {
     expect(zCrearOrden.safeParse({ ...base, sinConductor: true }).success).toBe(true);
   });

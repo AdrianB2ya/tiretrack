@@ -10,7 +10,7 @@ import { siguienteSinCapturar } from "../../../../src/ordenes/diagrama";
 import { FotosDe } from "../../../../src/fotos/FotosDe";
 import { DecisionCliente } from "../../../../src/cliente/DecisionCliente";
 import { camaraDelDispositivo, manipuladorDelDispositivo } from "../../../../src/fotos/captura";
-import { estaAbierta, fechaEnColombia, MAXIMO_POR_ORDEN, puedeAprobar, puedeGestionarRecomendaciones, type EstadoOrden } from "@tiretrack/domain";
+import { estaAbierta, fechaEnColombia, MAXIMO_POR_ORDEN, puedeAprobar, puedeGestionarRecomendaciones, type EstadoOrden, ETIQUETA_TIPO_SERVICIO, type TipoServicio } from "@tiretrack/domain";
 import { colores, espacio, estadosOrden, texto } from "../../../../src/diseno/tokens";
 import { OrdenNoDisponible } from "../../../../src/ordenes/OrdenNoDisponible";
 import { Recomendaciones } from "../../../../src/ordenes/Recomendaciones";
@@ -108,6 +108,10 @@ export default function PantallaDetalle() {
         <Text style={estilos.folio}>{orden.folio ?? orden.codigoReferencia ?? "Sin folio"}</Text>
         {estado ? <Insignia color={estado.color}>{estado.etiqueta}</Insignia> : null}
       </View>
+      <Text style={estilos.cliente} testID="tipo-orden">
+        {ETIQUETA_TIPO_SERVICIO[orden.tipo as TipoServicio] ?? orden.tipo}
+        {orden.tipo === "levantamiento" ? ": inspección; marca servicios solo si hiciste alguno" : ""}
+      </Text>
       <Text style={estilos.vehiculo}>
         {detalle.vehiculoCodigo}
         {detalle.vehiculoPlaca ? ` · ${detalle.vehiculoPlaca}` : ""}

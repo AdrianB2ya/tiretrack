@@ -12,6 +12,7 @@ export function unaOrden(extra: Partial<OrdenLocal> = {}): OrdenLocal {
   return {
     id: "ord-1",
     folio: "OS-FUN-000001",
+  tipo: "preventivo",
     codigoReferencia: null,
     sedeId: "sede-fun",
     vehiculoId: "veh-1",

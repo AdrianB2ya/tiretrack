@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ElegirUno } from "../diseno/ListaBuscable";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { nuevoId, type Frecuencia, type TipoServicio } from "@tiretrack/domain";
+import { nuevoId, type Frecuencia, type TipoServicio, TIPOS_SERVICIO, ETIQUETA_TIPO_SERVICIO } from "@tiretrack/domain";
 import type { CrearProgramacion } from "@tiretrack/contracts";
 import { Aviso, Boton, Campo, Opcion, Tarjeta, Vacio } from "../diseno/componentes";
 import { colores, espacio, texto } from "../diseno/tokens";
@@ -47,10 +47,8 @@ export interface PantallaProgramacionesProps {
 }
 
 const TONOS = { peligro: colores.peligro, advertencia: colores.advertencia, normal: colores.texto, tenue: colores.textoTenue };
-const TIPOS: { valor: TipoServicio; etiqueta: string }[] = [
-  { valor: "preventivo", etiqueta: "Preventivo" },
-  { valor: "correctivo", etiqueta: "Correctivo" },
-];
+// Del dominio: la lista y su etiqueta viven en un solo lugar.
+const TIPOS: { valor: TipoServicio; etiqueta: string }[] = TIPOS_SERVICIO.map((t) => ({ valor: t, etiqueta: ETIQUETA_TIPO_SERVICIO[t] }));
 
 export function PantallaProgramaciones({ fuentes, hoy, sedesDelUsuario }: PantallaProgramacionesProps) {
   const [nueva, setNueva] = useState(false);
@@ -136,7 +134,7 @@ function TarjetaProgramacion({ p, hoy, fuentes, onCambio }: {
         {p.clienteNombre} · {p.sedeClienteNombre} · {p.sedeCodigo}
       </Text>
       <Text style={estilos.cuerpo}>
-        {p.descripcion} · {p.tipo === "preventivo" ? "Preventivo" : "Correctivo"} · {p.tecnicoNombre}
+        {p.descripcion} · {ETIQUETA_TIPO_SERVICIO[p.tipo as TipoServicio] ?? p.tipo} · {p.tecnicoNombre}
       </Text>
       <Text style={[estilos.estado, { color: TONOS[estado.tono] }]}>{estado.texto}</Text>
 

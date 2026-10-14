@@ -30,6 +30,11 @@ describe("documento de la orden", () => {
     expect(armarDocumentoOrden(base).avisos).toEqual([]);
   });
 
+  it("el tipo sale con su etiqueta, incluido el levantamiento (R4)", () => {
+    const d = armarDocumentoOrden({ ...base, orden: { ...base.orden, tipo: "levantamiento" } });
+    expect(d.cabecera).toContainEqual(["Tipo", "Levantamiento"]);
+  });
+
   it("una sin aprobar dice PRELIMINAR: no aparenta ser definitiva", () => {
     const d = armarDocumentoOrden({ ...base, orden: { ...base.orden, estado: "en_revision" } });
     expect(d.avisos[0]).toMatch(/^PRELIMINAR/);

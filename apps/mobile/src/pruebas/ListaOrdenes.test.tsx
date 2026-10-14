@@ -15,6 +15,7 @@ import type { OrdenLocal } from "../datos/repositorio";
 const ordenBase: OrdenLocal = {
   id: "ord-1",
   folio: "OS-FUN-000001",
+  tipo: "preventivo",
   codigoReferencia: null,
   sedeId: "sede-fun",
   vehiculoId: "veh-1",
@@ -64,6 +65,11 @@ describe("listado", () => {
     );
     expect(screen.getByText("Por hacer")).toBeTruthy();
     expect(screen.getByText("En curso")).toBeTruthy();
+  });
+
+  it("una orden de levantamiento se distingue en la tarjeta (R4)", () => {
+    render(<ListaOrdenes ordenes={[item({ id: "a", estado: "programada", tipo: "levantamiento" }), item({ id: "b", estado: "programada" })]} onAbrir={vi.fn()} />);
+    expect(screen.getAllByText("Levantamiento")).toHaveLength(1);
   });
 
   it("explica por qué no hay nada en vez de dejar la pantalla vacía", () => {

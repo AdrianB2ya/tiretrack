@@ -21,6 +21,7 @@ import type { OrdenLocal } from "../datos/repositorio";
 const ordenBase: OrdenLocal = {
   id: "ord-1",
   folio: "OS-FUN-000001",
+  tipo: "preventivo",
   codigoReferencia: null,
   sedeId: "sede-fun",
   vehiculoId: "veh-1",

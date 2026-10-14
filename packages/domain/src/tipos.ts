@@ -28,8 +28,21 @@ export const ESTADOS_ABIERTOS: readonly EstadoOrden[] = [
   "pendiente_cliente",
 ];
 
-export const TIPOS_SERVICIO = ["preventivo", "correctivo"] as const;
+/**
+ * Tipo de orden. **Levantamiento** (R4, decisión del usuario 2026-10-13):
+ * inspección de la flota —medir, registrar, recomendar— sin necesariamente
+ * intervenir; es donde se capturan el costo y los indicadores del Excel de
+ * levantamiento.
+ */
+export const TIPOS_SERVICIO = ["preventivo", "correctivo", "levantamiento"] as const;
 export type TipoServicio = (typeof TIPOS_SERVICIO)[number];
+
+/** La etiqueta, en un solo lugar: la app, el PDF y el informe la leen de aquí. */
+export const ETIQUETA_TIPO_SERVICIO: Record<TipoServicio, string> = {
+  preventivo: "Preventivo",
+  correctivo: "Correctivo",
+  levantamiento: "Levantamiento",
+};
 
 export const PRIORIDADES = ["baja", "normal", "alta"] as const;
 export type Prioridad = (typeof PRIORIDADES)[number];

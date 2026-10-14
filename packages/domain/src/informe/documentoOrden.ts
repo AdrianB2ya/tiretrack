@@ -1,4 +1,5 @@
 import { describirProfundidades, type TresProfundidades } from "../llanta/profundidades";
+import { ETIQUETA_TIPO_SERVICIO, type TipoServicio } from "../tipos";
 import { CATALOGO_SERVICIOS } from "../tipos";
 import { ETIQUETA_PRIORIDAD_RECOMENDACION, type PrioridadRecomendacion } from "../orden/recomendaciones";
 
@@ -122,7 +123,7 @@ export function armarDocumentoOrden(d: DatosDocumentoOrden): Documento {
       ...(d.cliente.sede ? ([["Sede del cliente", d.cliente.sede]] as [string, string][]) : []),
       ["Vehículo", d.vehiculo.placa ? `${d.vehiculo.codigo} · ${d.vehiculo.placa}` : d.vehiculo.codigo],
       ["Fecha", o.fecha],
-      ["Tipo", o.tipo === "correctivo" ? "Correctivo" : "Preventivo"],
+      ["Tipo", ETIQUETA_TIPO_SERVICIO[o.tipo as TipoServicio] ?? o.tipo],
       ["Estado", ESTADOS[o.estado] ?? o.estado],
       ["Kilometraje", o.kilometraje === null ? "Sin registrar" : o.kilometraje.toLocaleString("es-CO")],
       ["Técnico", d.tecnico.cedula ? `${d.tecnico.nombre} · CC ${d.tecnico.cedula}` : d.tecnico.nombre],

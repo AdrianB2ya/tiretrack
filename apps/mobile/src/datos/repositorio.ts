@@ -22,6 +22,8 @@ import { type Desmontada, firmaAContrato, fotoAContrato, medicionAContrato, orde
 export interface OrdenLocal {
   readonly id: string;
   readonly folio: string | null;
+  /** preventivo, correctivo o levantamiento (R4). */
+  readonly tipo: string;
   readonly codigoReferencia: string | null;
   readonly sedeId: string;
   readonly vehiculoId: string;
@@ -1926,7 +1928,7 @@ export class RepositorioLocal {
  */
 export const COLUMNAS_ORDEN = [
   "id", "folio", "codigo_referencia", "sede_id", "vehiculo_id", "cliente_id", "tecnico_id",
-  "tecnico_nombre", "enviada_revision_en", "limite_cliente", "estado",
+  "tecnico_nombre", "enviada_revision_en", "limite_cliente", "estado", "tipo",
   "motivo_devolucion", "nota_coordinador", "fecha", "configuracion_eje_id",
   "kilometraje", "hallazgos", "accion",
   "firma_nombre", "firma_cedula", "firma_version", "firma_trazo", "firma_cargo", "firma_fecha_hora",
@@ -1937,6 +1939,7 @@ function aOrden(f: Record<string, unknown>): OrdenLocal {
   return {
     id: String(f["id"]),
     folio: (f["folio"] as string) ?? null,
+    tipo: String(f["tipo"] ?? "preventivo"),
     codigoReferencia: (f["codigo_referencia"] as string) ?? null,
     sedeId: String(f["sede_id"]),
     vehiculoId: String(f["vehiculo_id"]),

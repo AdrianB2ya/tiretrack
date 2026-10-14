@@ -499,6 +499,8 @@ model TipoParche {
 enum TipoServicio {
   preventivo
   correctivo
+  /// Inspección de la flota (R4)
+  levantamiento
 }
 
 enum Prioridad {
