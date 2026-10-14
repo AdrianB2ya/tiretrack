@@ -3565,7 +3565,7 @@ D queda fuera.
   profundidad baja) y su pantalla; llantas para cambio con los dos niveles
 - [x] R3 Listas con búsqueda para catálogos y menús largos
 - [x] R4 Orden de levantamiento (tipo de orden)
-- [ ] R5 Vencimiento por DOT visible en el editor y el PDF
+- [x] R5 Vencimiento por DOT visible en el editor y el PDF
 - [ ] R6 Diferencia de lados y diferencia de presión
 - [ ] R7 Bloqueo de órdenes (lo toma el técnico, lo liberan admin/coordinador)
 - [ ] R8 La llanta como activo: ficha, número interno, estado, vidas,
@@ -3633,6 +3633,27 @@ diseño que una empresa creaba bajo una marca global (su "XZE" de Michelin)
 diseño sea global o de la empresa, y lo mismo la medida. Probado contra RLS
 real en `aislamiento.test.ts` (las tablas de diseño y medida no estaban en
 ese banco); con la política vieja, la prueba falla.
+
+## Vencimiento por DOT a la vista (R5, 2026-10-14)
+
+Pendiente 11. `textoVencimientoDOT` (dominio `llanta/dot`): "Vence 09/2030",
+"Por vencer: 01/2027" (menos de un año) o "VENCIDA desde 02/2025"; sin DOT
+legible, nada.
+
+- **Editor**: al escribir un DOT válido, la ayuda del campo dice cuándo vence
+  y de cuándo es ("Vence 09/2030 (fabricada en semana 36 de 2024)"). Es
+  información: no pide confirmar. Vencida sigue siendo advertencia.
+- **PDF**: la columna DOT lleva el vencimiento debajo, **a la fecha del
+  servicio**, no al día en que se imprime: reimprimir dentro de un año no
+  debe cambiar lo que el documento dice.
+- El CSV ya tenía la columna VENCIMIENTO (1.8).
+
+**Lección repetida:** escribir `"
+"` desde un script de Node dentro de
+`node -e` o un heredoc lo convierte en un salto de línea real dentro del
+código. Una prueba rota así no "falla": el archivo no compila y Vitest lo
+cuenta aparte (bajó de 371 a 361 pruebas sin marcar error en el resumen
+filtrado). Mirar el total, no solo los ×.
 
 ## Orden de levantamiento (R4, 2026-10-14)
 
@@ -3765,7 +3786,7 @@ identificador **`com.asistectire.app`**, rojo de la marca **como acento**.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 989/989, mobile 957 + recorrido 479.
+**Verificado:** `npm run verify` con base: raíz 994/994, mobile 957 + recorrido 479.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

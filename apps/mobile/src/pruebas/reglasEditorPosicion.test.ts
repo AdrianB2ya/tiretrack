@@ -158,9 +158,13 @@ describe("llanta que no se pudo identificar", () => {
 });
 
 describe("validación del DOT", () => {
-  it("acepta uno válido", () => {
+  it("acepta uno válido y dice cuándo vence, sin pedir confirmar (R5)", () => {
     const avisos = revisar(borrador({ dot: "3624", serial: "MX1" }), casillaDireccional, HOY);
-    expect(avisos.filter((a) => a.campo === "dot")).toHaveLength(0);
+    const dot = avisos.filter((a) => a.campo === "dot");
+    expect(dot).toEqual([
+      { campo: "dot", severidad: "informacion", mensaje: "Vence 09/2030 (fabricada en semana 36 de 2024)" },
+    ]);
+    expect(advertenciasParaConfirmar(avisos)).toEqual([]);
   });
 
   it("un formato imposible es error", () => {

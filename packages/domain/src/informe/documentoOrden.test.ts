@@ -35,6 +35,11 @@ describe("documento de la orden", () => {
     expect(d.cabecera).toContainEqual(["Tipo", "Levantamiento"]);
   });
 
+  it("el DOT lleva su vencimiento a la fecha del servicio (R5)", () => {
+    const fila = armarDocumentoOrden(base).filas.find((f) => f[0] === "2");
+    expect(fila?.[3]).toBe("3624\nVence 09/2030");
+  });
+
   it("una sin aprobar dice PRELIMINAR: no aparenta ser definitiva", () => {
     const d = armarDocumentoOrden({ ...base, orden: { ...base.orden, estado: "en_revision" } });
     expect(d.avisos[0]).toMatch(/^PRELIMINAR/);
@@ -54,7 +59,7 @@ describe("documento de la orden", () => {
     const d = armarDocumentoOrden(base);
     expect(d.filas.map((f) => f[0])).toEqual(["1", "2"]);
     expect(d.filas[0]?.[1]).toBe("SIN IDENTIFICAR");
-    expect(d.filas[1]).toEqual(["2", "Michelin XZE 295/80R22.5", "MX2", "3624", "9,5 mm", "105 / 110", "Calibración, Montaje", "VIEJA-2 · 2,5 mm · Reencauche"]);
+    expect(d.filas[1]).toEqual(["2", "Michelin XZE 295/80R22.5", "MX2", "3624\nVence 09/2030", "9,5 mm", "105 / 110", "Calibración, Montaje", "VIEJA-2 · 2,5 mm · Reencauche"]);
   });
 
   it("con las tres medidas, la celda las muestra y debajo la mínima", () => {

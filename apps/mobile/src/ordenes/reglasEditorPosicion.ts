@@ -1,6 +1,7 @@
 import {
   calcularDesgaste,
   leerDOT,
+  textoVencimientoDOT,
   presionFueraDeRango,
   ETIQUETA_NIVEL_CAMBIO,
   LIMITES_POR_DEFECTO,
@@ -276,6 +277,13 @@ export function revisar(
         campo: "dot",
         severidad: "advertencia",
         mensaje: `Llanta vencida: fabricada en ${leido.fabricacionTexto}`,
+      });
+    } else {
+      // R5: cuándo vence, al escribir el DOT; el DOT es de fabricación.
+      avisos.push({
+        campo: "dot",
+        severidad: "informacion",
+        mensaje: `${textoVencimientoDOT(b.dot, hoy)} (fabricada en ${leido.fabricacionTexto.toLowerCase()})`,
       });
     }
   }

@@ -74,3 +74,17 @@ export function leerDOT(codigo: string | null | undefined, hoy: Date = new Date(
 export function dotValido(codigo: string | null | undefined): boolean {
   return leerDOT(codigo) !== null;
 }
+
+/**
+ * "Vence 09/2030" o "VENCIDA desde 09/2030", para mostrar junto al DOT (R5).
+ * El técnico ve al escribirlo cuándo vence la llanta, y el PDF lo dice a la
+ * fecha del servicio. null si el DOT no se puede leer: no se inventa fecha.
+ */
+export function textoVencimientoDOT(codigo: string | null | undefined, hoy: Date = new Date()): string | null {
+  const l = leerDOT(codigo, hoy);
+  if (!l) return null;
+  const [anio, mes] = l.vencimiento.split("-");
+  const cuando = `${mes}/${anio}`;
+  if (l.vencida) return `VENCIDA desde ${cuando}`;
+  return l.porVencer ? `Por vencer: ${cuando}` : `Vence ${cuando}`;
+}

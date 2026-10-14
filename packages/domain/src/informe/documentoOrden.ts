@@ -1,4 +1,5 @@
 import { describirProfundidades, type TresProfundidades } from "../llanta/profundidades";
+import { textoVencimientoDOT } from "../llanta/dot";
 import { ETIQUETA_TIPO_SERVICIO, type TipoServicio } from "../tipos";
 import { CATALOGO_SERVICIOS } from "../tipos";
 import { ETIQUETA_PRIORIDAD_RECOMENDACION, type PrioridadRecomendacion } from "../orden/recomendaciones";
@@ -134,7 +135,8 @@ export function armarDocumentoOrden(d: DatosDocumentoOrden): Documento {
       // El blanco parece un olvido; esto fue una decisión del técnico (1.8).
       p.noIdentificada ? "SIN IDENTIFICAR" : [p.marca, p.diseno, p.medida].filter(Boolean).join(" ") || "—",
       p.serial ?? "",
-      p.dot ?? "",
+      // R5: el vencimiento a la fecha del servicio, no al día en que se imprime.
+      p.dot ? [p.dot, textoVencimientoDOT(p.dot, new Date(`${o.fecha}T12:00:00Z`))].filter(Boolean).join("\n") : "",
       celdaProfundidad(p.profundidad, p.profundidades),
       p.psiEncontrada === null && p.psiCalibrado === null ? "" : `${num(p.psiEncontrada) || "—"} / ${num(p.psiCalibrado) || "—"}`,
       p.servicios.map((c) => NOMBRE_SERVICIO.get(c) ?? c).join(", "),
