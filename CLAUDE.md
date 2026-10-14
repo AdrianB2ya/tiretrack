@@ -3639,6 +3639,13 @@ conservadora y se anota aquí.)
     en Android no siempre abre enlaces `asistectire://`. El enlace funciona
     igual si el teléfono lo abre. ¿Les sirve así, o prefieren QR con una
     dirección web (requiere dominio propio)?
+18. **R16 — la sesión de soporte es de SOLO LECTURA**: ve y descarga, no
+    modifica (una medición o aprobación quedaría a nombre de quien no estuvo
+    en el servicio). ¿Necesitan que soporte pueda corregir algo, o basta con
+    ver y pedirle al administrador que lo haga?
+19. **R16 — duración**: de 15 minutos a 4 horas (la app ofrece 30 min, 1, 2
+    y 4 h). La sesión vive solo en la memoria del teléfono: cerrar la app la
+    deja de mostrar (en el servidor vence sola). ¿Así?
 
 ## Catálogo de llantas desde la app (R1, 2026-10-13)
 
@@ -3679,6 +3686,41 @@ diseño que una empresa creaba bajo una marca global (su "XZE" de Michelin)
 diseño sea global o de la empresa, y lo mismo la medida. Probado contra RLS
 real en `aislamiento.test.ts` (las tablas de diseño y medida no estaban en
 ese banco); con la política vieja, la prueba falla.
+
+## Plataforma: sesión de soporte (R16, parte 2, 2026-10-14)
+
+Brecha F y la decisión abierta de la suplantación. Dominio
+`plataforma/soporte.ts`; rutas `POST /plataforma/soporte` (superadmin:
+empresa, motivo, ticket, minutos) y `POST /plataforma/soporte/terminar`
+(con el token de soporte); app `src/plataforma/soporte.ts`,
+`VistaSoporte.tsx`, ruta `soporte`, botón "Abrir sesión de soporte" en cada
+empresa de la pantalla de plataforma.
+
+- **Motivo (20 letras o más), ticket y vencimiento** (15 min a 4 h). Abrirla
+  queda en la auditoría **de esa empresa** (`suplantar_empresa`), que su
+  administrador ve marcada "Soporte".
+- **Token propio, sin renovación**: el superadmin como administrador de esa
+  empresa, con el id de la sesión (`Claims.soporte`); muere cuando vence.
+  Un token de soporte no abre otra sesión de soporte.
+- **Viva en cada petición**: un gancho `onRequest` comprueba en la base que
+  la sesión no terminó ni venció; terminarla corta el acceso en el acto
+  (`SOPORTE_TERMINADO`, 401).
+- **Solo lectura** (`permitidoEnSoporte`): solo GET, y terminarla. Lo demás
+  se rechaza en el mismo gancho, antes de cualquier ruta
+  (`SOPORTE_SOLO_LECTURA`, 403). Mutación: sin esa comprobación, falla una
+  prueba.
+- **La auditoría se marca en la base**: el servidor fija `app.soporte_id` en
+  la transacción y un disparador (`rls.sql`, `@seccion:soporte`, migración
+  `20261014190000_sesion_soporte`) pone `viaSuplantacion = true` y el id de
+  la sesión en el detalle de **toda** fila de auditoría escrita en ella:
+  ningún camino del código puede olvidarlo.
+- **En la app, solo en memoria**: el token no va al llavero ni a SQLite y no
+  toca la base local (no mezcla empresas en el teléfono). La vista muestra
+  siempre "Soporte en X · solo lectura · vence…", con Auditoría,
+  Indicadores y Usuarios (reusa las pantallas existentes con el token de
+  soporte) y "Terminar la sesión de soporte".
+- Prueba como `tiretrack_app` con RLS real (`plataforma.test.ts`). Las
+  empresas de esa prueba usan UUID: la ruta los exige, como en producción.
 
 ## Plataforma: alta de empresas desde la app (R16, parte 1, 2026-10-14)
 
@@ -4134,7 +4176,7 @@ identificador **`com.asistectire.app`**, rojo de la marca **como acento**.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 1103/1103, mobile 1013 + recorrido 649.
+**Verificado:** `npm run verify` con base: raíz 1110/1110, mobile 1017 + recorrido 659.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):
@@ -4236,8 +4278,8 @@ falló al preparar en la suite completa; pasó sola y en la corrida siguiente.
 
 No decidir por cuenta propia. Preguntar cuando toque el tema.
 
-- Suplantación del superadmin (motivo, ticket, vencimiento): decidido
-  construirla antes de una segunda empresa o de dar soporte real.
+- ~~Suplantación del superadmin~~: **hecha en la R16** (sesión de soporte de
+  solo lectura; ver su sección).
 - ~~Alcance del coordinador~~: decidido, solo sus sedes (ver "Flujo
   completo en la app").
 - ~~Si se bloquea exportar órdenes sin cerrar~~: **decidido (2026-10-13):

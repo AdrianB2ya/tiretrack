@@ -22,12 +22,12 @@ import type { Claims } from "../acceso/servicio";
 
 const disponible = await hayBaseDeDatos();
 const ESQUEMA = esquemaDe(import.meta.url);
-const TABLAS = ["Empresa", "Sede", "Usuario", "UsuarioSede", "Servicio", "Auditoria", "SesionUsuario", "TokenRecuperacion"];
+const TABLAS = ["Empresa", "Sede", "Usuario", "UsuarioSede", "Servicio", "Auditoria", "SesionUsuario", "TokenRecuperacion", "SesionSuplantacion"];
 const SUPER = "11111111-1111-4111-8111-00000000005a";
 
 const TOKENS: Record<string, Claims> = {
   "tok-super": { sub: SUPER, empresaId: null, rol: "superadmin", clienteId: null },
-  "tok-admin": { sub: "11111111-1111-4111-8111-0000000000ad", empresaId: "emp-a", rol: "administrador", clienteId: null },
+  "tok-admin": { sub: "11111111-1111-4111-8111-0000000000ad", empresaId: "22222222-2222-4222-8222-00000000000a", rol: "administrador", clienteId: null },
 };
 
 const ALTA = {
@@ -71,9 +71,10 @@ describe.skipIf(!disponible)("plataforma: empresas", () => {
         GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA "${ESQUEMA}" TO tiretrack_app;
       `);
       await admin.query(seccionDeRls("plataforma"));
+      await admin.query(seccionDeRls("soporte"));
     });
     // Aislamiento como en producción sobre las tablas que el alta escribe.
-    for (const t of ["Empresa", "Sede", "Usuario", "Servicio", "Auditoria"]) {
+    for (const t of ["Empresa", "Sede", "Usuario", "Servicio", "Auditoria", "SesionSuplantacion"]) {
       const columna = t === "Empresa" ? "id" : `"empresaId"`;
       await admin.query(`
         ALTER TABLE "${t}" ENABLE ROW LEVEL SECURITY;
@@ -88,7 +89,17 @@ describe.skipIf(!disponible)("plataforma: empresas", () => {
       max: 3,
       options: `${OPCIONES_SESION_UTC} -c search_path=${ESQUEMA} -c role=tiretrack_app`,
     });
-    app = construirServidor({ pool, auth: authFalso, verificarToken: (t) => TOKENS[t] ?? null, almacen: new AlmacenamientoMemoria() });
+    app = construirServidor({
+      pool,
+      // Los tokens de soporte se "firman" en memoria con lo que pidió la ruta.
+      auth: { ...authFalso, firmarSoporte: (d) => {
+        const t = `tok-soporte-${d.sesionId}`;
+        TOKENS[t] = { sub: d.superadminId, empresaId: d.empresaId, rol: "administrador", clienteId: null, soporte: d.sesionId };
+        return t;
+      } },
+      verificarToken: (t) => TOKENS[t] ?? null,
+      almacen: new AlmacenamientoMemoria(),
+    });
     await app.ready();
   }, 60_000);
 
@@ -100,7 +111,11 @@ describe.skipIf(!disponible)("plataforma: empresas", () => {
 
   beforeEach(async () => {
     await admin.query(`TRUNCATE ${TABLAS.map((t) => `"${t}"`).join(",")} CASCADE`);
-    await admin.query(`INSERT INTO "Empresa" (id,nombre,nit) VALUES ('emp-a','Asistectire','901.234.567-8'), ('emp-b','Otra','902')`);
+    await admin.query(`INSERT INTO "Empresa" (id,nombre,nit) VALUES ('22222222-2222-4222-8222-00000000000a','Asistectire','901.234.567-8'), ('22222222-2222-4222-8222-00000000000b','Otra','902')`);
+    await admin.query(
+      `INSERT INTO "Usuario" (id,"empresaId",nombre,cedula,email,"passwordHash",rol) VALUES ($1,NULL,'Plataforma','1','super@asistectire.co','x','superadmin')`,
+      [SUPER],
+    );
   });
 
   it("el superadmin ve todas las empresas; un administrador no", async () => {
@@ -114,7 +129,7 @@ describe.skipIf(!disponible)("plataforma: empresas", () => {
     const c = await pool.connect();
     try {
       await c.query("BEGIN");
-      await c.query(`SELECT set_config('app.rol', 'administrador', true), set_config('app.empresa_id', 'emp-a', true)`);
+      await c.query(`SELECT set_config('app.rol', 'administrador', true), set_config('app.empresa_id', '22222222-2222-4222-8222-00000000000a', true)`);
       expect((await c.query(`SELECT count(*)::int AS n FROM empresas_para_plataforma()`)).rows[0].n).toBe(0);
       expect((await c.query(`SELECT nit_de_empresa_en_uso('902') AS u`)).rows[0].u).toBe(false);
       await c.query("ROLLBACK");
@@ -144,6 +159,65 @@ describe.skipIf(!disponible)("plataforma: empresas", () => {
   it("datos incompletos son 422, y un administrador no da de alta empresas", async () => {
     expect((await pedir("POST", "/plataforma/empresas", "tok-super", { empresa: { nombre: "X" } })).statusCode).toBe(422);
     expect((await pedir("POST", "/plataforma/empresas", "tok-admin", ALTA)).statusCode).toBe(403);
+  });
+
+  describe("sesión de soporte", () => {
+  const SESION = { empresaId: "22222222-2222-4222-8222-00000000000a", motivo: "El administrador no ve sus órdenes de ayer", ticket: "SOP-1042", minutos: 60 };
+  const abrir = async () => {
+    const r = await pedir("POST", "/plataforma/soporte", "tok-super", SESION);
+    expect(r.statusCode, r.body).toBe(200);
+    return r.json() as { token: string; sesionId: string; expiraEn: string };
+  };
+
+  it("abrir exige motivo y ticket, y deja constancia en la auditoría de esa empresa", async () => {
+    expect((await pedir("POST", "/plataforma/soporte", "tok-super", { ...SESION, motivo: "ver" })).statusCode).toBe(422);
+    expect((await pedir("POST", "/plataforma/soporte", "tok-admin", SESION)).statusCode).toBe(403);
+    const s = await abrir();
+    const a = await admin.query(`SELECT accion::text, "empresaId", detalle FROM "Auditoria" WHERE accion = 'suplantar_empresa'`);
+    expect(a.rows).toEqual([
+      { accion: "suplantar_empresa", empresaId: "22222222-2222-4222-8222-00000000000a", detalle: expect.objectContaining({ motivo: SESION.motivo, ticket: "SOP-1042", sesionSoporte: s.sesionId }) },
+    ]);
+  });
+
+  it("con la sesión abierta se consulta; escribir se rechaza antes de llegar a la ruta", async () => {
+    const s = await abrir();
+    expect((await pedir("GET", "/auditoria", s.token)).statusCode).toBe(200);
+    const w = await pedir("POST", "/usuarios", s.token, { nombre: "X" });
+    expect(w.statusCode).toBe(403);
+    expect(w.json().error.codigo).toBe("SOPORTE_SOLO_LECTURA");
+    // Un token de soporte no abre otra sesión de soporte.
+    expect((await pedir("POST", "/plataforma/soporte", s.token, SESION)).statusCode).toBe(403);
+  });
+
+  it("terminarla corta el acceso en el acto, y queda marcada como vía soporte", async () => {
+    const s = await abrir();
+    expect((await pedir("POST", "/plataforma/soporte/terminar", s.token, {})).statusCode).toBe(200);
+    const r = await pedir("GET", "/auditoria", s.token);
+    expect(r.statusCode).toBe(401);
+    expect(r.json().error.codigo).toBe("SOPORTE_TERMINADO");
+    const fin = await admin.query(`SELECT "viaSuplantacion" FROM "Auditoria" WHERE detalle->>'terminada' = 'true'`);
+    expect(fin.rows).toEqual([{ viaSuplantacion: true }]);
+  });
+
+  it("vencida no sirve aunque el token siga firmado", async () => {
+    const s = await abrir();
+    await admin.query(`UPDATE "SesionSuplantacion" SET "expiraEn" = now() - interval '1 minute'`);
+    expect((await pedir("GET", "/auditoria", s.token)).statusCode).toBe(401);
+  });
+
+  it("toda auditoría escrita con la sesión puesta queda marcada, sin que el código lo recuerde", async () => {
+    const c = await pool.connect();
+    try {
+      await c.query("BEGIN");
+      await c.query(`SELECT set_config('app.empresa_id', '22222222-2222-4222-8222-00000000000a', true), set_config('app.soporte_id', 'ses-1', true)`);
+      await c.query(`INSERT INTO "Auditoria" (id,"empresaId",accion,detalle) VALUES ('a-1','22222222-2222-4222-8222-00000000000a','exportar_informe','{"origen":"pdf_orden"}')`);
+      await c.query("COMMIT");
+    } finally {
+      c.release();
+    }
+    const a = await admin.query(`SELECT "viaSuplantacion", detalle FROM "Auditoria" WHERE id = 'a-1'`);
+    expect(a.rows[0]).toEqual({ viaSuplantacion: true, detalle: { origen: "pdf_orden", sesionSoporte: "ses-1" } });
+  });
   });
 });
 

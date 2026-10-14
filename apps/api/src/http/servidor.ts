@@ -52,7 +52,7 @@ const zVersionConfiguracion = z.object({ ejes: z.array(zEjeDefinicion).min(1), c
 
 /** Consulta de la descarga: `desde` es la marca `hasta` que entregó el servidor. */
 const zConsultaDescarga = z.object({ desde: zInstante.optional() });
-import { correoCotizacion, correoInforme, correoLlantasParaCambio, correoOrden, fechaEnColombia, type LlantaParaAviso, MAX_DESTINATARIOS, MAX_ORDENES_PDF, puedeAprobar, revisarDestinatarios, puedeVerAuditoria, ROLES, TIPOS_CARGA, type Rol, type TipoCarga, type Veredicto } from "@tiretrack/domain";
+import { DURACION_SOPORTE, nuevoId, permitidoEnSoporte, validarSoporte, correoCotizacion, correoInforme, correoLlantasParaCambio, correoOrden, fechaEnColombia, type LlantaParaAviso, MAX_DESTINATARIOS, MAX_ORDENES_PDF, puedeAprobar, revisarDestinatarios, puedeVerAuditoria, ROLES, TIPOS_CARGA, type Rol, type TipoCarga, type Veredicto } from "@tiretrack/domain";
 import type { Claims, ResultadoActivacion, ResultadoLogin } from "../acceso/servicio";
 import { ServicioUsuarios } from "../usuarios/servicio";
 import { ServicioEmpresa } from "../empresa/servicio";
@@ -113,6 +113,8 @@ export interface ServicioAuthHttp {
   }): Promise<ResultadoActivacion>;
   crearCodigoActivacion(usuarioId: string, ip?: string): Promise<{ codigo: string; expiraEn: Date } | null>;
   revocarSesionesDe(usuarioId: string): Promise<void>;
+  /** Token de la sesión de soporte del superadmin (R16). */
+  firmarSoporte(d: { superadminId: string; empresaId: string; sesionId: string; expiraEn: Date }): string;
 }
 
 export interface Contexto {
@@ -121,6 +123,8 @@ export interface Contexto {
   readonly usuarioId: string;
   readonly clienteId: string | null;
   readonly vistaCliente: boolean;
+  /** Sesión de soporte del superadmin (R16): marca la auditoría desde la base. */
+  readonly soporteId?: string;
 }
 
 export interface OpcionesServidor {
@@ -285,6 +289,7 @@ function contextoDe(claims: Claims): Contexto | { motivo: "SIN_EMPRESA" | "ROL_D
     usuarioId: claims.sub,
     clienteId: claims.clienteId,
     vistaCliente: claims.rol === "cliente",
+    ...(claims.soporte ? { soporteId: claims.soporte } : {}),
   };
 }
 
@@ -309,8 +314,9 @@ export async function enTransaccion<T>(
       `SELECT set_config('app.empresa_id', $1, true),
               set_config('app.usuario_id', $2, true),
               set_config('app.rol', $3, true),
-              set_config('app.cliente_id', $4, true)`,
-      [ctx.empresaId, ctx.usuarioId, ctx.rol, ctx.clienteId ?? ""],
+              set_config('app.cliente_id', $4, true),
+              set_config('app.soporte_id', $5, true)`,
+      [ctx.empresaId, ctx.usuarioId, ctx.rol, ctx.clienteId ?? "", ctx.soporteId ?? ""],
     );
     const r = await fn(db);
     await db.query(r.confirmar ? "COMMIT" : "ROLLBACK");
@@ -468,6 +474,35 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
   // quedan en la raíz (los agrega server.ts) porque los consulta la
   // infraestructura, no la app.
   void raiz.register(async (app) => {
+    /**
+     * Sesión de soporte del superadmin (R16): SOLO LECTURA y viva. Antes de
+     * cualquier ruta: un token de soporte que intenta escribir se rechaza
+     * aquí, y uno de una sesión terminada o vencida no pasa aunque el token
+     * siga firmado. Una sola consulta, y solo para estos tokens.
+     */
+    app.addHook("onRequest", async (req, reply) => {
+      const auth = req.headers.authorization;
+      const claims = auth?.startsWith("Bearer ") ? op.verificarToken(auth.slice(7)) : null;
+      if (!claims?.soporte || !claims.empresaId) return;
+      if (!permitidoEnSoporte(req.method, req.url)) {
+        return reply.status(403).send({
+          error: { codigo: "SOPORTE_SOLO_LECTURA", mensaje: "La sesión de soporte es de solo lectura: lo que haya que cambiar lo hace la empresa" },
+        });
+      }
+      const ctx: Contexto = { empresaId: claims.empresaId, rol: "superadmin", usuarioId: claims.sub, clienteId: null, vistaCliente: false };
+      const viva = await enTransaccion(op.pool, ctx, async (db) => ({
+        confirmar: false,
+        valor: (await db.query(
+          `SELECT 1 FROM "SesionSuplantacion"
+            WHERE id = $1 AND "superadminId" = $2 AND "empresaId" = $3 AND "terminadaEn" IS NULL AND "expiraEn" > now()`,
+          [claims.soporte, claims.sub, claims.empresaId],
+        )).rows.length > 0,
+      }));
+      if (!viva) {
+        return reply.status(401).send({ error: { codigo: "SOPORTE_TERMINADO", mensaje: "La sesión de soporte terminó o venció" } });
+      }
+    });
+
     /**
    * Administración en línea (usuarios y sedes): autenticada y transaccional,
    * pero SIN la tabla de idempotencia. Esa tabla guarda la respuesta, y la
@@ -1070,6 +1105,63 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
         codigo: codigo?.codigo ?? null,
         expiraEn: codigo?.expiraEn.toISOString() ?? null,
       });
+    });
+
+    // ── Sesión de soporte (R16) ──
+
+    app.post("/plataforma/soporte", async (req, reply) => {
+      const s = superadminDe(req);
+      if (!s.ok) return reply.status(s.status).send(s.cuerpo);
+      const b = (req.body ?? {}) as { empresaId?: unknown; motivo?: unknown; ticket?: unknown; minutos?: unknown };
+      const id = zId.safeParse(b.empresaId);
+      if (!id.success) return reply.status(422).send({ error: { codigo: "DATOS_INVALIDOS", mensaje: "Elige la empresa" } });
+      const datos = {
+        motivo: typeof b.motivo === "string" ? b.motivo.trim() : "",
+        ticket: typeof b.ticket === "string" ? b.ticket.trim() : "",
+        minutos: typeof b.minutos === "number" ? b.minutos : DURACION_SOPORTE.porDefecto,
+      };
+      const v = validarSoporte(datos);
+      if (!v.permitido) return reply.status(422).send({ error: { codigo: v.codigo, mensaje: v.mensaje } });
+      const ahora = reloj();
+      const expiraEn = new Date(ahora.getTime() + datos.minutos * 60_000);
+      const sesionId = nuevoId();
+      // Con el contexto de ESA empresa: la sesión y su constancia pasan las
+      // políticas como filas de la empresa a la que se entra.
+      const ctx: Contexto = { empresaId: id.data, rol: "superadmin", usuarioId: s.usuarioId, clienteId: null, vistaCliente: false };
+      const empresa = await enTransaccion(op.pool, ctx, async (db) => {
+        const e = (await db.query<{ nombre: string }>(`SELECT nombre FROM "Empresa" WHERE id = $1 AND activa`, [id.data])).rows[0];
+        if (!e) return { confirmar: false, valor: null };
+        await db.query(
+          `INSERT INTO "SesionSuplantacion" (id, "superadminId", "empresaId", motivo, "ticketSoporte", "iniciadaEn", "expiraEn")
+           VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+          [sesionId, s.usuarioId, id.data, datos.motivo, datos.ticket, ahora, expiraEn],
+        );
+        await new ServicioInforme(db, reloj).registrarAuditoria(ctx, "suplantar_empresa", {
+          sesionSoporte: sesionId, motivo: datos.motivo, ticket: datos.ticket, expiraEn: expiraEn.toISOString(),
+        });
+        return { confirmar: true, valor: e };
+      });
+      if (!empresa) return reply.status(404).send({ error: { codigo: "NO_EXISTE", mensaje: "La empresa no existe o está inactiva" } });
+      const token = op.auth.firmarSoporte({ superadminId: s.usuarioId, empresaId: id.data, sesionId, expiraEn });
+      return reply.status(200).send({ token, sesionId, expiraEn: expiraEn.toISOString(), empresa: { id: id.data, nombre: empresa.nombre } });
+    });
+
+    /** Terminar antes de que venza: el token deja de servir en el acto. */
+    app.post("/plataforma/soporte/terminar", async (req, reply) => {
+      const auth = req.headers.authorization;
+      const claims = auth?.startsWith("Bearer ") ? op.verificarToken(auth.slice(7)) : null;
+      if (!claims?.soporte || !claims.empresaId) {
+        return reply.status(403).send({ error: { codigo: "SIN_PERMISO", mensaje: "No hay una sesión de soporte abierta" } });
+      }
+      const ctx: Contexto = {
+        empresaId: claims.empresaId, rol: "superadmin", usuarioId: claims.sub, clienteId: null, vistaCliente: false, soporteId: claims.soporte,
+      };
+      await enTransaccion(op.pool, ctx, async (db) => {
+        await db.query(`UPDATE "SesionSuplantacion" SET "terminadaEn" = $2 WHERE id = $1 AND "terminadaEn" IS NULL`, [claims.soporte, reloj()]);
+        await new ServicioInforme(db, reloj).registrarAuditoria(ctx, "suplantar_empresa", { sesionSoporte: claims.soporte, terminada: true });
+        return { confirmar: true, valor: undefined };
+      });
+      return reply.status(200).send({});
     });
 
     // ── Código QR del vehículo (R15) ──

@@ -47,3 +47,4 @@ export * from "./carga/carga";
 export * from "./avisos/correo";
 export * from "./cotizacion/cotizacion";
 export * from "./flota/qr";
+export * from "./plataforma/soporte";

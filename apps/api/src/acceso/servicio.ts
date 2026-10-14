@@ -61,6 +61,8 @@ export interface Claims {
   readonly empresaId: string | null;
   readonly rol: string;
   readonly clienteId: string | null;
+  /** Id de la sesión de soporte (R16): solo en el token de soporte del superadmin. */
+  readonly soporte?: string;
 }
 
 /** Activar la cuenta con el código que entregó el administrador. */
@@ -282,6 +284,17 @@ export class ServicioAuth {
       expiraEn: Math.floor(expiracionAcceso(ahora).getTime() / 1000),
       usuario,
     };
+  }
+
+  /**
+   * Token de una sesión de soporte (R16): el superadmin como administrador de
+   * esa empresa, con el id de la sesión. SIN renovación: muere exactamente
+   * cuando vence la sesión, y el servidor la comprueba en cada petición.
+   */
+  firmarSoporte(d: { superadminId: string; empresaId: string; sesionId: string; expiraEn: Date }): string {
+    const claims: Claims = { sub: d.superadminId, empresaId: d.empresaId, rol: "administrador", clienteId: null, soporte: d.sesionId };
+    const segundos = Math.max(1, Math.floor((d.expiraEn.getTime() - this.reloj().getTime()) / 1000));
+    return jwt.sign(claims, this.config.jwtSecret, { expiresIn: segundos, issuer: this.config.emisor ?? "tiretrack" });
   }
 
   verificarToken(token: string): Claims | null {

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { zCrearSede, zUsuarioBase } from "@tiretrack/contracts";
-import { Aviso, Boton, Campo, Insignia, Tarjeta, Vacio } from "../diseno/componentes";
+import { DURACION_SOPORTE, OPCIONES_DURACION_SOPORTE, validarSoporte } from "@tiretrack/domain";
+import { Aviso, Boton, Campo, Insignia, Opcion, Tarjeta, Vacio } from "../diseno/componentes";
+import type { SesionSoporte } from "./soporte";
 import { colores, espacio, texto } from "../diseno/tokens";
 import { mensajeActivacion } from "../admin/reglasAdmin";
 
@@ -39,6 +41,9 @@ export interface FuentesEmpresas {
   empresas(): Promise<R<EmpresaListada[]>>;
   crear(f: FormEmpresa): Promise<R<{ codigo: string | null; expiraEn: string | null }>>;
   compartir(mensaje: string): void;
+  /** Sesión de soporte (R16): motivo, ticket y duración, en esa empresa. */
+  abrirSoporte?(empresaId: string, d: { motivo: string; ticket: string; minutos: number }): Promise<R<SesionSoporte>>;
+  onSoporteAbierto?(s: SesionSoporte): void;
 }
 
 const VACIO: FormEmpresa = {
@@ -60,7 +65,11 @@ export function revisarEmpresa(f: FormEmpresa): string[] {
   return p;
 }
 
-type Modo = { tipo: "lista" } | { tipo: "nueva" } | { tipo: "codigo"; nombre: string; codigo: string; expiraEn: string };
+type Modo =
+  | { tipo: "lista" }
+  | { tipo: "nueva" }
+  | { tipo: "codigo"; nombre: string; codigo: string; expiraEn: string }
+  | { tipo: "soporte"; empresa: EmpresaListada };
 
 export function EmpresasPlataforma({ fuentes }: { fuentes: FuentesEmpresas }) {
   const [empresas, setEmpresas] = useState<EmpresaListada[] | null>(null);
@@ -98,6 +107,10 @@ export function EmpresasPlataforma({ fuentes }: { fuentes: FuentesEmpresas }) {
         </Boton>
       </View>
     );
+  }
+
+  if (modo.tipo === "soporte") {
+    return <AbrirSoporte empresa={modo.empresa} fuentes={fuentes} onCancelar={() => setModo({ tipo: "lista" })} />;
   }
 
   if (modo.tipo === "nueva") {
@@ -166,8 +179,67 @@ export function EmpresasPlataforma({ fuentes }: { fuentes: FuentesEmpresas }) {
           <Text style={estilos.detalle}>
             NIT {e.nit} · desde {e.creadaEn}
           </Text>
+          {fuentes.abrirSoporte && e.activa ? (
+            <Boton tipo="fantasma" testID={`soporte-${e.id}`} onPress={() => setModo({ tipo: "soporte", empresa: e })}>
+              Abrir sesión de soporte
+            </Boton>
+          ) : null}
         </Tarjeta>
       ))}
+    </View>
+  );
+}
+
+/**
+ * Abrir una sesión de soporte: por qué, qué ticket y por cuánto tiempo. Lo
+ * que se escribe queda en la auditoría de la empresa, que ve su
+ * administrador.
+ */
+function AbrirSoporte({ empresa, fuentes, onCancelar }: { empresa: EmpresaListada; fuentes: FuentesEmpresas; onCancelar: () => void }) {
+  const [motivo, setMotivo] = useState("");
+  const [ticket, setTicket] = useState("");
+  const [minutos, setMinutos] = useState<number>(DURACION_SOPORTE.porDefecto);
+  const [intento, setIntento] = useState(false);
+  const [abriendo, setAbriendo] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const v = validarSoporte({ motivo, ticket, minutos });
+
+  const abrir = async () => {
+    setIntento(true);
+    if (!v.permitido || !fuentes.abrirSoporte) return;
+    setAbriendo(true);
+    try {
+      const r = await fuentes.abrirSoporte(empresa.id, { motivo: motivo.trim(), ticket: ticket.trim(), minutos });
+      if (!r.ok) return setError(r.mensaje);
+      fuentes.onSoporteAbierto?.(r.datos);
+    } finally {
+      setAbriendo(false);
+    }
+  };
+
+  return (
+    <View style={estilos.bloque}>
+      <Text style={estilos.subtitulo}>Soporte en {empresa.nombre}</Text>
+      <Text style={estilos.detalle}>
+        Solo lectura: podrás ver y descargar, no modificar. El motivo, el ticket y todo lo que consultes quedan en la
+        auditoría de la empresa.
+      </Text>
+      <Campo etiqueta="Motivo" value={motivo} onChangeText={setMotivo} multiline testID="soporte-motivo" />
+      <Campo etiqueta="Número de ticket" value={ticket} onChangeText={setTicket} autoCapitalize="characters" testID="soporte-ticket" />
+      <Text style={estilos.etiqueta}>Duración</Text>
+      <View style={estilos.fila}>
+        {OPCIONES_DURACION_SOPORTE.map((n) => (
+          <Opcion key={n} etiqueta={n < 60 ? `${n} min` : `${n / 60} h`} activa={minutos === n} onPress={() => setMinutos(n)} testID={`duracion-${n}`} />
+        ))}
+      </View>
+      {intento && !v.permitido ? <Aviso tono="advertencia" titulo="Falta información" detalle={v.mensaje ?? ""} /> : null}
+      {error ? <Aviso tono="advertencia" titulo="No se abrió" detalle={error} /> : null}
+      <Boton ancho testID="abrir-soporte" cargando={abriendo} onPress={() => void abrir()}>
+        Abrir la sesión
+      </Boton>
+      <Boton ancho tipo="fantasma" onPress={onCancelar}>
+        Cancelar
+      </Boton>
     </View>
   );
 }

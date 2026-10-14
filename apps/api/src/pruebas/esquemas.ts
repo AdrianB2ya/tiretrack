@@ -188,6 +188,7 @@ export const authFalso: ServicioAuthHttp = {
   // El servicio real se prueba contra la base en auth.test; aquí basta con
   // que las rutas traduzcan bien cada resultado.
   crearCodigoActivacion: async () => ({ codigo: CODIGO_FALSO, expiraEn: new Date("2026-09-24T10:00:00Z") }),
+  firmarSoporte: (d) => `tok-soporte-${d.sesionId}`,
   activar: async (e) => {
     if (e.codigo.replace(/[^A-Z0-9]/gi, "").toUpperCase() !== "K7M2X9QP") {
       return { tipo: "error", veredicto: { permitido: false, codigo: "CODIGO_INVALIDO", mensaje: "Correo o código de activación no válidos" } };

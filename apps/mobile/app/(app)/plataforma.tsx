@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useRouter } from "expo-router";
 import { ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { BarraDeSesion } from "../../src/app/BarraDeSesion";
 import { NavegacionInferior } from "../../src/app/NavegacionInferior";
@@ -7,6 +8,7 @@ import { useUsuario } from "../../src/app/ProveedorSesion";
 import { Tarjeta } from "../../src/diseno/componentes";
 import { colores, espacio, texto } from "../../src/diseno/tokens";
 import { EmpresasPlataforma, type EmpresaListada, type FuentesEmpresas } from "../../src/plataforma/EmpresasPlataforma";
+import { sesionSoporte, type SesionSoporte } from "../../src/plataforma/soporte";
 
 /**
  * Pantalla del superadministrador (cuenta de plataforma).
@@ -17,6 +19,7 @@ import { EmpresasPlataforma, type EmpresaListada, type FuentesEmpresas } from ".
 export default function PantallaPlataforma() {
   const usuario = useUsuario();
   const { enLinea } = useServicios();
+  const router = useRouter();
   const fuentes = useMemo<FuentesEmpresas>(() => {
     const llamar = async <T,>(metodo: "GET" | "POST", ruta: string, cuerpo?: unknown) => {
       const r = await enLinea<T>(metodo, ruta, cuerpo);
@@ -39,8 +42,13 @@ export default function PantallaPlataforma() {
         }),
       // La hoja de compartir del sistema: WhatsApp, SMS, lo que tenga.
       compartir: (mensaje) => void Share.share({ message: mensaje }).catch(() => undefined),
+      abrirSoporte: (empresaId, d) => llamar<SesionSoporte>("POST", "/plataforma/soporte", { empresaId, ...d }),
+      onSoporteAbierto: (s) => {
+        sesionSoporte.fijar(s);
+        router.push("/soporte" as never);
+      },
     };
-  }, [enLinea]);
+  }, [enLinea, router]);
 
   return (
     <View style={estilos.pantalla}>
