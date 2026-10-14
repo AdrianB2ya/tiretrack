@@ -3432,9 +3432,13 @@ desarrollar.** Se marca qué ya existe y qué falta decidir.
     plantilla de ejes, que es por empresa y por tipo de vehículo.
     **Pedido del usuario (2026-10-13):** un **informe de llantas para cambio**
     con dos niveles: **≤ 3 mm en rojo, "CAMBIO INMEDIATO"**, y un nivel
-    preventivo **"PROGRAMAR CAMBIO"**. *Falta definir* el umbral del
-    preventivo (¿entre 3 mm y cuánto?) y si los 3 mm son fijos o salen del
-    mínimo del eje.
+    preventivo **"PROGRAMAR CAMBIO"**.
+    **Decidido (2026-10-13): parametrizable por empresa**, porque cada
+    empresa maneja límites distintos: el umbral de "cambio inmediato" (3 mm
+    en el ejemplo), el de "programar cambio" y la profundidad baja. Propuesta
+    a confirmar al desarrollar: valores por defecto de la empresa (pantalla del
+    administrador) y, encima, el mínimo de cada eje de la plantilla cuando lo
+    tenga (el direccional suele exigir más que el de arrastre).
 14. **Alerta por diferencia de lados** (|exterior − interior| ≥ 1 mm):
     - posiciones 1 y 2: "Alinear, revisar calibración, balanceo";
     - posición 3 en adelante: "Revisar calibración, rotación, balanceo".
@@ -3442,7 +3446,7 @@ desarrollar.** Se marca qué ya existe y qué falta decidir.
     direccional** (así sirve para cualquier plantilla) o los números 1 y 2?
 15. **Indicadores del Excel de levantamiento**, por llanta:
     - PROF INIC: **decidido: la de la referencia de la llanta** (profundidad
-      de fábrica de la medida del catálogo; interpretación a confirmar),
+      de fábrica de la medida del catálogo; confirmado por el usuario),
       PROF BAJA (= mínimo del eje), PROF MEDIA (promedio de las 3), DIF LADOS
       (|ext − int|), MM DE DESGASTE (inicial − mínima), MM REMANENTE (mínima;
       ya es `profundidad`), % RODADO = desgaste / (inicial − baja).
