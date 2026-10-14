@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Share } from "react-native";
 import { nuevoId, puedeGestionarUsuarios } from "@tiretrack/domain";
-import { PantallaUsuarios, type FuentesUsuarios, type UsuarioListado } from "../../src/admin/PantallaUsuarios";
+import { PantallaUsuarios, type CodigoDeLote, type FuentesUsuarios, type UsuarioListado } from "../../src/admin/PantallaUsuarios";
 import { useServicios } from "../../src/app/Arranque";
 import { useDatos } from "../../src/app/ProveedorDatos";
 import { useUsuario } from "../../src/app/ProveedorSesion";
@@ -36,6 +36,7 @@ export default function RutaUsuarios() {
           ...(f.rol === "cliente" && f.clienteId ? { clienteId: f.clienteId } : {}),
         }),
       nuevoCodigo: (id) => llamar<{ codigo: string; expiraEn: string }>("POST", `/usuarios/${id}/codigo`, {}),
+      codigosEnLote: (usuarioIds) => llamar<{ codigos: CodigoDeLote[] }>("POST", "/usuarios/codigos", { usuarioIds }),
       cambiarActivo: (id, activo) => llamar("POST", `/usuarios/${id}/${activo ? "reactivar" : "desactivar"}`, {}),
       // La hoja de compartir del sistema: WhatsApp, SMS, lo que tenga.
       compartir: (mensaje) => void Share.share({ message: mensaje }).catch(() => undefined),

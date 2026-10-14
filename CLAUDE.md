@@ -3725,6 +3725,21 @@ diseño sea global o de la empresa, y lo mismo la medida. Probado contra RLS
 real en `aislamiento.test.ts` (las tablas de diseño y medida no estaban en
 ese banco); con la política vieja, la prueba falla.
 
+## Códigos de activación en lote desde la app (2026-10-14)
+
+Lineamiento 3. Antes, para varios usuarios a la vez solo existía la
+herramienta de línea de comandos `codigos-empresa` (sigue existiendo).
+
+- `POST /usuarios/codigos` (administrador, en línea): los usuarios **activos**
+  de la empresa que se pidan, **nunca uno mismo**, hasta 50. Los emite el
+  servicio de acceso de a uno (cada código nuevo anula el anterior). Como el
+  alta, no pasa por la tabla de idempotencia: la respuesta lleva códigos.
+- App (Usuarios): "Códigos para los que no han activado (N)", todos elegidos
+  y se puede quitar alguno. **Cada código va en su propio mensaje**, con su
+  botón de enviar y la marca "Enviado": un mensaje con todos los códigos se
+  los entregaría a quien lo reciba. La pantalla dice cuántos faltan por
+  enviar.
+
 ## Catálogo general desde la app (2026-10-14)
 
 Lineamiento 3 (crear todo desde la app). El catálogo **general** (marcas,

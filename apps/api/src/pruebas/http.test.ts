@@ -1211,6 +1211,24 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
     });
   });
 
+  describe("códigos de activación en lote", () => {
+    const lote = (usuarioIds: unknown, token = "tok-admin") => pedir({ ruta: "/usuarios/codigos", token, clave: null, cuerpo: { usuarioIds } });
+
+    it("un código por usuario elegido, de la empresa y activo; nunca para uno mismo", async () => {
+      const yo = TOKENS["tok-admin"]!.sub;
+      const r = await lote([SEMILLA.tecnico, SEMILLA.otroTecnico, yo, nuevoId()]);
+      expect(r.statusCode, r.body).toBe(200);
+      expect(r.json().codigos.map((c: { usuarioId: string }) => c.usuarioId).sort()).toEqual([SEMILLA.tecnico, SEMILLA.otroTecnico].sort());
+      expect(r.json().codigos[0]).toMatchObject({ codigo: CODIGO_FALSO, nombre: expect.any(String) });
+    });
+
+    it("solo el administrador, y de a 50 como máximo", async () => {
+      expect((await lote([SEMILLA.tecnico], "tok-coordinador")).statusCode).toBe(403);
+      expect((await lote(Array.from({ length: 51 }, () => nuevoId()))).statusCode).toBe(422);
+      expect((await lote([])).statusCode).toBe(422);
+    });
+  });
+
   describe("carga masiva (R12)", () => {
     const cargar = (tipo: string, csv: string, token = "tok-coordinador") =>
       pedir({ ruta: `/carga/${tipo}`, token, clave: null, cuerpo: { csv } });

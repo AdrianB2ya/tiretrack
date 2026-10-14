@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ElegirUno } from "../diseno/ListaBuscable";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { Rol } from "@tiretrack/domain";
-import { Aviso, Boton, Campo, Insignia, Tarjeta, Vacio } from "../diseno/componentes";
+import { Aviso, Boton, Campo, Insignia, Opcion as OpcionComun, Tarjeta, Vacio } from "../diseno/componentes";
 import { colores, conOpacidad, espacio, radio, tactil, texto } from "../diseno/tokens";
 import { ETIQUETA_ROL } from "../sesion/PantallaCuenta";
 import { ETIQUETA_ROL_ASIGNABLE, mensajeActivacion, revisarUsuario, type FormUsuario } from "./reglasAdmin";
@@ -28,9 +28,24 @@ export interface FuentesUsuarios {
   /** Desactivar (deja de trabajar en la empresa) o volver a activar. Nada se borra. */
   cambiarActivo(usuarioId: string, activo: boolean): Promise<Resultado<unknown>>;
   compartir(mensaje: string): void;
+  /** Códigos en lote: uno por usuario elegido, cada uno para su propio mensaje. */
+  codigosEnLote?(usuarioIds: string[]): Promise<Resultado<{ codigos: CodigoDeLote[] }>>;
 }
 
-type Modo = { tipo: "lista" } | { tipo: "nuevo" } | { tipo: "codigo"; nombre: string; codigo: string; expiraEn: string };
+export interface CodigoDeLote {
+  usuarioId: string;
+  nombre: string;
+  email: string;
+  codigo: string;
+  expiraEn: string;
+}
+
+type Modo =
+  | { tipo: "lista" }
+  | { tipo: "nuevo" }
+  | { tipo: "codigo"; nombre: string; codigo: string; expiraEn: string }
+  | { tipo: "lote"; elegidos: string[] }
+  | { tipo: "codigosLote"; codigos: CodigoDeLote[]; enviados: string[] };
 
 export function PantallaUsuarios({ fuentes }: { fuentes: FuentesUsuarios }) {
   const [modo, setModo] = useState<Modo>({ tipo: "lista" });
@@ -73,6 +88,95 @@ export function PantallaUsuarios({ fuentes }: { fuentes: FuentesUsuarios }) {
     );
   }
 
+  if (modo.tipo === "lote") {
+    const pendientes = (lista ?? []).filter((u) => u.sinActivar && u.activo);
+    const alternar = (id: string) =>
+      setModo({ tipo: "lote", elegidos: modo.elegidos.includes(id) ? modo.elegidos.filter((x) => x !== id) : [...modo.elegidos, id] });
+    return (
+      <ScrollView style={estilos.pantalla} contentContainerStyle={estilos.contenido}>
+        <Text style={estilos.titulo}>Códigos para los que no han activado</Text>
+        <Text style={estilos.detalle}>
+          Cada persona recibe su propio código, en su propio mensaje. Un código nuevo anula el anterior.
+        </Text>
+        {pendientes.map((u) => (
+          <OpcionComun
+            key={u.id}
+            multiple
+            activa={modo.elegidos.includes(u.id)}
+            etiqueta={u.nombre}
+            detalle={`${u.email} · ${ETIQUETA_ROL[u.rol as Rol] ?? u.rol}`}
+            onPress={() => alternar(u.id)}
+            testID={`lote-${u.id}`}
+          />
+        ))}
+        <Boton
+          ancho
+          testID="generar-lote"
+          deshabilitado={modo.elegidos.length === 0}
+          onPress={() =>
+            void fuentes.codigosEnLote?.(modo.elegidos).then((r) => {
+              if (r.ok) setModo({ tipo: "codigosLote", codigos: r.datos.codigos, enviados: [] });
+              else setError(r.mensaje);
+            })
+          }
+        >
+          {`Generar ${modo.elegidos.length} ${modo.elegidos.length === 1 ? "código" : "códigos"}`}
+        </Boton>
+        {error ? <Aviso tono="advertencia" titulo="No se generaron" detalle={error} /> : null}
+        <Boton ancho tipo="fantasma" onPress={() => setModo({ tipo: "lista" })}>
+          Cancelar
+        </Boton>
+      </ScrollView>
+    );
+  }
+
+  if (modo.tipo === "codigosLote") {
+    const faltan = modo.codigos.filter((c) => !modo.enviados.includes(c.usuarioId)).length;
+    return (
+      <ScrollView style={estilos.pantalla} contentContainerStyle={estilos.contenido}>
+        <Text style={estilos.titulo}>Códigos generados</Text>
+        <Aviso
+          tono="advertencia"
+          titulo="Se muestran una sola vez"
+          detalle={faltan > 0 ? `Falta enviar ${faltan}. Envía cada uno a su persona: un mensaje con todos se los daría a quien lo reciba.` : "Todos enviados."}
+        />
+        {modo.codigos.map((c) => {
+          const enviado = modo.enviados.includes(c.usuarioId);
+          return (
+            <Tarjeta key={c.usuarioId} testID={`codigo-lote-${c.usuarioId}`}>
+              <View style={estilos.fila}>
+                <Text style={estilos.nombre}>{c.nombre}</Text>
+                {enviado ? <Insignia color={colores.exito}>Enviado</Insignia> : null}
+              </View>
+              <Text style={estilos.detalle}>{c.email}</Text>
+              <Text style={[estilos.codigo, estilos.codigoLote]} selectable>{c.codigo}</Text>
+              <Boton
+                tipo={enviado ? "fantasma" : "secundario"}
+                testID={`enviar-lote-${c.usuarioId}`}
+                onPress={() => {
+                  fuentes.compartir(mensajeActivacion(c.nombre, c.codigo, c.expiraEn));
+                  setModo({ ...modo, enviados: enviado ? modo.enviados : [...modo.enviados, c.usuarioId] });
+                }}
+              >
+                {enviado ? "Enviar otra vez" : "Enviar por WhatsApp u otra app"}
+              </Boton>
+            </Tarjeta>
+          );
+        })}
+        <Boton
+          ancho
+          tipo="fantasma"
+          onPress={() => {
+            void recargar();
+            setModo({ tipo: "lista" });
+          }}
+        >
+          Listo
+        </Boton>
+      </ScrollView>
+    );
+  }
+
   if (modo.tipo === "nuevo") {
     return (
       <FormNuevo
@@ -91,6 +195,16 @@ export function PantallaUsuarios({ fuentes }: { fuentes: FuentesUsuarios }) {
       <Boton ancho testID="nuevo-usuario" onPress={() => setModo({ tipo: "nuevo" })}>
         Nuevo usuario
       </Boton>
+      {(() => {
+        // Lineamiento 3: los códigos de varios a la vez, sin la herramienta de
+        // línea de comandos. Elegidos por defecto, todos los que faltan.
+        const pendientes = (lista ?? []).filter((u) => u.sinActivar && u.activo);
+        return fuentes.codigosEnLote && pendientes.length > 1 ? (
+          <Boton ancho tipo="secundario" testID="codigos-lote" onPress={() => setModo({ tipo: "lote", elegidos: pendientes.map((u) => u.id) })}>
+            {`Códigos para los que no han activado (${pendientes.length})`}
+          </Boton>
+        ) : null;
+      })()}
       {error ? <Aviso tono="advertencia" titulo="No se pudo cargar" detalle={error} /> : null}
       {lista && lista.length === 0 ? <Vacio mensaje="Sin usuarios." /> : null}
       {(lista ?? []).map((u) => (
@@ -270,6 +384,7 @@ const estilos = StyleSheet.create({
   etiqueta: { ...texto.etiqueta, color: colores.texto },
   error: { ...texto.ayuda, color: colores.peligro },
   codigo: { ...texto.codigo, fontSize: 34, letterSpacing: 4, color: colores.primario, textAlign: "center" },
+  codigoLote: { fontSize: 24, textAlign: "left" },
   fila: { flexDirection: "row", alignItems: "center", gap: espacio.sm, flexWrap: "wrap" },
   enLinea: { flexDirection: "row", flexWrap: "wrap", gap: espacio.sm },
   opcion: {

@@ -1833,6 +1833,36 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
     });
 
     /** Código nuevo: alta que venció, o ayuda para recuperar la cuenta. */
+    /**
+     * Códigos de activación en lote (lineamiento 3: sin la herramienta de
+     * línea de comandos). Los usuarios activos que se pidan, de la empresa, y
+     * nunca uno mismo. Uno por persona: cada código va en su propio mensaje
+     * (la app los comparte de a uno; un mensaje con todos se los entregaría a
+     * quien lo reciba). Hasta 50 por vez.
+     */
+    app.post("/usuarios/codigos", async (req, reply) => {
+      const b = (req.body ?? {}) as { usuarioIds?: unknown };
+      const ids = Array.isArray(b.usuarioIds) ? [...new Set(b.usuarioIds.filter((x): x is string => typeof x === "string"))] : [];
+      if (ids.length === 0 || ids.length > 50 || ids.some((x) => !zId.safeParse(x).success)) {
+        return reply.status(422).send({ error: { codigo: "DATOS_INVALIDOS", mensaje: "Elige entre 1 y 50 usuarios" } });
+      }
+      let elegidos: { id: string; nombre: string; email: string }[] = [];
+      const visto = await comoAdministracion(req, async (s, ctx) => {
+        const r = await s.usuarios.listar(ctx);
+        if (!r.ok) return rechazo(r.veredicto);
+        elegidos = r.valor.filter((u) => ids.includes(u.id) && u.activo && u.id !== ctx.usuarioId);
+        return { status: 200, cuerpo: {} };
+      });
+      if (visto.status >= 300) return reply.status(visto.status).send(visto.cuerpo);
+      const codigos = [];
+      // De a uno: el servicio de acceso anula los códigos anteriores de cada usuario.
+      for (const u of elegidos) {
+        const c = await op.auth.crearCodigoActivacion(u.id, req.ip);
+        if (c) codigos.push({ usuarioId: u.id, nombre: u.nombre, email: u.email, codigo: c.codigo, expiraEn: c.expiraEn });
+      }
+      return reply.status(200).send({ codigos });
+    });
+
     app.post("/usuarios/:id/codigo", async (req, reply) => {
       const id = params(req).id as string;
       const visto = await comoAdministracion(req, async (s, ctx) => {
