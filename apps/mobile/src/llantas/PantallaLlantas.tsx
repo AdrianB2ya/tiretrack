@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { ESTADOS_ACTIVO, ETIQUETA_ESTADO_ACTIVO, type EstadoActivo } from "@tiretrack/domain";
 import { Aviso, Boton, Campo, Insignia, Opcion, Tarjeta, Vacio } from "../diseno/componentes";
+import { PieBusqueda, useBusqueda } from "../diseno/BusquedaLista";
 import { colores, espacio, texto } from "../diseno/tokens";
 
 /**
@@ -52,6 +53,10 @@ export function dondeEsta(l: LlantaVista): string {
   return ETIQUETA_ESTADO_ACTIVO[l.estado];
 }
 
+/** Lo que devuelve el servidor como máximo (`LIMIT 500` en el servicio de llantas). */
+const LIMITE_SERVIDOR = 500;
+const sinTexto = () => "";
+
 export function PantallaLlantas({
   fuentes,
   onAbrir,
@@ -66,6 +71,8 @@ export function PantallaLlantas({
   const [buscar, setBuscar] = useState("");
   const [lista, setLista] = useState<LlantaVista[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // La búsqueda la hace el servidor (hasta 500); aquí se muestran de a 20.
+  const pagina = useBusqueda(lista ?? [], sinTexto);
 
   const cargar = useCallback(async () => {
     const r = await fuentes.listar({ ...(estado ? { estado } : {}), ...(buscar.trim() ? { buscar: buscar.trim() } : {}) });
@@ -105,8 +112,12 @@ export function PantallaLlantas({
       {lista && lista.length === 0 ? (
         <Vacio mensaje="Ninguna llanta con ese filtro. Las de los vehículos aparecen al cerrarse sus órdenes." />
       ) : null}
-      {lista && lista.length > 0 ? <Text style={estilos.detalle}>{lista.length} llantas</Text> : null}
-      {(lista ?? []).map((l) => (
+      {lista && lista.length > 0 ? (
+        <Text style={estilos.detalle}>
+          {lista.length >= LIMITE_SERVIDOR ? `Más de ${LIMITE_SERVIDOR} llantas: escribe un serial o elige un estado para afinar` : `${lista.length} llantas`}
+        </Text>
+      ) : null}
+      {pagina.visibles.map((l) => (
         <Tarjeta key={l.id} onPress={() => onAbrir(l.id)} testID={`llanta-${l.id}`}>
           <View style={estilos.cabecera}>
             <Text style={estilos.codigo}>{nombreLlanta(l)}</Text>
@@ -121,6 +132,7 @@ export function PantallaLlantas({
           </Text>
         </Tarjeta>
       ))}
+      <PieBusqueda b={pagina} testID="mas-llantas" />
     </ScrollView>
   );
 }

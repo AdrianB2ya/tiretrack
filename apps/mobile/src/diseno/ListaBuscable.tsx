@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Aviso, Boton, Campo, CampoDecimal, Opcion } from "./componentes";
-import { colores, espacio, texto } from "./tokens";
+import { colores, espacio, radio, tactil, texto } from "./tokens";
 import { filtrarPorTexto, type EvaluacionAlta } from "../catalogo/alta";
 
 /**
@@ -41,8 +41,13 @@ export interface AltaLista {
 
 /** Con más opciones que estas, se busca en vez de mostrarlas todas. */
 export const MAX_SIN_BUSQUEDA = 8;
-/** Tope de fichas a la vista: el resto se alcanza escribiendo. */
-export const MAX_A_LA_VISTA = 30;
+/**
+ * Cuántas se ven sin escribir y cuántas al buscar. Con mil clientes, mostrar
+ * treinta fichas de entrada llenaba la pantalla (lo reportó el usuario en el
+ * informe): sin texto se ven pocas, y la búsqueda hace el resto.
+ */
+export const MAX_SIN_TEXTO = 10;
+export const MAX_A_LA_VISTA = 20;
 
 export function ListaBuscable({
   etiqueta,
@@ -69,12 +74,20 @@ export function ListaBuscable({
   const [error, setError] = useState<string | null>(null);
 
   const conBusqueda = opciones.length > MAX_SIN_BUSQUEDA || alta !== undefined;
-  const filtradas = useMemo(() => filtrarPorTexto(opciones, termino), [opciones, termino]);
-  const aLaVista = filtradas.slice(0, MAX_A_LA_VISTA);
-  // La elegida siempre a la vista, aunque la búsqueda no la incluya.
   const elegida = opciones.find((o) => o.id === seleccionado);
-  if (elegida && !aLaVista.some((o) => o.id === elegida.id)) aLaVista.unshift(elegida);
+  // Desplegable: con algo elegido se muestra cerrado, en una sola línea; sin
+  // nada elegido se abre solo (en una cascada, lo siguiente es elegir).
+  const [abierta, setAbierta] = useState(!elegida);
+  const filtradas = useMemo(() => filtrarPorTexto(opciones, termino), [opciones, termino]);
+  const tope = termino.trim() === "" ? MAX_SIN_TEXTO : MAX_A_LA_VISTA;
+  const aLaVista = filtradas.slice(0, tope);
   const evaluacion = alta && termino.trim() !== "" ? alta.evaluar(termino) : null;
+
+  const elegir = (id: string) => {
+    onElegir(id);
+    setTermino("");
+    setAbierta(false);
+  };
 
   const cambiarTermino = (t: string) => {
     setTermino(t);
@@ -103,6 +116,29 @@ export function ListaBuscable({
     }
   };
 
+  if (conBusqueda && !abierta && elegida) {
+    return (
+      <View style={estilos.grupo} testID={testID}>
+        {etiqueta ? <Text style={estilos.etiqueta}>{etiqueta}</Text> : null}
+        <Pressable
+          onPress={() => setAbierta(true)}
+          accessibilityRole="button"
+          accessibilityLabel={`${etiqueta ?? "Elegido"}: ${elegida.texto}. Tocar para cambiar`}
+          testID={`${testID}-abrir`}
+          style={({ pressed }) => [estilos.cerrada, pressed && estilos.presionada]}
+        >
+          <View style={estilos.cerradaTexto}>
+            <Text style={estilos.valor} numberOfLines={1}>
+              {elegida.nueva ? `${elegida.texto} (nueva)` : elegida.texto}
+            </Text>
+            {elegida.detalle ? <Text style={estilos.tenue} numberOfLines={1}>{elegida.detalle}</Text> : null}
+          </View>
+          <Text style={estilos.cambiar}>Cambiar ▾</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   return (
     <View style={estilos.grupo} testID={testID}>
       {etiqueta ? <Text style={estilos.etiqueta}>{etiqueta}</Text> : null}
@@ -119,7 +155,8 @@ export function ListaBuscable({
 
       {opciones.length === 0 && !alta ? <Text style={estilos.tenue}>{vacio}</Text> : null}
 
-      <View style={estilos.fichas}>
+      {/* Una por línea: una lista, no un bloque de fichas. */}
+      <View style={estilos.columna}>
         {aLaVista.map((o) => (
           <Opcion
             key={o.id}
@@ -127,12 +164,19 @@ export function ListaBuscable({
             etiqueta={o.nueva ? `${o.texto} (nueva)` : o.texto}
             {...(o.detalle ? { detalle: o.detalle } : {})}
             testID={o.testID ?? `opcion-${o.id}`}
-            onPress={() => onElegir(o.id)}
+            onPress={() => elegir(o.id)}
           />
         ))}
       </View>
-      {filtradas.length > MAX_A_LA_VISTA ? (
-        <Text style={estilos.tenue}>Hay {filtradas.length - MAX_A_LA_VISTA} más: escribe para encontrarlas.</Text>
+      {filtradas.length > tope ? (
+        <Text style={estilos.tenue} testID={`${testID}-mas`}>
+          Hay {filtradas.length - tope} más: escribe para encontrarlas.
+        </Text>
+      ) : null}
+      {conBusqueda && elegida ? (
+        <Boton tipo="fantasma" testID={`${testID}-cerrar`} onPress={() => { setTermino(""); setAbierta(false); }}>
+          Dejar {elegida.texto}
+        </Boton>
       ) : null}
       {termino.trim() !== "" && filtradas.length === 0 && !alta ? (
         <Text style={estilos.tenue}>Nada coincide con “{termino.trim()}”.</Text>
@@ -143,7 +187,7 @@ export function ListaBuscable({
         <View style={estilos.alta}>
           <Aviso tono="info" titulo={`Ya existe: ${evaluacion.existente.nombre}`} />
           <Boton tipo="secundario" testID={`${testID}-elegir-existente`} onPress={() => {
-            onElegir(evaluacion.existente.id);
+            elegir(evaluacion.existente.id);
             cambiarTermino("");
           }}>
             Elegir {evaluacion.existente.nombre}
@@ -192,6 +236,22 @@ const estilos = StyleSheet.create({
   error: { ...texto.ayuda, color: colores.peligro },
   alta: { gap: espacio.sm },
   columna: { gap: espacio.sm },
+  cerrada: {
+    minHeight: tactil.comodo,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: espacio.sm,
+    paddingHorizontal: espacio.md,
+    paddingVertical: espacio.sm,
+    borderWidth: 1,
+    borderColor: colores.borde,
+    borderRadius: radio.md,
+    backgroundColor: colores.superficie,
+  },
+  presionada: { opacity: 0.7 },
+  cerradaTexto: { flex: 1 },
+  valor: { ...texto.cuerpoFuerte, color: colores.texto },
+  cambiar: { ...texto.ayuda, color: colores.primario },
 });
 
 /**

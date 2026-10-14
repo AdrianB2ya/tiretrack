@@ -1,9 +1,10 @@
-import { useCallback } from "react";
-import { ActivityIndicator, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { useCallback, useState } from "react";
+import { ActivityIndicator, RefreshControl, StyleSheet, Text, TextInput, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { puedeAprobar } from "@tiretrack/domain";
 import { ListaOrdenes } from "../../src/ordenes/ListaOrdenes";
-import { TITULO_FILTRO, esFiltroOrdenes, filtrarOrdenes } from "../../src/ordenes/lista";
+import { TITULO_FILTRO, esFiltroOrdenes, filtrar, filtrarOrdenes } from "../../src/ordenes/lista";
+import { MIN_PARA_BUSCAR } from "../../src/diseno/BusquedaLista";
 import { useDatos } from "../../src/app/ProveedorDatos";
 import { useUsuario } from "../../src/app/ProveedorSesion";
 import { BarraDeSesion } from "../../src/app/BarraDeSesion";
@@ -26,7 +27,10 @@ export default function PantallaOrdenes() {
   const oficina = puedeAprobar(usuario.rol);
   const { filtro: crudo } = useLocalSearchParams<{ filtro?: string }>();
   const filtro = esFiltroOrdenes(crudo) ? crudo : null;
-  const visibles = filtrarOrdenes(ordenes, filtro);
+  // La búsqueda por folio, vehículo o cliente existía en lista.ts y ninguna
+  // pantalla la usaba: son las formas en que se pregunta por una orden.
+  const [texto, setTexto] = useState("");
+  const visibles = filtrar(filtrarOrdenes(ordenes, filtro), { texto });
 
   const abrir = useCallback(
     (ordenId: string) => router.push(`/orden/${ordenId}` as never),
@@ -70,6 +74,20 @@ export default function PantallaOrdenes() {
           </Boton>
         </View>
       ) : null}
+      {ordenes.length > MIN_PARA_BUSCAR ? (
+        <View style={estilos.accion}>
+          <TextInput
+            style={estilos.buscar}
+            value={texto}
+            onChangeText={setTexto}
+            placeholder="Buscar por folio, vehículo o cliente"
+            placeholderTextColor={colores.textoTenue}
+            autoCorrect={false}
+            accessibilityLabel="Buscar orden"
+            testID="buscar-orden"
+          />
+        </View>
+      ) : null}
       {pendientesDeEnviar > 0 ? (
         <View style={estilos.barraPendientes}>
           <Text style={estilos.textoPendientes}>
@@ -84,7 +102,9 @@ export default function PantallaOrdenes() {
           ordenes={visibles}
           onAbrir={abrir}
           mensajeVacio={
-            filtro
+            texto.trim()
+              ? `Ninguna orden con "${texto.trim()}".`
+              : filtro
               ? `No hay órdenes en "${TITULO_FILTRO[filtro]}".`
               : oficina
                 ? "No hay órdenes en tus sedes. Tira hacia abajo para actualizar."
@@ -109,6 +129,10 @@ const estilos = StyleSheet.create({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   accion: { flexDirection: "row", gap: espacio.sm, paddingHorizontal: espacio.md, paddingTop: espacio.sm },
   mitad: { flex: 1 },
+  buscar: {
+    ...texto.cuerpo, color: colores.texto, minHeight: 48, borderWidth: 1, borderColor: colores.borde,
+    borderRadius: 8, paddingHorizontal: espacio.md, backgroundColor: colores.superficie,
+  },
   filtro: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     paddingHorizontal: espacio.md, paddingTop: espacio.sm,

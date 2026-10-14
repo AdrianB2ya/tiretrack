@@ -6,12 +6,13 @@ import { DiagramaLlantas, ResumenDiagrama } from "../../../../src/ordenes/Diagra
 import { Aviso, Boton, Insignia } from "../../../../src/diseno/componentes";
 import { useDatos, type DatosOrden } from "../../../../src/app/ProveedorDatos";
 import { useUsuario } from "../../../../src/app/ProveedorSesion";
-import { accionesDisponibles, requisitosParaEnviar, resumirFirma, situacionBloqueo } from "../../../../src/ordenes/detalle";
+import { accionesDisponibles, estadoSincronizacion, requisitosParaEnviar, resumirFirma, situacionBloqueo } from "../../../../src/ordenes/detalle";
+import { FirmaGuardada } from "../../../../src/ordenes/CapturaFirma";
 import { siguienteSinCapturar } from "../../../../src/ordenes/diagrama";
 import { FotosDe } from "../../../../src/fotos/FotosDe";
 import { DecisionCliente } from "../../../../src/cliente/DecisionCliente";
 import { camaraDelDispositivo, manipuladorDelDispositivo } from "../../../../src/fotos/captura";
-import { estaAbierta, fechaEnColombia, MAXIMO_POR_ORDEN, puedeAprobar, puedeGestionarRecomendaciones, type EstadoOrden, ETIQUETA_TIPO_SERVICIO, type TipoServicio } from "@tiretrack/domain";
+import { deserializarTrazo, estaAbierta, fechaEnColombia, MAXIMO_POR_ORDEN, puedeAprobar, puedeGestionarRecomendaciones, type EstadoOrden, ETIQUETA_TIPO_SERVICIO, type TipoServicio } from "@tiretrack/domain";
 import { colores, espacio, estadosOrden, texto } from "../../../../src/diseno/tokens";
 import { OrdenNoDisponible } from "../../../../src/ordenes/OrdenNoDisponible";
 import { Recomendaciones } from "../../../../src/ordenes/Recomendaciones";
@@ -126,6 +127,14 @@ export default function PantallaDetalle() {
         {detalle.clienteNombre}
         {detalle.sedeClienteNombre ? ` · ${detalle.sedeClienteNombre}` : ""}
       </Text>
+      {(() => {
+        // Existía (detalle.ts) y ninguna pantalla lo mostraba: qué de esta orden
+        // sigue en el teléfono, para decidir si buscar señal antes de irse.
+        const sync = estadoSincronizacion(detalle);
+        return !sync.alDia && !esCliente ? (
+          <Text style={estilos.sinEnviar} testID="sin-enviar">{sync.mensaje}</Text>
+        ) : null;
+      })()}
 
       {orden.motivoDevolucion ? (
         <Aviso tono="peligro" titulo="Devuelta para corregir" detalle={orden.motivoDevolucion} />
@@ -208,6 +217,18 @@ export default function PantallaDetalle() {
           {orden.accion ? <Text style={estilos.cliente}>Acción: {orden.accion}</Text> : null}
           {orden.firmaNombre ? <Text style={estilos.cliente}>Recibió: {orden.firmaNombre}</Text> : null}
         </View>
+      ) : null}
+      {/* La firma capturada, dibujada. El componente existía y no se mostraba
+          en ningún lado: el coordinador aprobaba sin ver la firma. */}
+      {orden.firmaNombre ? (
+        <FirmaGuardada
+          trazo={deserializarTrazo(orden.firmaTrazo)}
+          nombre={orden.firmaNombre}
+          cedula={orden.firmaCedula}
+          cargo={orden.firmaCargo}
+          fechaHora={orden.firmaFechaHora}
+          invalidada={firma.estado === "invalidada"}
+        />
       ) : null}
       {esCliente && orden.estado === "pendiente_cliente" ? (
         <DecisionCliente
@@ -310,6 +331,7 @@ const estilos = StyleSheet.create({
   cabecera: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   folio: { ...texto.codigo, color: colores.primario },
   vehiculo: { ...texto.subtitulo, color: colores.texto },
+  sinEnviar: { ...texto.cuerpoFuerte, color: colores.advertencia },
   cliente: { ...texto.cuerpo, color: colores.textoTenue },
   motivo: { ...texto.ayuda, color: colores.advertencia },
   requisitos: { gap: espacio.sm },

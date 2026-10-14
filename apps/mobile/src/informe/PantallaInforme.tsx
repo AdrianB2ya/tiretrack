@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ElegirUno } from "../diseno/ListaBuscable";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Aviso, Boton, Campo, Insignia, Opcion, Tarjeta } from "../diseno/componentes";
+import { CampoBusqueda, PieBusqueda, useBusqueda } from "../diseno/BusquedaLista";
 import { EnviarPorCorreo, type Formato } from "./EnviarPorCorreo";
 import { colores, espacio, estadosOrden, texto } from "../diseno/tokens";
 import {
@@ -20,6 +21,7 @@ import {
   revisarFiltro,
   type FiltroPantalla,
   type Trazabilidad,
+  type OrdenVista,
   type VistaPrevia,
 } from "./reglasInforme";
 
@@ -57,6 +59,8 @@ const RANGOS = [
 
 /** La opción "Todos" de los filtros: no es un id real. */
 const TODOS = "__todos";
+
+const textoOrden = (o: OrdenVista) => `${o.folio} ${o.vehiculo} ${o.fecha}`;
 
 export function PantallaInforme({ fuentes }: { fuentes: FuentesInforme }) {
   const [f, setF] = useState<FiltroPantalla>(FILTRO_VACIO);
@@ -136,6 +140,8 @@ export function PantallaInforme({ fuentes }: { fuentes: FuentesInforme }) {
   };
 
   const listaOrdenes = vista?.datos.listaOrdenes ?? [];
+  // Hasta 200 órdenes: se buscan por folio o vehículo y se ven de a 20.
+  const buscarOrden = useBusqueda(listaOrdenes, textoOrden);
   const plegar = (id: string) =>
     setAbiertas((xs) => (xs.includes(id) ? xs.filter((x) => x !== id) : [...xs, id]));
 
@@ -315,7 +321,8 @@ export function PantallaInforme({ fuentes }: { fuentes: FuentesInforme }) {
           ) : null}
 
           {/* Una tarjeta por orden, con su casilla; sus llantas, plegadas. */}
-          {listaOrdenes.map((o) => {
+          <CampoBusqueda b={buscarOrden} placeholder="Buscar orden por folio o vehículo" testID="buscar-orden-informe" />
+          {buscarOrden.visibles.map((o) => {
             const estado = estadosOrden[o.estado as keyof typeof estadosOrden];
             const suyas = vista.datos.filas.filter((x) => x.ordenId === o.id);
             const abierta = abiertas.includes(o.id);
@@ -347,6 +354,7 @@ export function PantallaInforme({ fuentes }: { fuentes: FuentesInforme }) {
               </Tarjeta>
             );
           })}
+          <PieBusqueda b={buscarOrden} testID="mas-ordenes-informe" />
 
           {/* Servidor anterior, sin lista de órdenes: la vista por llanta de antes. */}
           {listaOrdenes.length === 0 && vista.datos.filas.map((fila, i) => {

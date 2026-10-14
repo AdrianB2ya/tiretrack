@@ -3725,6 +3725,55 @@ diseño sea global o de la empresa, y lo mismo la medida. Probado contra RLS
 real en `aislamiento.test.ts` (las tablas de diseño y medida no estaban en
 ese banco); con la política vieja, la prueba falla.
 
+## Listas largas y piezas sin montar (revisión de la app, 2026-10-15)
+
+Pedido del usuario al probar: en el informe los clientes salían como un
+bloque de fichas ("si tengo 1000 clientes ya te imaginas la pantalla"), y
+"evalúa toda la aplicación y cosas así corrígelas".
+
+### Elegir de una lista larga: desplegable con búsqueda
+
+`ListaBuscable` (la usan informe, orden nueva, editor de posición,
+catálogo, visitas, cotización…) mostraba hasta **30 fichas** sin escribir
+nada. Ahora:
+
+- **Con algo elegido, cerrada en una línea** ("Cliente: Todos · Cambiar ▾");
+  tocarla la abre. **Sin nada elegido se abre sola** (en una cascada, lo
+  siguiente es elegir). Elegir la cierra.
+- Abierta: **una por línea**, **10 sin escribir** y **20 al buscar**, con
+  "Hay N más: escribe para encontrarlas".
+- Con 8 opciones o menos, igual que antes: no estorba donde no hace falta.
+
+### Listas de datos: búsqueda y "Mostrar más"
+
+`src/diseno/BusquedaLista.tsx`: `useBusqueda` + `CampoBusqueda` +
+`PieBusqueda`. Palabra por palabra, sin tildes ("reyna 482" encuentra
+"Transportes Reyna · SXK482"), de a 20, y el campo solo aparece con más de 8.
+Aplicada en: **clientes** (por nombre o NIT) y **vehículos de cada sede**
+(código o placa), **llantas** (además de la búsqueda del servidor, que trae
+hasta 500; si llegan 500, se dice que afine), **usuarios**, **visitas
+recurrentes**, **órdenes del informe**, **reclamos** y **llantas para
+cambiar** (por vehículo o cliente). Técnicos y sedes de las visitas
+recurrentes pasaron a `ElegirUno`. Prueba con **mil clientes**.
+
+- Los códigos en lote se eligen de a **50** (lo que acepta el servidor): con
+  más pendientes, quedan elegidos los primeros y se dice.
+
+### Construido y sin montar (otra vez el patrón de la 4.2 y la 6.7)
+
+Se buscaron funciones exportadas que ninguna pantalla usa:
+
+- **La búsqueda de órdenes** (`filtrar` en `lista.ts`, por folio, vehículo
+  o cliente) existía desde la 3.1 y ninguna pantalla la tenía. Ahora en la
+  lista de órdenes, con más de 8.
+- **La firma capturada no se mostraba en ningún lado** (`FirmaGuardada`): el
+  coordinador aprobaba viendo solo el nombre. Ahora el detalle la dibuja, en
+  gris si ya no ampara el contenido.
+- **"Sin enviar: cambios y 2 fotos"** (`estadoSincronizacion`) tampoco se
+  mostraba: ahora en el detalle, para decidir si buscar señal antes de irse.
+- Lo demás que apareció son ayudantes internos o duplicados de algo hecho de
+  otra forma (`hermanasDe`, `puedeCapturar`, `resumirPosiciones`…).
+
 ## Vida útil real en el tablero (2026-10-14)
 
 Brecha C ("vida útil promedio"), que el tablero de la R11 no tenía.
@@ -4314,7 +4363,7 @@ identificador **`com.asistectire.app`**, rojo de la marca **como acento**.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 1123/1123, mobile 1030 + recorrido 669.
+**Verificado:** `npm run verify` con base: raíz 1123/1123, mobile 1033 + recorrido 669.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

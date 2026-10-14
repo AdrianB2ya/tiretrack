@@ -5,6 +5,7 @@ import { nuevoId, type Frecuencia, type TipoServicio, TIPOS_SERVICIO, ETIQUETA_T
 import type { CrearProgramacion } from "@tiretrack/contracts";
 import { Aviso, Boton, Campo, Opcion, Tarjeta, Vacio } from "../diseno/componentes";
 import { colores, espacio, texto } from "../diseno/tokens";
+import { CampoBusqueda, PieBusqueda, useBusqueda } from "../diseno/BusquedaLista";
 import {
   OPCIONES_FRECUENCIA,
   aContratoProgramacion,
@@ -50,10 +51,14 @@ const TONOS = { peligro: colores.peligro, advertencia: colores.advertencia, norm
 // Del dominio: la lista y su etiqueta viven en un solo lugar.
 const TIPOS: { valor: TipoServicio; etiqueta: string }[] = TIPOS_SERVICIO.map((t) => ({ valor: t, etiqueta: ETIQUETA_TIPO_SERVICIO[t] }));
 
+const textoProgramacion = (p: ProgramacionListada) =>
+  `${p.vehiculoCodigo} ${p.vehiculoPlaca ?? ""} ${p.clienteNombre} ${p.sedeClienteNombre} ${p.tecnicoNombre} ${p.descripcion}`;
+
 export function PantallaProgramaciones({ fuentes, hoy, sedesDelUsuario }: PantallaProgramacionesProps) {
   const [nueva, setNueva] = useState(false);
   const [lista, setLista] = useState<ProgramacionListada[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const busqueda = useBusqueda(lista ?? [], textoProgramacion);
 
   const recargar = useCallback(async () => {
     const r = await fuentes.listar();
@@ -91,9 +96,11 @@ export function PantallaProgramaciones({ fuentes, hoy, sedesDelUsuario }: Pantal
       </Text>
       {error ? <Aviso tono="advertencia" titulo="No se pudo cargar" detalle={error} /> : null}
       {lista && lista.length === 0 ? <Vacio mensaje="Aún no hay visitas programadas en tus sedes." /> : null}
-      {(lista ?? []).map((p) => (
+      <CampoBusqueda b={busqueda} placeholder="Buscar por vehículo, cliente o técnico" testID="buscar-programacion" />
+      {busqueda.visibles.map((p) => (
         <TarjetaProgramacion key={p.id} p={p} hoy={hoy} fuentes={fuentes} onCambio={() => void recargar()} />
       ))}
+      <PieBusqueda b={busqueda} testID="mas-programaciones" />
     </ScrollView>
   );
 }
@@ -161,14 +168,11 @@ function TarjetaProgramacion({ p, hoy, fuentes, onCambio }: {
           {tecnicos.length === 0 ? (
             <Text style={estilos.ayuda}>No hay otros técnicos activos en esta sede.</Text>
           ) : (
-            tecnicos.map((t) => (
-              <Opcion
-                key={t.id}
-                etiqueta={t.nombre}
-                activa={false}
-                onPress={() => void ejecutar(() => fuentes.cambiarTecnico(p.id, t.id))}
-              />
-            ))
+            <ElegirUno
+              opciones={tecnicos.map((t) => ({ id: t.id, texto: t.nombre }))}
+              seleccionado={null}
+              onElegir={(id) => void ejecutar(() => fuentes.cambiarTecnico(p.id, id))}
+            />
           )}
           <Boton tipo="fantasma" onPress={() => setModo("ver")}>
             Cancelar
@@ -255,9 +259,11 @@ function FormularioProgramacionNueva({ fuentes, hoy, sedesDelUsuario, onListo }:
     <ScrollView style={estilos.pantalla} contentContainerStyle={estilos.contenido} keyboardShouldPersistTaps="handled">
       {sedes.length > 1 ? (
         <Paso titulo="Sede que atiende" error={problemaDe("sedeId")}>
-          {sedes.map((s) => (
-            <Opcion key={s.id} etiqueta={s.nombre} detalle={s.codigo} activa={f.sedeId === s.id} onPress={() => poner("sedeId", s.id)} />
-          ))}
+          <ElegirUno
+            opciones={sedes.map((s) => ({ id: s.id, texto: s.nombre, detalle: s.codigo }))}
+            seleccionado={f.sedeId || null}
+            onElegir={(id) => poner("sedeId", id)}
+          />
         </Paso>
       ) : null}
 

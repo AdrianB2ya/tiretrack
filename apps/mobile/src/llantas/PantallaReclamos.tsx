@@ -8,6 +8,7 @@ import {
   type MotivoRetiro,
 } from "@tiretrack/domain";
 import { Aviso, Boton, Campo, CampoDecimal, Insignia, Opcion, Tarjeta, Vacio } from "../diseno/componentes";
+import { CampoBusqueda, PieBusqueda, useBusqueda } from "../diseno/BusquedaLista";
 import { colores, espacio, texto } from "../diseno/tokens";
 
 /**
@@ -44,9 +45,12 @@ const COLOR: Record<EstadoReclamo, string> = {
   cerrado: colores.textoTenue,
 };
 
+const textoReclamo = (r: ReclamoVista) => `${r.llanta} ${r.proveedor} ${r.clienteNombre} ${r.estado}`;
+
 export function PantallaReclamos({ fuentes, onAbrirLlanta }: { fuentes: FuentesReclamos; onAbrirLlanta: (id: string) => void }) {
   const [lista, setLista] = useState<ReclamoVista[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const busqueda = useBusqueda(lista ?? [], textoReclamo);
 
   const cargar = useCallback(async () => {
     const r = await fuentes.cargar();
@@ -76,9 +80,11 @@ export function PantallaReclamos({ fuentes, onAbrirLlanta }: { fuentes: FuentesR
   }
   return (
     <ScrollView style={estilos.pantalla} contentContainerStyle={estilos.contenido} keyboardShouldPersistTaps="handled">
-      {lista.map((r) => (
+      <CampoBusqueda b={busqueda} placeholder="Buscar por llanta, proveedor o cliente" testID="buscar-reclamo" />
+      {busqueda.visibles.map((r) => (
         <TarjetaReclamo key={r.id} r={r} fuentes={fuentes} onCambio={cargar} onAbrirLlanta={onAbrirLlanta} />
       ))}
+      <PieBusqueda b={busqueda} testID="mas-reclamos" />
     </ScrollView>
   );
 }

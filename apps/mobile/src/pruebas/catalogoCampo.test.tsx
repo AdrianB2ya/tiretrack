@@ -5,7 +5,7 @@ import { abrirBaseEnMemoria } from "../datos/conexionNode";
 import { migrar, type Conexion } from "../datos/base";
 import { RepositorioLocal } from "../datos/repositorio";
 import { evaluarAltaMedida, evaluarAltaNombre, filtrarPorTexto } from "../catalogo/alta";
-import { ElegirUno, ListaBuscable, MAX_A_LA_VISTA } from "../diseno/ListaBuscable";
+import { ElegirUno, ListaBuscable, MAX_A_LA_VISTA, MAX_SIN_TEXTO } from "../diseno/ListaBuscable";
 import { PantallaCatalogo, type FuentesCatalogo } from "../catalogo/PantallaCatalogo";
 import { describirCambio } from "../sesion/cambios";
 import type { AccionesCatalogo } from "../app/ProveedorDatos";
@@ -59,20 +59,27 @@ describe("lista con búsqueda", () => {
     expect(screen.getAllByRole("radio")).toHaveLength(3);
   });
 
-  it("con muchas, muestra un tope y deja buscar el resto", async () => {
+  it("con muchas, sin escribir se ven pocas (no un bloque que llena la pantalla) y la búsqueda hace el resto", async () => {
     render(<ListaBuscable etiqueta="Marca" opciones={muchas} seleccionado={null} onElegir={() => {}} />);
-    expect(screen.getAllByRole("radio")).toHaveLength(MAX_A_LA_VISTA);
-    expect(screen.getByText(/Hay 15 más/)).toBeTruthy();
+    expect(screen.getAllByRole("radio")).toHaveLength(MAX_SIN_TEXTO);
+    expect(screen.getByText(`Hay ${muchas.length - MAX_SIN_TEXTO} más: escribe para encontrarlas.`)).toBeTruthy();
     await act(async () => { fireEvent.change(screen.getByTestId("lista-buscar"), { target: { value: "44" } }); });
     expect(screen.getAllByRole("radio").map((r) => r.textContent)).toEqual(["Marca 44"]);
+    // Al buscar, el tope es mayor: lo que coincide se ve.
+    await act(async () => { fireEvent.change(screen.getByTestId("lista-buscar"), { target: { value: "Marca" } }); });
+    expect(screen.getAllByRole("radio")).toHaveLength(MAX_A_LA_VISTA);
   });
 
-  it("la elegida sigue a la vista aunque la búsqueda no la incluya", async () => {
-    render(<ListaBuscable etiqueta="Marca" opciones={muchas} seleccionado="o-44" onElegir={() => {}} />);
+  it("con algo elegido se muestra cerrada, en una línea; tocarla la abre y elegir la cierra", async () => {
+    const onElegir = vi.fn();
+    render(<ListaBuscable etiqueta="Marca" opciones={muchas} seleccionado="o-44" onElegir={onElegir} />);
+    expect(screen.queryAllByRole("radio")).toHaveLength(0);
+    expect(screen.getByTestId("lista-abrir").textContent).toContain("Marca 44");
+    await act(async () => { fireEvent.click(screen.getByTestId("lista-abrir")); });
     await act(async () => { fireEvent.change(screen.getByTestId("lista-buscar"), { target: { value: "Marca 01" } }); });
-    const textos = screen.getAllByRole("radio").map((r) => r.textContent);
-    expect(textos).toContain("✓ Marca 44");
-    expect(textos).toContain("Marca 01");
+    await act(async () => { fireEvent.click(screen.getByText("Marca 01")); });
+    expect(onElegir).toHaveBeenCalledWith("o-1");
+    expect(screen.queryByTestId("lista-buscar")).toBeNull();
   });
 
   it("agregar algo parecido pide un segundo toque", async () => {

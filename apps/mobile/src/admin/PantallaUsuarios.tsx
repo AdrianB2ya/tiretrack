@@ -3,6 +3,7 @@ import { ElegirUno } from "../diseno/ListaBuscable";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { Rol } from "@tiretrack/domain";
 import { Aviso, Boton, Campo, Insignia, Opcion as OpcionComun, Tarjeta, Vacio } from "../diseno/componentes";
+import { CampoBusqueda, PieBusqueda, useBusqueda } from "../diseno/BusquedaLista";
 import { colores, conOpacidad, espacio, radio, tactil, texto } from "../diseno/tokens";
 import { ETIQUETA_ROL } from "../sesion/PantallaCuenta";
 import { ETIQUETA_ROL_ASIGNABLE, mensajeActivacion, revisarUsuario, type FormUsuario } from "./reglasAdmin";
@@ -47,12 +48,18 @@ type Modo =
   | { tipo: "lote"; elegidos: string[] }
   | { tipo: "codigosLote"; codigos: CodigoDeLote[]; enviados: string[] };
 
+/** Lo que acepta el servidor por vez (`POST /usuarios/codigos`). */
+const MAX_LOTE = 50;
+
+const textoUsuario = (u: UsuarioListado) => `${u.nombre} ${u.email} ${ETIQUETA_ROL[u.rol as Rol] ?? u.rol}`;
+
 export function PantallaUsuarios({ fuentes }: { fuentes: FuentesUsuarios }) {
   const [modo, setModo] = useState<Modo>({ tipo: "lista" });
   const [lista, setLista] = useState<UsuarioListado[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Desactivar pide un segundo toque: deja a alguien sin poder entrar.
   const [confirmando, setConfirmando] = useState<string | null>(null);
+  const busqueda = useBusqueda(lista ?? [], textoUsuario);
 
   const recargar = useCallback(async () => {
     const r = await fuentes.usuarios();
@@ -97,6 +104,7 @@ export function PantallaUsuarios({ fuentes }: { fuentes: FuentesUsuarios }) {
         <Text style={estilos.titulo}>Códigos para los que no han activado</Text>
         <Text style={estilos.detalle}>
           Cada persona recibe su propio código, en su propio mensaje. Un código nuevo anula el anterior.
+          {pendientes.length > MAX_LOTE ? ` Se generan de a ${MAX_LOTE}: quedaron elegidos los primeros; los demás, en la siguiente tanda.` : ""}
         </Text>
         {pendientes.map((u) => (
           <OpcionComun
@@ -105,7 +113,10 @@ export function PantallaUsuarios({ fuentes }: { fuentes: FuentesUsuarios }) {
             activa={modo.elegidos.includes(u.id)}
             etiqueta={u.nombre}
             detalle={`${u.email} · ${ETIQUETA_ROL[u.rol as Rol] ?? u.rol}`}
-            onPress={() => alternar(u.id)}
+            onPress={() => {
+              if (!modo.elegidos.includes(u.id) && modo.elegidos.length >= MAX_LOTE) return;
+              alternar(u.id);
+            }}
             testID={`lote-${u.id}`}
           />
         ))}
@@ -200,14 +211,15 @@ export function PantallaUsuarios({ fuentes }: { fuentes: FuentesUsuarios }) {
         // línea de comandos. Elegidos por defecto, todos los que faltan.
         const pendientes = (lista ?? []).filter((u) => u.sinActivar && u.activo);
         return fuentes.codigosEnLote && pendientes.length > 1 ? (
-          <Boton ancho tipo="secundario" testID="codigos-lote" onPress={() => setModo({ tipo: "lote", elegidos: pendientes.map((u) => u.id) })}>
+          <Boton ancho tipo="secundario" testID="codigos-lote" onPress={() => setModo({ tipo: "lote", elegidos: pendientes.slice(0, MAX_LOTE).map((u) => u.id) })}>
             {`Códigos para los que no han activado (${pendientes.length})`}
           </Boton>
         ) : null;
       })()}
       {error ? <Aviso tono="advertencia" titulo="No se pudo cargar" detalle={error} /> : null}
       {lista && lista.length === 0 ? <Vacio mensaje="Sin usuarios." /> : null}
-      {(lista ?? []).map((u) => (
+      <CampoBusqueda b={busqueda} placeholder="Buscar por nombre, correo o rol" testID="buscar-usuario" />
+      {busqueda.visibles.map((u) => (
         <Tarjeta key={u.id}>
           <View style={estilos.fila}>
             <Text style={estilos.nombre}>{u.nombre}</Text>
@@ -252,6 +264,7 @@ export function PantallaUsuarios({ fuentes }: { fuentes: FuentesUsuarios }) {
           </Boton>
         </Tarjeta>
       ))}
+      <PieBusqueda b={busqueda} testID="mas-usuarios" />
     </ScrollView>
   );
 }

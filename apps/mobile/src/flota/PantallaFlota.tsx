@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { puedeGestionarFlota, type Rol } from "@tiretrack/domain";
 import { Aviso, Boton, Campo, Tarjeta, Vacio } from "../diseno/componentes";
+import { CampoBusqueda, PieBusqueda, useBusqueda } from "../diseno/BusquedaLista";
 import { colores, conOpacidad, espacio, radio, tactil, texto } from "../diseno/tokens";
 import {
   puedeCrearCliente,
@@ -64,9 +65,14 @@ type Modo =
   | { tipo: "nueva_sede"; cliente: Cliente }
   | { tipo: "nuevo_vehiculo"; cliente: Cliente; sede: Sede };
 
+const textoCliente = (c: Cliente) => `${c.nombre} ${c.nit ?? ""}`;
+const textoVehiculo = (v: Vehiculo) => `${v.codigo} ${v.placa ?? ""} ${v.nombre}`;
+
 export function PantallaFlota({ rol, fuentes, acciones, deshabilitar }: PantallaFlotaProps) {
   const [modo, setModo] = useState<Modo>({ tipo: "lista" });
   const [clientes, setClientes] = useState<Cliente[] | null>(null);
+  // Con mil clientes, pintarlos todos no se acaba nunca: se buscan, de a 20.
+  const busqueda = useBusqueda(clientes ?? [], textoCliente);
 
   const recargar = useCallback(async () => setClientes(await fuentes.clientes()), [fuentes]);
   useEffect(() => {
@@ -145,13 +151,45 @@ export function PantallaFlota({ rol, fuentes, acciones, deshabilitar }: Pantalla
         </Boton>
       ) : null}
       {clientes && clientes.length === 0 ? <Vacio mensaje="Sin clientes. Sincroniza con señal o crea uno." /> : null}
-      {(clientes ?? []).map((c) => (
-        <Tarjeta key={c.id} onPress={() => setModo({ tipo: "cliente", cliente: c })}>
+      <CampoBusqueda b={busqueda} placeholder="Buscar cliente por nombre o NIT" testID="buscar-cliente" />
+      {busqueda.visibles.map((c) => (
+        <Tarjeta key={c.id} testID={`cliente-${c.id}`} onPress={() => setModo({ tipo: "cliente", cliente: c })}>
           <Text style={estilos.nombre}>{c.nombre}</Text>
           {c.nit ? <Text style={estilos.detalle}>NIT {c.nit}</Text> : null}
         </Tarjeta>
       ))}
+      <PieBusqueda b={busqueda} testID="mas-clientes" />
     </ScrollView>
+  );
+}
+
+/** Los vehículos de una sede: una flota de 200 se busca por código o placa, de a 20. */
+function VehiculosDeSede({
+  sedeId,
+  vehiculos,
+  onDeshabilitar,
+}: {
+  sedeId: string;
+  vehiculos: readonly Vehiculo[];
+  onDeshabilitar?: (v: Vehiculo) => () => Promise<{ ok: true } | { ok: false; mensaje: string }>;
+}) {
+  const b = useBusqueda(vehiculos, textoVehiculo);
+  return (
+    <>
+      <CampoBusqueda b={b} placeholder="Buscar vehículo por código o placa" testID={`buscar-vehiculo-${sedeId}`} />
+      {b.visibles.map((v) => (
+        <View key={v.id}>
+          <Text style={estilos.vehiculo}>
+            {v.codigo}
+            {v.placa ? ` · ${v.placa}` : ""} — {v.nombre}
+          </Text>
+          {onDeshabilitar ? (
+            <BotonDeshabilitar testID={`deshabilitar-vehiculo-${v.id}`} que={`el vehículo ${v.codigo}`} onConfirmar={onDeshabilitar(v)} />
+          ) : null}
+        </View>
+      ))}
+      <PieBusqueda b={b} testID={`mas-vehiculos-${sedeId}`} />
+    </>
   );
 }
 
@@ -191,17 +229,11 @@ function DetalleCliente({
         <View key={s.id} style={estilos.sede}>
           <Text style={estilos.nombre}>{s.nombre}</Text>
           {s.vehiculos.length === 0 ? <Text style={estilos.detalle}>Sin vehículos</Text> : null}
-          {s.vehiculos.map((v) => (
-            <View key={v.id}>
-              <Text style={estilos.vehiculo}>
-                {v.codigo}
-                {v.placa ? ` · ${v.placa}` : ""} — {v.nombre}
-              </Text>
-              {deshabilitar ? (
-                <BotonDeshabilitar testID={`deshabilitar-vehiculo-${v.id}`} que={`el vehículo ${v.codigo}`} onConfirmar={quitar("vehiculo", v.id)} />
-              ) : null}
-            </View>
-          ))}
+          <VehiculosDeSede
+            sedeId={s.id}
+            vehiculos={s.vehiculos}
+            {...(deshabilitar ? { onDeshabilitar: (v: Vehiculo) => quitar("vehiculo", v.id) } : {})}
+          />
           {puedeCrearVehiculo(rol) ? (
             <Boton tipo="fantasma" testID={`nuevo-vehiculo-${s.id}`} onPress={() => onNuevoVehiculo(s)}>
               + Vehículo en esta sede

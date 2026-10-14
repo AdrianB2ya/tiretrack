@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Aviso, Boton, Insignia, Tarjeta, Vacio } from "../diseno/componentes";
+import { CampoBusqueda, PieBusqueda, useBusqueda } from "../diseno/BusquedaLista";
 import { EnviarPorCorreo } from "../informe/EnviarPorCorreo";
 import { colores, espacio, texto } from "../diseno/tokens";
 
@@ -63,6 +64,11 @@ export function agruparAlertas(alertas: readonly AlertaLlanta[]) {
     .sort((a, b) => peso(a[0] as AlertaLlanta) - peso(b[0] as AlertaLlanta) || (a[0]?.vehiculoCodigo ?? "").localeCompare(b[0]?.vehiculoCodigo ?? ""));
 }
 
+const textoGrupo = (g: readonly AlertaLlanta[]) => {
+  const v = g[0];
+  return v ? `${v.vehiculoCodigo} ${v.vehiculoPlaca ?? ""} ${v.clienteNombre}` : "";
+};
+
 export function AlertasLlantas({
   cargar,
   onProgramar,
@@ -75,6 +81,9 @@ export function AlertasLlantas({
 }) {
   const [alertas, setAlertas] = useState<AlertaLlanta[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Cientos de vehículos con alertas: se buscan por código, placa o cliente.
+  const grupos = useMemo(() => (alertas ? agruparAlertas(alertas) : []), [alertas]);
+  const busqueda = useBusqueda(grupos, textoGrupo);
 
   const recargar = useCallback(async () => {
     setError(null);
@@ -100,7 +109,6 @@ export function AlertasLlantas({
   if (!alertas) return <Vacio mensaje="Revisando las últimas mediciones…" />;
   if (alertas.length === 0) return <Vacio mensaje="Ninguna llanta para cambiar en tus sedes, según las últimas órdenes cerradas." />;
 
-  const grupos = agruparAlertas(alertas);
   return (
     <ScrollView style={estilos.pantalla} contentContainerStyle={estilos.contenido}>
       <Text style={estilos.resumen}>
@@ -113,7 +121,8 @@ export function AlertasLlantas({
       {enviarPorCorreo ? (
         <EnviarPorCorreo etiqueta="Enviar el listado por correo" testID="correo-alertas" enviar={(para, mensaje) => enviarPorCorreo(para, mensaje)} />
       ) : null}
-      {grupos.map((g) => {
+      <CampoBusqueda b={busqueda} placeholder="Buscar vehículo por código, placa o cliente" testID="buscar-alerta" />
+      {busqueda.visibles.map((g) => {
         const v = g[0] as AlertaLlanta;
         return (
           <Tarjeta key={v.vehiculoId} testID={`alertas-${v.vehiculoCodigo}`}>
@@ -139,6 +148,7 @@ export function AlertasLlantas({
           </Tarjeta>
         );
       })}
+      <PieBusqueda b={busqueda} testID="mas-alertas" />
     </ScrollView>
   );
 }
