@@ -52,7 +52,7 @@ const zVersionConfiguracion = z.object({ ejes: z.array(zEjeDefinicion).min(1), c
 
 /** Consulta de la descarga: `desde` es la marca `hasta` que entregó el servidor. */
 const zConsultaDescarga = z.object({ desde: zInstante.optional() });
-import { correoInforme, correoLlantasParaCambio, correoOrden, fechaEnColombia, type LlantaParaAviso, MAX_DESTINATARIOS, MAX_ORDENES_PDF, puedeAprobar, revisarDestinatarios, puedeVerAuditoria, ROLES, TIPOS_CARGA, type Rol, type TipoCarga, type Veredicto } from "@tiretrack/domain";
+import { correoCotizacion, correoInforme, correoLlantasParaCambio, correoOrden, fechaEnColombia, type LlantaParaAviso, MAX_DESTINATARIOS, MAX_ORDENES_PDF, puedeAprobar, revisarDestinatarios, puedeVerAuditoria, ROLES, TIPOS_CARGA, type Rol, type TipoCarga, type Veredicto } from "@tiretrack/domain";
 import type { Claims, ResultadoActivacion, ResultadoLogin } from "../acceso/servicio";
 import { ServicioUsuarios } from "../usuarios/servicio";
 import { ServicioEmpresa } from "../empresa/servicio";
@@ -60,6 +60,7 @@ import { ServicioLlantas } from "../llantas/servicio";
 import { ServicioReclamos } from "../llantas/reclamos";
 import { tableroDeFlota } from "../informe/tablero";
 import { ServicioCarga } from "../carga/servicio";
+import { cotizacionDe, pdfCotizacion } from "../informe/cotizacion";
 import { CorreoDesactivado, type Correo } from "../correo/correo";
 import { ServicioProgramaciones } from "../programaciones/servicio";
 import { ServicioRecomendaciones } from "../recomendaciones/servicio";
@@ -1008,6 +1009,73 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
         },
         (_a, r, mensaje) =>
           correoLlantasParaCambio({ empresa: r.empresa, fecha: fechaEnColombia(reloj()), llantas, quien: r.quien, ...(mensaje ? { mensaje } : {}) }),
+      );
+    });
+
+    // ── Cotización (R14) ──
+    // Solo la oficina: la cotización la hace la empresa para su cliente.
+
+    const filtroCotizacion = (req: FastifyRequest): { ok: true; f: { clienteId?: string; vehiculoId?: string } } | { ok: false } => {
+      const q = (req.query ?? {}) as Record<string, unknown>;
+      const f: { clienteId?: string; vehiculoId?: string } = {};
+      for (const k of ["clienteId", "vehiculoId"] as const) {
+        if (q[k] === undefined || q[k] === "") continue;
+        const id = zId.safeParse(q[k]);
+        if (!id.success) return { ok: false };
+        f[k] = id.data;
+      }
+      return { ok: true, f };
+    };
+
+    async function pdfDeCotizacion(db: pg.PoolClient, ctx: Contexto, filtro: { clienteId?: string; vehiculoId?: string }, auditoria: Record<string, unknown>): Promise<Salida> {
+      if (!puedeAprobar(ctx.rol)) return errorSalida(403, "SIN_PERMISO", "La cotización la hace la oficina");
+      const d = await cotizacionDe(db, new ServicioInforme(db, reloj), ctx, filtro, reloj());
+      if (d.llantas.length === 0 && d.servicios.length === 0) return errorSalida(404, "SIN_REGISTROS", "No hay nada que cotizar con ese filtro");
+      await new ServicioInforme(db, reloj).registrarAuditoria(ctx, "exportar_informe", {
+        llantas: d.totalLlantas, filtros: filtro, ...auditoria,
+      });
+      return {
+        ok: true,
+        archivo: {
+          nombre: `cotizacion-${d.fecha}.pdf`, contenido: await pdfCotizacion(d), tipo: "application/pdf",
+          ordenes: 0, sinCerrar: 0, folio: d.cliente?.nombre ?? "", vehiculo: "",
+        },
+      };
+    }
+
+    app.get("/cotizacion", consulta(async (s, ctx, req) => {
+      if (!puedeAprobar(ctx.rol)) return { status: 403, cuerpo: { error: { codigo: "SIN_PERMISO", mensaje: "La cotización la hace la oficina" } } };
+      const f = filtroCotizacion(req);
+      if (!f.ok) return { status: 422, cuerpo: { error: { codigo: "DATOS_INVALIDOS", mensaje: "Filtro inválido" } } };
+      return { status: 200, cuerpo: await cotizacionDe(s.consulta, s.informe, ctx, f.f, reloj()) };
+    }));
+
+    app.get("/cotizacion/pdf", async (req, reply) => {
+      const auth = req.headers.authorization;
+      const claims = auth?.startsWith("Bearer ") ? op.verificarToken(auth.slice(7)) : null;
+      if (!claims) return reply.status(401).send({ error: { codigo: "NO_AUTENTICADO", mensaje: "Sesión inválida" } });
+      const posible = contextoDe(claims);
+      if ("motivo" in posible) return reply.status(403).send({ error: { codigo: posible.motivo, mensaje: "Esta sesión no cotiza" } });
+      const ctx = posible;
+      const f = filtroCotizacion(req);
+      if (!f.ok) return reply.status(422).send({ error: { codigo: "DATOS_INVALIDOS", mensaje: "Filtro inválido" } });
+      const r = await enTransaccion(op.pool, ctx, async (db) => {
+        const x = await pdfDeCotizacion(db, ctx, f.f, { origen: "pdf_cotizacion" });
+        return { confirmar: x.ok, valor: x };
+      });
+      if (!r.ok) return reply.status(r.status).send(r.cuerpo);
+      return reply
+        .status(200)
+        .header("content-type", "application/pdf")
+        .header("content-disposition", `attachment; filename="${r.archivo.nombre}"`)
+        .send(r.archivo.contenido);
+    });
+
+    app.post("/cotizacion/enviar", async (req, reply) => {
+      const f = filtroCotizacion(req);
+      if (!f.ok) return reply.status(422).send({ error: { codigo: "DATOS_INVALIDOS", mensaje: "Filtro inválido" } });
+      return enviarArchivo(req, reply, "correo_cotizacion", (db, ctx, aud) => pdfDeCotizacion(db, ctx, f.f, aud), (a, r, mensaje) =>
+        correoCotizacion({ empresa: r.empresa, cliente: a.folio || null, quien: r.quien, ...(mensaje ? { mensaje } : {}) }),
       );
     });
 

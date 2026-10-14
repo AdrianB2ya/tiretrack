@@ -25,7 +25,7 @@ import {
  * comparte en blanco). Si faltara el archivo, el PDF sale igual sin logo: la
  * constancia del servicio no puede depender de una imagen.
  */
-const LOGO: Buffer | null = (() => {
+export const LOGO: Buffer | null = (() => {
   try {
     return readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../assets/logo-claro.jpg"));
   } catch {
@@ -34,7 +34,7 @@ const LOGO: Buffer | null = (() => {
 })();
 
 /** Rojo de la marca, solo como acento (línea bajo el encabezado). */
-const ROJO_MARCA = "#ED1C24";
+export const ROJO_MARCA = "#ED1C24";
 
 export interface Consulta {
   query<T = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<{ rows: T[] }>;
@@ -158,7 +158,7 @@ export class ServicioDocumento {
   }
 }
 
-function generar(titulo: string, dibujar: (pdf: PDFKit.PDFDocument) => void): Promise<Buffer> {
+export function generar(titulo: string, dibujar: (pdf: PDFKit.PDFDocument) => void): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const pdf = new PDFDocument({ size: "A4", margin: 40, info: { Title: titulo, Creator: "Asistectire" } });
     const partes: Buffer[] = [];

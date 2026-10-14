@@ -660,6 +660,50 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
     });
   });
 
+  describe("cotización (R14)", () => {
+    const ver = (q: string, token = "tok-coordinador") =>
+      app.inject({ method: "GET", url: `${PREFIJO_API}/cotizacion${q}`, headers: { authorization: `Bearer ${token}` } });
+
+    it("lista lo que hay que cambiar por medida y urgencia, con el montaje, y sin precios", async () => {
+      await guardarMedicion(medicion(1, { serial: "MX1", profundidad: 2 }));
+      await guardarMedicion(medicion(2, { serial: "MX2", profundidad: 4.5 }));
+      const r = await ver(`?clienteId=${SEMILLA.cliente}`);
+      expect(r.statusCode, r.body).toBe(200);
+      const c = r.json();
+      expect(c.totalLlantas).toBe(2);
+      expect(c.llantas.map((l: { urgencia: string; cantidad: number }) => [l.urgencia, l.cantidad])).toEqual([["inmediato", 1], ["programar", 1]]);
+      expect(c.servicios[0]).toMatchObject({ concepto: "Montaje", cantidad: 2 });
+      expect(c.cliente.nombre).toBeTruthy();
+      expect(c.nota).toContain("Valores por definir");
+    });
+
+    it("el PDF queda en la auditoría; el técnico no cotiza", async () => {
+      await guardarMedicion(medicion(1, { serial: "MX1", profundidad: 2 }));
+      const r = await app.inject({ method: "GET", url: `${PREFIJO_API}/cotizacion/pdf`, headers: { authorization: "Bearer tok-coordinador" } });
+      expect(r.statusCode, r.body).toBe(200);
+      expect(r.rawPayload.subarray(0, 5).toString()).toBe("%PDF-");
+      const a = await pool.query(`SELECT detalle FROM "Auditoria" ORDER BY "creadoEn" DESC LIMIT 1`);
+      expect(a.rows[0].detalle).toMatchObject({ origen: "pdf_cotizacion", llantas: 1 });
+      expect((await ver("", "tok-tecnico")).statusCode).toBe(403);
+    });
+
+    it("sin nada que cotizar lo dice, y un filtro mal formado es 422", async () => {
+      await guardarMedicion(medicion(1, { serial: "MX1", profundidad: 12 }));
+      const r = await app.inject({ method: "GET", url: `${PREFIJO_API}/cotizacion/pdf`, headers: { authorization: "Bearer tok-coordinador" } });
+      expect(r.statusCode).toBe(404);
+      expect((await ver("?clienteId=no-es-id")).statusCode).toBe(422);
+    });
+
+    it("se envía por correo con el PDF adjunto", async () => {
+      correo.enviados.length = 0;
+      await guardarMedicion(medicion(1, { serial: "MX1", profundidad: 2 }));
+      const r = await pedir({ ruta: `/cotizacion/enviar?clienteId=${SEMILLA.cliente}`, token: "tok-coordinador", clave: null, cuerpo: { para: "compras@reyna.co" } });
+      expect(r.statusCode, r.body).toBe(200);
+      expect(correo.enviados[0]!.asunto).toMatch(/^Cotización · /);
+      expect(correo.enviados[0]!.adjuntos?.[0]?.nombre).toMatch(/^cotizacion-.*\.pdf$/);
+    });
+  });
+
   describe("envío por correo (R13)", () => {
     const enviar = (ruta: string, cuerpo: unknown, token = "tok-coordinador") =>
       pedir({ ruta, token, clave: null, cuerpo });

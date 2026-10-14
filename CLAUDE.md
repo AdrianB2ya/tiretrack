@@ -3576,7 +3576,7 @@ D queda fuera.
 - [x] R11 Tableros, proyección de compras, portal del cliente con indicadores
 - [x] R12 Carga masiva desde Excel (flota, llantas, catálogo)
 - [x] R13 Avisos y envío de informes por correo (WhatsApp: compartir)
-- [ ] R14 Cotización (sin precios hasta D)
+- [x] R14 Cotización (sin precios hasta D)
 - [ ] R15 Código QR del vehículo
 - [ ] R16 Plataforma: alta de empresas, sesión de soporte, copias
 - [ ] R17 Rediseño de flujos (más intuitivo)
@@ -3630,6 +3630,10 @@ conservadora y se anota aquí.)
     WhatsApp Business de Meta (negocio verificado, plantillas aprobadas, cobro
     por conversación): no se construyó. Desde el teléfono se sigue
     compartiendo por WhatsApp. ¿Se contrata?
+16. **R14 — cotización**: la hace solo la oficina (no el cliente ni el
+    técnico), y agrega sola una línea de **Montaje** por cada llanta a
+    cambiar. Las recomendaciones abiertas iguales (sin importar mayúsculas)
+    se juntan en una línea. ¿Así?
 
 ## Catálogo de llantas desde la app (R1, 2026-10-13)
 
@@ -3670,6 +3674,31 @@ diseño que una empresa creaba bajo una marca global (su "XZE" de Michelin)
 diseño sea global o de la empresa, y lo mismo la medida. Probado contra RLS
 real en `aislamiento.test.ts` (las tablas de diseño y medida no estaban en
 ese banco); con la política vieja, la prueba falla.
+
+## Cotización (R14, 2026-10-14)
+
+Brecha E. Dominio `cotizacion/cotizacion.ts`; servidor
+`informe/cotizacion.ts`; rutas `GET /cotizacion`, `GET /cotizacion/pdf`,
+`POST /cotizacion/enviar` (filtros `clienteId`, `vehiculoId`); app
+`src/informe/PantallaCotizacion.tsx`, ruta `cotizacion`, en "Más" de la
+oficina.
+
+- **Lo montado HOY**: la última medición de cada vehículo y posición, no de
+  cada llanta. Por llanta, una gastada que ya se cambió seguiría siendo "su
+  última medición" y se cotizaría otra vez (hay prueba).
+- **Nivel de cambio con las reglas de R2** (límites de la empresa, el mínimo
+  del eje manda) y el **DOT vencido es inmediato**. Sale de las filas del
+  informe: mismo alcance, mismas cifras.
+- **Una línea por medida y urgencia**, que es como se compra; la referencia
+  actual (marca y diseño) y las posiciones van en el detalle, como
+  sugerencia. Lo inmediato primero.
+- Servicios: **Montaje**, uno por llanta a cambiar, y las recomendaciones
+  abiertas de esos vehículos, juntas por texto.
+- **Sin precios** (parte D): el PDF lleva las columnas de valor en blanco y
+  un recuadro "Valores por definir"; la pantalla lo dice antes de enviar.
+- El PDF y el correo quedan en la auditoría (`pdf_cotizacion`,
+  `correo_cotizacion`). `generar`, `LOGO` y `ROJO_MARCA` de
+  `documento.ts` se exportan para que se vea igual que la orden.
 
 ## Avisos y envío de informes por correo (R13, 2026-10-14)
 
@@ -4046,7 +4075,7 @@ identificador **`com.asistectire.app`**, rojo de la marca **como acento**.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 1085/1085, mobile 999 + recorrido 584.
+**Verificado:** `npm run verify` con base: raíz 1093/1093, mobile 1002 + recorrido 594.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):
@@ -4113,7 +4142,8 @@ Instalar con `npm ci --include=dev`: con `NODE_ENV=production` se omite
 fuerte, `aislamiento` y `rol-acceso` fallaron juntas al preparar. No se
 reprodujo después. **Otra vez (2026-10-14):** corriendo juntos solo
 `ordenes.test`, `http.test` y los paquetes, dos pruebas esperaron 25
-minutos (bloqueo en la base); por separado y en la suite completa pasan.
+minutos (bloqueo en la base); por separado y en la suite completa pasan. **Y otra (R14):** `llantas.test`
+falló al preparar en la suite completa; pasó sola y en la corrida siguiente.
 
 ## Decisiones abiertas
 

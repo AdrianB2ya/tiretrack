@@ -93,6 +93,7 @@ export function opcionesMas(rol: Rol | string): OpcionMas[] {
     o.push({ clave: "causas-retiro", etiqueta: "Causas de retiro", detalle: "Por qué salen las llantas: por motivo, marca, posición y vehículo", ruta: "/causas-retiro" });
   }
   if (puedeGestionarCatalogo(r)) {
+    o.push({ clave: "cotizacion", etiqueta: "Cotización", detalle: "Lo que hay que cambiar en la flota de un cliente, para cotizar", ruta: "/cotizacion" });
     o.push({ clave: "carga", etiqueta: "Cargar desde Excel", detalle: "Clientes, vehículos, llantas o catálogo, de un archivo", ruta: "/carga" });
   }
   if (puedeGestionarCatalogo(r)) {

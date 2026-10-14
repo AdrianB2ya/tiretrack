@@ -129,3 +129,11 @@ export function correoLlantasParaCambio(d: {
     texto: `${conMensaje(d.mensaje)}${n} ${n === 1 ? "llanta" : "llantas"} para cambiar en ${g.vehiculos} ${g.vehiculos === 1 ? "vehículo" : "vehículos"}:\n\n${g.texto}\n\nEnviado por ${d.quien}.${pie(d.empresa)}`,
   };
 }
+
+/** Cotización enviada a mano: el PDF adjunto, con los valores por definir. */
+export function correoCotizacion(d: { empresa: string; cliente: string | null; quien: string; mensaje?: string }): Correo {
+  return {
+    asunto: `Cotización${d.cliente ? ` · ${d.cliente}` : ""} · ${d.empresa}`,
+    texto: `${conMensaje(d.mensaje)}Adjuntamos la cotización de los cambios recomendados según el último levantamiento${d.cliente ? ` de ${d.cliente}` : ""}. Los valores se acuerdan aparte.\n\nEnviada por ${d.quien}.${pie(d.empresa)}`,
+  };
+}
