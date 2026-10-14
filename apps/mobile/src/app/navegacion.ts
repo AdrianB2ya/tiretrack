@@ -52,6 +52,63 @@ export interface OpcionMas {
   readonly ruta: string;
 }
 
+/**
+ * Secciones de "Más" (R17). Con veinte entradas en una sola lista, lo que se
+ * busca queda abajo y se pasa de largo con el pulgar. Agrupadas por para qué
+ * sirven, en el orden en que se usan: lo diario primero, la cuenta al final.
+ */
+export const GRUPOS_MAS = ["Trabajo diario", "Llantas", "Informes", "Administración", "Cuenta"] as const;
+export type GrupoMas = (typeof GRUPOS_MAS)[number];
+
+/** Toda opción tiene su sección: una prueba falla si se agrega una sin ella. */
+export const GRUPO_DE_OPCION: Record<string, GrupoMas> = {
+  escanear: "Trabajo diario",
+  "nueva-orden": "Trabajo diario",
+  programaciones: "Trabajo diario",
+  flota: "Trabajo diario",
+  alertas: "Llantas",
+  llantas: "Llantas",
+  stock: "Llantas",
+  "codigos-qr": "Llantas",
+  reclamos: "Llantas",
+  catalogo: "Llantas",
+  informe: "Informes",
+  tablero: "Informes",
+  "causas-retiro": "Informes",
+  cotizacion: "Informes",
+  usuarios: "Administración",
+  sedes: "Administración",
+  plantillas: "Administración",
+  limites: "Administración",
+  "revision-catalogo": "Administración",
+  carga: "Administración",
+  auditoria: "Administración",
+  cuenta: "Cuenta",
+};
+
+export function agruparOpciones(opciones: readonly OpcionMas[]): { grupo: GrupoMas; opciones: OpcionMas[] }[] {
+  return GRUPOS_MAS.map((grupo) => ({ grupo, opciones: opciones.filter((o) => (GRUPO_DE_OPCION[o.clave] ?? "Cuenta") === grupo) })).filter(
+    (g) => g.opciones.length > 0,
+  );
+}
+
+const sinTildes = (t: string) => t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
+/** Busca en el nombre y en para qué sirve: "excel" encuentra "Cargar desde Excel". */
+export function buscarOpciones(opciones: readonly OpcionMas[], texto: string): OpcionMas[] {
+  const q = sinTildes(texto);
+  if (!q) return [...opciones];
+  // Palabra por palabra y en cualquier orden: "codigo qr" encuentra "Códigos QR".
+  const palabras = q.split(/\s+/);
+  return opciones.filter((o) => {
+    const t = sinTildes(`${o.etiqueta} ${o.detalle}`);
+    return palabras.every((p) => t.includes(p));
+  });
+}
+
+/** Con más de estas opciones, "Más" ofrece búsqueda. */
+export const MAX_MAS_SIN_BUSQUEDA = 8;
+
 /** Lo que va en "Más", según lo que el rol puede hacer. */
 export function opcionesMas(rol: Rol | string): OpcionMas[] {
   const r = rol as Rol;

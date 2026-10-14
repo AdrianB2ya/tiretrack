@@ -3579,7 +3579,7 @@ D queda fuera.
 - [x] R14 Cotización (sin precios hasta D)
 - [x] R15 Código QR del vehículo
 - [x] R16 Plataforma: alta de empresas, sesión de soporte, copias
-- [ ] R17 Rediseño de flujos (más intuitivo)
+- [x] R17 Rediseño de flujos (más intuitivo)
 
 ### Preguntas para el final
 
@@ -3647,6 +3647,10 @@ conservadora y se anota aquí.)
     artefacto de GitHub. Necesita crear el rol `tiretrack_copia` con
     `BYPASSRLS` en Neon y dos secretos (DESPLEGAR.md, 7.1). ¿Frecuencia y
     retención les sirven, o prefieren otro destino (Drive, R2)?
+21. **R17 — el rediseño se limitó a lo medible** sin ver la app en un
+    teléfono: "Más" por secciones con búsqueda, y escanear y nueva orden a un
+    toque en la lista. Para ir más allá hace falta verlo en el teléfono:
+    ¿qué pantallas les cuestan más (dónde se pierden o tocan de más)?
 19. **R16 — duración**: de 15 minutos a 4 horas (la app ofrece 30 min, 1, 2
     y 4 h). La sesión vive solo en la memoria del teléfono: cerrar la app la
     deja de mostrar (en el servidor vence sola). ¿Así?
@@ -3690,6 +3694,22 @@ diseño que una empresa creaba bajo una marca global (su "XZE" de Michelin)
 diseño sea global o de la empresa, y lo mismo la medida. Probado contra RLS
 real en `aislamiento.test.ts` (las tablas de diseño y medida no estaban en
 ese banco); con la política vieja, la prueba falla.
+
+## Rediseño de flujos (R17, 2026-10-14)
+
+Lineamiento 1 (más intuitivo). Sin poder ver la app en un teléfono desde aquí,
+se hizo lo que se puede medir y probar; lo demás queda como pregunta.
+
+- **"Más" por secciones** (`GRUPOS_MAS`, `GRUPO_DE_OPCION`): Trabajo diario,
+  Llantas, Informes, Administración, Cuenta. Con las rondas, el coordinador
+  llegó a ~20 entradas en una sola lista. **Toda opción de todos los roles
+  tiene sección** (prueba): una nueva no puede quedar suelta al final.
+- **Búsqueda en "Más"** con más de 8 opciones: palabra por palabra, en
+  cualquier orden, sin tildes, en el nombre y en "para qué sirve" ("excel"
+  encuentra "Cargar desde Excel"; "codigo qr", "Códigos QR"). Con pocas
+  opciones (técnico, cliente) no aparece.
+- **La lista de órdenes** tiene "Escanear vehículo" junto a "Nueva orden": lo
+  que el técnico hace frente al camión, a un toque, sin pasar por "Más".
 
 ## Plataforma: copias de seguridad (R16, parte 3, 2026-10-14)
 
@@ -4201,7 +4221,7 @@ identificador **`com.asistectire.app`**, rojo de la marca **como acento**.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 1114/1114, mobile 1017 + recorrido 659.
+**Verificado:** `npm run verify` con base: raíz 1114/1114, mobile 1021 + recorrido 659.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

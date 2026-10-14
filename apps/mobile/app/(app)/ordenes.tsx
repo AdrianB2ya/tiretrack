@@ -46,10 +46,19 @@ export default function PantallaOrdenes() {
       <Stack.Screen options={{ title: oficina ? "Órdenes" : "Mis órdenes" }} />
       <BarraDeSesion />
       {/* La imprevista: el vehículo que llegó sin estar programado. */}
+      {/* R17: lo que el técnico hace frente al camión, a un toque: escanear su
+          QR o abrir la imprevista. Sin pasar por "Más". */}
       <View style={estilos.accion}>
-        <Boton ancho tipo="secundario" testID="nueva-orden" onPress={() => router.push("/nueva-orden" as never)}>
-          {oficina ? "Programar una orden" : "Nueva orden"}
-        </Boton>
+        <View style={estilos.mitad}>
+          <Boton ancho tipo="secundario" testID="nueva-orden" onPress={() => router.push("/nueva-orden" as never)}>
+            {oficina ? "Programar orden" : "Nueva orden"}
+          </Boton>
+        </View>
+        <View style={estilos.mitad}>
+          <Boton ancho tipo="secundario" testID="escanear-vehiculo" onPress={() => router.push("/escanear" as never)}>
+            Escanear vehículo
+          </Boton>
+        </View>
       </View>
       {filtro ? (
         // Se dice qué se está viendo y cómo salir del filtro: sin esto, una
@@ -98,7 +107,8 @@ export default function PantallaOrdenes() {
 
 const estilos = StyleSheet.create({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
-  accion: { paddingHorizontal: espacio.md, paddingTop: espacio.sm },
+  accion: { flexDirection: "row", gap: espacio.sm, paddingHorizontal: espacio.md, paddingTop: espacio.sm },
+  mitad: { flex: 1 },
   filtro: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     paddingHorizontal: espacio.md, paddingTop: espacio.sm,
