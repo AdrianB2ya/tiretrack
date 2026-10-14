@@ -1,0 +1,82 @@
+name: Copia de seguridad
+
+# Copia semanal de la base (R16). Cifrada antes de salir del runner: el
+# volcado lleva la cartera de clientes de todas las empresas, y un artefacto
+# de GitHub lo puede descargar cualquiera con acceso al repositorio.
+#
+# Secretos (Settings → Secrets and variables → Actions):
+#   URL_COPIA    conexión de un rol con BYPASSRLS (las tablas tienen RLS
+#                forzado: sin él pg_dump se niega, o exportaría cero filas)
+#   CLAVE_COPIA  frase para cifrar; guárdala en el gestor de contraseñas:
+#                sin ella la copia no se puede abrir
+#
+# Restaurar: ver DESPLEGAR.md, "Copias de seguridad".
+
+on:
+  schedule:
+    # Lunes 08:00 UTC = 3:00 a. m. en Colombia: nadie está capturando.
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: copia-de-seguridad
+  cancel-in-progress: false
+
+jobs:
+  copia:
+    name: Volcar, cifrar y guardar
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      URL_COPIA: ${{ secrets.URL_COPIA }}
+      CLAVE_COPIA: ${{ secrets.CLAVE_COPIA }}
+    steps:
+      - name: Comprobar los secretos
+        run: |
+          if [ -z "$URL_COPIA" ] || [ -z "$CLAVE_COPIA" ]; then
+            echo "::error::Faltan los secretos URL_COPIA y CLAVE_COPIA (ver DESPLEGAR.md, Copias de seguridad)"
+            exit 1
+          fi
+
+      - name: Instalar pg_dump 17
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSo /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+
+      - name: Comprobar que el rol ve todas las filas
+        run: |
+          puede=$(/usr/lib/postgresql/17/bin/psql "$URL_COPIA" -Atc "SELECT rolsuper OR rolbypassrls FROM pg_roles WHERE rolname = current_user")
+          if [ "$puede" != "t" ]; then
+            echo "::error::El rol de URL_COPIA no tiene BYPASSRLS: con RLS forzado la copia saldría vacía. Ver DESPLEGAR.md"
+            exit 1
+          fi
+
+      - name: Volcar y cifrar
+        run: |
+          set -euo pipefail
+          umask 077
+          f="copia-$(date -u +%Y%m%d-%H%M).dump"
+          /usr/lib/postgresql/17/bin/pg_dump --format=custom --no-owner --no-privileges --file "$f" "$URL_COPIA"
+          # Una copia que no se puede leer no es una copia: se lista antes de
+          # guardarla, y debe traer las tablas de órdenes y mediciones.
+          /usr/lib/postgresql/17/bin/pg_restore --list "$f" > contenido.txt
+          grep -q 'TABLE DATA public "OrdenServicio"' contenido.txt
+          grep -q 'TABLE DATA public "LlantaRegistro"' contenido.txt
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$CLAVE_COPIA" \
+              --symmetric --cipher-algo AES256 --output "$f.gpg" "$f"
+          shred -u "$f" contenido.txt
+          echo "ARCHIVO=$f.gpg" >> "$GITHUB_ENV"
+
+      - name: Guardar la copia cifrada
+        uses: actions/upload-artifact@v4
+        with:
+          name: copia-cifrada
+          path: ${{ env.ARCHIVO }}
+          retention-days: 35
+          if-no-files-found: error

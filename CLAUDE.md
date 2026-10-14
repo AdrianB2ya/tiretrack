@@ -3578,7 +3578,7 @@ D queda fuera.
 - [x] R13 Avisos y envío de informes por correo (WhatsApp: compartir)
 - [x] R14 Cotización (sin precios hasta D)
 - [x] R15 Código QR del vehículo
-- [ ] R16 Plataforma: alta de empresas, sesión de soporte, copias
+- [x] R16 Plataforma: alta de empresas, sesión de soporte, copias
 - [ ] R17 Rediseño de flujos (más intuitivo)
 
 ### Preguntas para el final
@@ -3643,6 +3643,10 @@ conservadora y se anota aquí.)
     modifica (una medición o aprobación quedaría a nombre de quien no estuvo
     en el servicio). ¿Necesitan que soporte pueda corregir algo, o basta con
     ver y pedirle al administrador que lo haga?
+20. **R16 — copias**: semanal (lunes 3 a. m.), cifrada, guardada 35 días como
+    artefacto de GitHub. Necesita crear el rol `tiretrack_copia` con
+    `BYPASSRLS` en Neon y dos secretos (DESPLEGAR.md, 7.1). ¿Frecuencia y
+    retención les sirven, o prefieren otro destino (Drive, R2)?
 19. **R16 — duración**: de 15 minutos a 4 horas (la app ofrece 30 min, 1, 2
     y 4 h). La sesión vive solo en la memoria del teléfono: cerrar la app la
     deja de mostrar (en el servidor vence sola). ¿Así?
@@ -3686,6 +3690,27 @@ diseño que una empresa creaba bajo una marca global (su "XZE" de Michelin)
 diseño sea global o de la empresa, y lo mismo la medida. Probado contra RLS
 real en `aislamiento.test.ts` (las tablas de diseño y medida no estaban en
 ese banco); con la política vieja, la prueba falla.
+
+## Plataforma: copias de seguridad (R16, parte 3, 2026-10-14)
+
+Brecha F. `.github/workflows/copia.yml` + `DESPLEGAR.md` (7.1 activar, 7.2
+restaurar).
+
+- **Semanal** (lunes 08:00 UTC = 3 a. m. en Colombia) y a mano
+  (`workflow_dispatch`). `pg_dump` 17, formato personalizado, sin dueños ni
+  permisos (se restauran aparte con `rls.sql`).
+- **Cifrada antes de salir del runner** (gpg AES256 con la frase
+  `CLAVE_COPIA`); el volcado en claro se borra con `shred`. Artefacto de 35
+  días: un artefacto lo descarga cualquiera con acceso al repositorio, y el
+  volcado lleva la cartera de clientes de todas las empresas.
+- **RLS forzado**: el rol de la copia necesita `BYPASSRLS`; el flujo lo
+  comprueba primero y falla con el motivo (si no, `pg_dump` se niega o,
+  forzado, saldría vacía). Rol `tiretrack_copia`, solo lectura.
+- **Una copia que no se puede leer no es copia**: antes de cifrar se lista
+  con `pg_restore --list` y debe traer `OrdenServicio` y `LlantaRegistro`.
+- `copia.test.ts` vigila que el flujo conserve esas garantías (cifrado,
+  borrado, comprobación de `BYPASSRLS`, lectura, calendario y retención).
+- Las fotos (R2) no entran: la copia guarda qué fotos hay, no los archivos.
 
 ## Plataforma: sesión de soporte (R16, parte 2, 2026-10-14)
 
@@ -4176,7 +4201,7 @@ identificador **`com.asistectire.app`**, rojo de la marca **como acento**.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 1110/1110, mobile 1017 + recorrido 659.
+**Verificado:** `npm run verify` con base: raíz 1114/1114, mobile 1017 + recorrido 659.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

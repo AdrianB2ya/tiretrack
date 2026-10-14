@@ -238,17 +238,60 @@ En el teléfono, con usuarios reales:
 
 ## 7. Copias de seguridad
 
-- **Base:** activa las copias automáticas del proveedor con
-  restauración a un punto en el tiempo, si la ofrece. Antes de dar la app a
-  los técnicos, **prueba una restauración** en una base aparte.
+Dos capas, porque cada una cubre lo que la otra no:
+
+- **La del proveedor** (Neon: restauración a un punto en el tiempo). Sirve
+  para "ayer a las 3 p. m. alguien borró algo". En el plan gratuito guarda
+  pocas horas o días: no basta sola.
+- **La copia semanal propia** (`.github/workflows/copia.yml`): todos los
+  lunes a las 3 a. m. (Colombia), `pg_dump` de toda la base, **cifrada** con
+  una frase tuya antes de salir del servidor de GitHub, guardada 35 días como
+  artefacto del repositorio. Sirve si el proveedor falla o la cuenta se
+  pierde.
+
+### 7.1 Activar la copia semanal
+
+1. **Un rol que vea todas las filas.** Las tablas tienen RLS forzado: un rol
+   sin `BYPASSRLS` no puede volcarlas (y si se forzara, saldrían vacías). En
+   el editor SQL de Neon, con el dueño:
+
+   ```sql
+   CREATE ROLE tiretrack_copia LOGIN PASSWORD '<clave nueva>' BYPASSRLS;
+   GRANT USAGE ON SCHEMA public TO tiretrack_copia;
+   GRANT SELECT ON ALL TABLES IN SCHEMA public TO tiretrack_copia;
+   GRANT SELECT ON ALL SEQUENCES IN SCHEMA public TO tiretrack_copia;
+   ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO tiretrack_copia;
+   ```
+
+   Solo lee. Si Neon no deja dar `BYPASSRLS`, usa la conexión del dueño
+   (la de `DIRECT_URL`) y dímelo.
+2. En GitHub: **Settings → Secrets and variables → Actions → New
+   repository secret**:
+   - `URL_COPIA`: `postgresql://tiretrack_copia:<clave>@<host>/<base>?sslmode=require`
+   - `CLAVE_COPIA`: una frase larga al azar. **Guárdala en el gestor de
+     contraseñas: sin ella la copia no se puede abrir.**
+3. **Actions → Copia de seguridad → Run workflow** para probarla. Debe
+   terminar en verde y dejar un artefacto `copia-cifrada`. Si falla en
+   "Comprobar que el rol ve todas las filas", falta el `BYPASSRLS`.
+
+### 7.2 Restaurar (probarlo una vez antes de necesitarlo)
+
+```bash
+# 1. Bajar el artefacto copia-cifrada de la ejecución que quieras y descomprimir el .zip
+gpg --decrypt --output copia.dump copia-AAAAMMDD-HHMM.dump.gpg   # pide CLAVE_COPIA
+# 2. En una base NUEVA y vacía (nunca encima de la de producción):
+pg_restore --no-owner --no-privileges --dbname "<URL de la base nueva, con el dueño>" copia.dump
+```
+
+Después, en la base nueva: volver a crear los roles y permisos (sección 1:
+`rls.sql` y `claves-base`) y apuntar `DATABASE_URL` / `DATABASE_URL_AUTH` /
+`DIRECT_URL` a ella. Comprobar con `/listo` y entrando con un usuario.
+
 - **Fotos:** R2 no versiona por defecto. Las fotos son evidencia del
   servicio: si el plan lo permite, activa una regla de retención o copia el
-  bucket periódicamente.
+  bucket periódicamente. La copia de la base guarda qué fotos hay, no los
+  archivos.
 
 ## Lo que todavía no está
 
-- **Suplantación del superadmin** (soporte entrando a una empresa, con
-  motivo, ticket y vencimiento). Se decidió construirla antes de tener una
-  segunda empresa o dar soporte real. Mientras tanto, el soporte se da con
-  la cuenta del administrador de la empresa.
 - **iOS:** necesita una cuenta de desarrollador de Apple.
