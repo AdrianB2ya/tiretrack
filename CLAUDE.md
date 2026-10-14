@@ -3643,6 +3643,9 @@ conservadora y se anota aquí.)
     modifica (una medición o aprobación quedaría a nombre de quien no estuvo
     en el servicio). ¿Necesitan que soporte pueda corregir algo, o basta con
     ver y pedirle al administrador que lo haga?
+19. **R16 — duración**: de 15 minutos a 4 horas (la app ofrece 30 min, 1, 2
+    y 4 h). La sesión vive solo en la memoria del teléfono: cerrar la app la
+    deja de mostrar (en el servidor vence sola). ¿Así?
 20. **R16 — copias**: semanal (lunes 3 a. m.), cifrada, guardada 35 días como
     artefacto de GitHub. Necesita crear el rol `tiretrack_copia` con
     `BYPASSRLS` en Neon y dos secretos (DESPLEGAR.md, 7.1). ¿Frecuencia y
@@ -3651,9 +3654,6 @@ conservadora y se anota aquí.)
     teléfono: "Más" por secciones con búsqueda, y escanear y nueva orden a un
     toque en la lista. Para ir más allá hace falta verlo en el teléfono:
     ¿qué pantallas les cuestan más (dónde se pierden o tocan de más)?
-19. **R16 — duración**: de 15 minutos a 4 horas (la app ofrece 30 min, 1, 2
-    y 4 h). La sesión vive solo en la memoria del teléfono: cerrar la app la
-    deja de mostrar (en el servidor vence sola). ¿Así?
 
 ## Catálogo de llantas desde la app (R1, 2026-10-13)
 
