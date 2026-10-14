@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ElegirUno } from "../diseno/ListaBuscable";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Aviso, Boton, Campo, Insignia, Opcion, Tarjeta } from "../diseno/componentes";
+import { EnviarPorCorreo, type Formato } from "./EnviarPorCorreo";
 import { colores, espacio, estadosOrden, texto } from "../diseno/tokens";
 import {
   ESTADOS_FILTRO,
@@ -42,6 +43,8 @@ export interface FuentesInforme {
   /** Las órdenes en un solo PDF, bajado al teléfono y compartido. */
   exportarPdf(consulta: string): Promise<{ ok: true } | Fallo>;
   compartir(nombre: string, contenido: string): Promise<{ ok: true } | { ok: false; mensaje: string }>;
+  /** R13: el mismo filtro, enviado por correo desde el servidor. */
+  enviarPorCorreo?(consulta: string, formato: Formato, para: string[], mensaje?: string): Promise<{ ok: true; datos: { enviadoA?: string[] } } | Fallo>;
   hoy(): string;
 }
 
@@ -283,6 +286,15 @@ export function PantallaInforme({ fuentes }: { fuentes: FuentesInforme }) {
                       Descargar las órdenes en PDF
                     </Boton>
                     {motivo ? <Text style={estilos.detalle}>{motivo}</Text> : null}
+                    {fuentes.enviarPorCorreo && vigente ? (
+                      <EnviarPorCorreo
+                        testID="correo-informe"
+                        formatos={motivo === null ? ["csv", "pdf"] : ["csv"]}
+                        enviar={(para, mensaje, formato) =>
+                          fuentes.enviarPorCorreo!(conOrdenes(consulta, elegidas), formato ?? "csv", para, mensaje)
+                        }
+                      />
+                    ) : null}
                   </>
                 );
               })()}

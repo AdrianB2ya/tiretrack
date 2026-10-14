@@ -1,5 +1,7 @@
 import type pg from "pg";
 import { TrabajosProgramados, type ResultadoTrabajo } from "./programados";
+import { AvisosPorCorreo, type ResultadoAvisos } from "./avisos";
+import { CorreoDesactivado, type Correo } from "../correo/correo";
 
 /**
  * Pone a correr los trabajos programados: cierre tácito y órdenes
@@ -32,6 +34,8 @@ export interface ResultadoRonda {
   readonly saltadas: number;
   readonly cierres: ResultadoTrabajo;
   readonly recurrentes: ResultadoTrabajo;
+  /** Avisos por correo (R13): al cliente y el resumen diario a la oficina. */
+  readonly avisos: ResultadoAvisos;
   readonly errores: string[];
 }
 
@@ -45,11 +49,16 @@ const sumar = (a: ResultadoTrabajo, b: ResultadoTrabajo): ResultadoTrabajo => ({
 const CERO: ResultadoTrabajo = { procesados: 0, exitosos: 0, fallidos: 0, detalles: [] };
 
 /** Una vuelta completa por todas las empresas activas. */
-export async function correrTrabajos(pool: pg.Pool, reloj: () => Date = () => new Date()): Promise<ResultadoRonda> {
+export async function correrTrabajos(
+  pool: pg.Pool,
+  reloj: () => Date = () => new Date(),
+  correo: Correo = new CorreoDesactivado(),
+): Promise<ResultadoRonda> {
   const empresas = (await pool.query<{ id: string }>(`SELECT id FROM empresas_para_trabajos() AS id`)).rows;
   let cierres = CERO;
   let recurrentes = CERO;
   let saltadas = 0;
+  const avisos = { enviados: 0, fallidos: 0, detalles: [] as string[] };
   const errores: string[] = [];
 
   for (const { id } of empresas) {
@@ -75,6 +84,13 @@ export async function correrTrabajos(pool: pg.Pool, reloj: () => Date = () => ne
       const trabajos = new TrabajosProgramados(cliente, reloj);
       cierres = sumar(cierres, await trabajos.cerrarPlazosVencidos());
       recurrentes = sumar(recurrentes, await trabajos.generarOrdenesRecurrentes());
+      // Después de cerrar y generar: así el aviso ve el estado de esta vuelta.
+      const correos = new AvisosPorCorreo(cliente, correo, reloj);
+      for (const r of [await correos.avisarClientes(id), await correos.resumenDeCambios(id)]) {
+        avisos.enviados += r.enviados;
+        avisos.fallidos += r.fallidos;
+        avisos.detalles.push(...r.detalles);
+      }
     } catch (e) {
       errores.push(`${id}: ${(e as Error).message}`);
     } finally {
@@ -83,7 +99,7 @@ export async function correrTrabajos(pool: pg.Pool, reloj: () => Date = () => ne
     }
   }
 
-  return { empresas: empresas.length, saltadas, cierres, recurrentes, errores };
+  return { empresas: empresas.length, saltadas, cierres, recurrentes, avisos, errores };
 }
 
 export interface Registro {
@@ -101,6 +117,7 @@ export interface Registro {
  */
 export function iniciarTrabajos(opciones: {
   pool: pg.Pool;
+  correo?: Correo;
   intervaloMs: number;
   registro: Registro;
   retrasoInicialMs?: number;
@@ -114,16 +131,18 @@ export function iniciarTrabajos(opciones: {
     if (enCurso || detenido) return;
     enCurso = (async () => {
       try {
-        const r = await correrTrabajos(opciones.pool, opciones.reloj);
-        const hubo = r.cierres.procesados + r.recurrentes.procesados + r.errores.length > 0;
+        const r = await correrTrabajos(opciones.pool, opciones.reloj, opciones.correo);
+        const hubo = r.cierres.procesados + r.recurrentes.procesados + r.avisos.enviados + r.avisos.fallidos + r.errores.length > 0;
         if (hubo) {
           opciones.registro.info(
             {
               empresas: r.empresas,
               cierresTacitos: r.cierres.exitosos,
               ordenesRecurrentes: r.recurrentes.exitosos,
+              correos: r.avisos.enviados,
+              correosFallidos: r.avisos.fallidos,
               fallidos: r.cierres.fallidos + r.recurrentes.fallidos,
-              detalles: [...r.cierres.detalles, ...r.recurrentes.detalles].slice(0, 20),
+              detalles: [...r.cierres.detalles, ...r.recurrentes.detalles, ...r.avisos.detalles].slice(0, 20),
             },
             "trabajos programados",
           );

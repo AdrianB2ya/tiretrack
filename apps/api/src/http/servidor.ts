@@ -52,7 +52,7 @@ const zVersionConfiguracion = z.object({ ejes: z.array(zEjeDefinicion).min(1), c
 
 /** Consulta de la descarga: `desde` es la marca `hasta` que entregó el servidor. */
 const zConsultaDescarga = z.object({ desde: zInstante.optional() });
-import { fechaEnColombia, MAX_ORDENES_PDF, puedeAprobar, puedeVerAuditoria, ROLES, TIPOS_CARGA, type Rol, type TipoCarga, type Veredicto } from "@tiretrack/domain";
+import { correoInforme, correoLlantasParaCambio, correoOrden, fechaEnColombia, type LlantaParaAviso, MAX_DESTINATARIOS, MAX_ORDENES_PDF, puedeAprobar, revisarDestinatarios, puedeVerAuditoria, ROLES, TIPOS_CARGA, type Rol, type TipoCarga, type Veredicto } from "@tiretrack/domain";
 import type { Claims, ResultadoActivacion, ResultadoLogin } from "../acceso/servicio";
 import { ServicioUsuarios } from "../usuarios/servicio";
 import { ServicioEmpresa } from "../empresa/servicio";
@@ -60,6 +60,7 @@ import { ServicioLlantas } from "../llantas/servicio";
 import { ServicioReclamos } from "../llantas/reclamos";
 import { tableroDeFlota } from "../informe/tablero";
 import { ServicioCarga } from "../carga/servicio";
+import { CorreoDesactivado, type Correo } from "../correo/correo";
 import { ServicioProgramaciones } from "../programaciones/servicio";
 import { ServicioRecomendaciones } from "../recomendaciones/servicio";
 import { ServicioDocumento } from "../informe/documento";
@@ -72,7 +73,7 @@ import { ServicioDescarga } from "../descarga/servicio";
 import { ServicioCatalogo } from "../catalogo/servicio";
 import { ServicioFlota } from "../flota/servicio";
 import { RepositorioFlotaPg } from "../flota/repositorio";
-import { POR_PAGINA_AUDITORIA, ServicioInforme } from "../informe/servicio";
+import { POR_PAGINA_AUDITORIA, ServicioInforme, type FiltroInforme } from "../informe/servicio";
 import { RepositorioCatalogoPg } from "../catalogo/repositorio";
 import type { Almacenamiento } from "../fotos/almacenamiento";
 
@@ -134,6 +135,8 @@ export interface OpcionesServidor {
   /** Verifica la firma y vigencia del token de acceso. */
   readonly verificarToken: (token: string) => Claims | null;
   readonly almacen: Almacenamiento;
+  /** Envío de informes por correo (R13). Sin él, desactivado. */
+  readonly correo?: Correo;
   readonly reloj?: () => Date;
   /** Registro de peticiones. Apagado en pruebas. */
   readonly registro?: boolean;
@@ -325,6 +328,7 @@ export const PREFIJO_API = "/api/v1";
 export function construirServidor(op: OpcionesServidor): FastifyInstance {
   const raiz = Fastify({ logger: op.registro ?? false, bodyLimit: 512 * 1024 });
   const reloj = op.reloj ?? (() => new Date());
+  const correo: Correo = op.correo ?? new CorreoDesactivado();
 
   /** Servicios atados a la conexión de la transacción de esta petición. */
   function servicios(db: pg.PoolClient) {
@@ -769,22 +773,15 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
       if (!id.success) return reply.status(404).send({ error: { codigo: "NO_EXISTE", mensaje: "La orden no existe" } });
 
       const r = await enTransaccion(op.pool, ctx, async (db) => {
-        const documento = new ServicioDocumento(db);
-        const datos = await documento.datos(ctx, id.data);
-        if (!datos) return { confirmar: false, valor: null };
-        await new ServicioInforme(db, reloj).registrarAuditoria(ctx, "exportar_informe", {
-          origen: "pdf_orden", ordenId: id.data, folio: datos.orden.folio, estado: datos.orden.estado,
-        });
-        // Hora de Colombia, como todo "hoy" del sistema.
-        const generadoEn = new Date(reloj().getTime() - 5 * 3_600_000).toISOString().slice(0, 16).replace("T", " ");
-        return { confirmar: true, valor: { pdf: await documento.pdf(datos, generadoEn), nombre: documento.nombreArchivo(datos) } };
+        const x = await pdfDeOrden(db, ctx, id.data, { origen: "pdf_orden" });
+        return { confirmar: x.ok, valor: x };
       });
-      if (!r) return reply.status(404).send({ error: { codigo: "NO_EXISTE", mensaje: "La orden no existe" } });
+      if (!r.ok) return reply.status(r.status).send(r.cuerpo);
       return reply
         .status(200)
         .header("content-type", "application/pdf")
-        .header("content-disposition", `attachment; filename="${r.nombre}"`)
-        .send(r.pdf);
+        .header("content-disposition", `attachment; filename="${r.archivo.nombre}"`)
+        .send(r.archivo.contenido);
     });
 
     /**
@@ -838,6 +835,196 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
     }));
 
     // ── Retiro y garantías (R10) ──
+
+    // ── Archivos que salen: descarga y correo (R13) ──
+    // La misma generación y la misma auditoría para descargar y para enviar.
+
+    type Archivo = { nombre: string; contenido: Buffer; tipo: string; ordenes: number; sinCerrar: number; folio: string; vehiculo: string };
+    type Salida = { ok: true; archivo: Archivo } | { ok: false; status: number; cuerpo: unknown };
+    const errorSalida = (status: number, codigo: string, mensaje: string): Salida => ({ ok: false, status, cuerpo: { error: { codigo, mensaje } } });
+    // Hora de Colombia, como todo "hoy" del sistema.
+    const generadoEn = () => new Date(reloj().getTime() - 5 * 3_600_000).toISOString().slice(0, 16).replace("T", " ");
+
+    async function pdfDeOrden(db: pg.PoolClient, ctx: Contexto, ordenId: string, auditoria: Record<string, unknown>): Promise<Salida> {
+      const documento = new ServicioDocumento(db);
+      const datos = await documento.datos(ctx, ordenId);
+      if (!datos) return errorSalida(404, "NO_EXISTE", "La orden no existe");
+      await new ServicioInforme(db, reloj).registrarAuditoria(ctx, "exportar_informe", {
+        ordenId, folio: datos.orden.folio, estado: datos.orden.estado, ...auditoria,
+      });
+      return {
+        ok: true,
+        archivo: {
+          nombre: documento.nombreArchivo(datos), contenido: await documento.pdf(datos, generadoEn()), tipo: "application/pdf",
+          ordenes: 1, sinCerrar: datos.orden.estado === "cerrada" ? 0 : 1,
+          folio: datos.orden.folio ?? datos.orden.codigoReferencia ?? "sin folio", vehiculo: datos.vehiculo.codigo,
+        },
+      };
+    }
+
+    async function pdfDeInforme(db: pg.PoolClient, ctx: Contexto, q: FiltroInforme, auditoria: Record<string, unknown>): Promise<Salida> {
+      const informe = new ServicioInforme(db, reloj);
+      // Las órdenes que el filtro encuentra (con RLS: solo las visibles).
+      const ids = [...new Set((await informe.consultar(ctx, q)).map((x) => x.ordenId).filter((x): x is string => Boolean(x)))];
+      if (ids.length === 0) return errorSalida(404, "SIN_REGISTROS", "No hay órdenes con ese filtro");
+      if (ids.length > MAX_ORDENES_PDF) {
+        return errorSalida(422, "DEMASIADAS_ORDENES", `Son ${ids.length} órdenes: elige hasta ${MAX_ORDENES_PDF} para el PDF, o exporta el CSV`);
+      }
+      const documento = new ServicioDocumento(db);
+      const lista = [];
+      // Una a una sobre la misma conexión: pg no admite consultas simultáneas en ella.
+      for (const id of ids) {
+        const d = await documento.datos(ctx, id);
+        if (d) lista.push(d);
+      }
+      if (lista.length === 0) return errorSalida(404, "SIN_REGISTROS", "No hay órdenes con ese filtro");
+      const folios = lista.map((d) => d.orden.folio ?? d.orden.codigoReferencia ?? "sin folio");
+      const sinCerrar = lista.filter((d) => d.orden.estado !== "cerrada").length;
+      await informe.registrarAuditoria(ctx, "exportar_informe", {
+        ordenes: lista.length, folios: folios.slice(0, 20), sinCerrar, filtros: q, ...auditoria,
+      });
+      const hoy = fechaEnColombia(reloj());
+      return {
+        ok: true,
+        archivo: {
+          nombre: lista.length === 1 ? documento.nombreArchivo(lista[0]!) : `ordenes-${hoy}.pdf`,
+          contenido: await documento.pdfVarias(lista, `Órdenes de servicio ${hoy}`, generadoEn()),
+          tipo: "application/pdf", ordenes: lista.length, sinCerrar, folio: "", vehiculo: "",
+        },
+      };
+    }
+
+    async function csvDeInforme(db: pg.PoolClient, ctx: Contexto, q: FiltroInforme, auditoria: Record<string, unknown>): Promise<Salida> {
+      const x = await new ServicioInforme(db, reloj).exportar(ctx, q, "informe", auditoria);
+      if (!x.ok) return errorSalida(estadoDe(x.veredicto), x.veredicto.codigo ?? "RECHAZADO", x.veredicto.mensaje ?? "No se pudo exportar");
+      return {
+        ok: true,
+        archivo: {
+          nombre: x.valor.nombreArchivo, contenido: Buffer.from(x.valor.contenido, "utf8"), tipo: "text/csv",
+          ordenes: x.valor.ordenes, sinCerrar: x.valor.sinCerrar, folio: "", vehiculo: "",
+        },
+      };
+    }
+
+    /** Quién envía y de qué empresa: van en el texto del correo. */
+    async function remitenteDe(db: pg.PoolClient, ctx: Contexto) {
+      const r = await db.query<{ empresa: string; quien: string | null }>(
+        `SELECT e.nombre AS empresa, (SELECT u.nombre FROM "Usuario" u WHERE u.id = $2) AS quien FROM "Empresa" e WHERE e.id = $1`,
+        [ctx.empresaId, ctx.usuarioId],
+      );
+      return { empresa: r.rows[0]?.empresa ?? "", quien: r.rows[0]?.quien ?? "un usuario" };
+    }
+
+    /**
+     * Envía dentro de la transacción: si el proveedor falla, se deshace
+     * también la constancia de la auditoría (no salió nada). Los
+     * destinatarios quedan en la auditoría.
+     */
+    async function enviarArchivo(
+      req: FastifyRequest,
+      reply: FastifyReply,
+      origen: string,
+      generar: (db: pg.PoolClient, ctx: Contexto, auditoria: Record<string, unknown>) => Promise<Salida>,
+      armar: (a: Archivo, r: { empresa: string; quien: string }, mensaje?: string) => { asunto: string; texto: string },
+    ) {
+      const auth = req.headers.authorization;
+      const claims = auth?.startsWith("Bearer ") ? op.verificarToken(auth.slice(7)) : null;
+      if (!claims) return reply.status(401).send({ error: { codigo: "NO_AUTENTICADO", mensaje: "Sesión inválida" } });
+      const posible = contextoDe(claims);
+      if ("motivo" in posible) return reply.status(403).send({ error: { codigo: posible.motivo, mensaje: "Esta sesión no envía informes" } });
+      const ctx = posible;
+      if (!correo.configurado) {
+        return reply.status(422).send({
+          error: { codigo: "CORREO_NO_CONFIGURADO", mensaje: 'El envío por correo no está activado. Usa "Compartir" para enviarlo por WhatsApp u otra app.' },
+        });
+      }
+      const cuerpo = (req.body ?? {}) as { para?: unknown; mensaje?: unknown };
+      const para = typeof cuerpo.para === "string" || Array.isArray(cuerpo.para) ? (cuerpo.para as string | string[]) : "";
+      const mensaje = typeof cuerpo.mensaje === "string" ? cuerpo.mensaje.slice(0, 1000) : undefined;
+      const dest = revisarDestinatarios(Array.isArray(para) ? para.filter((x): x is string => typeof x === "string") : para);
+      if (dest.invalidos.length > 0 || dest.validos.length === 0 || dest.validos.length > MAX_DESTINATARIOS) {
+        return reply.status(422).send({
+          error: {
+            codigo: "DESTINATARIOS_INVALIDOS",
+            mensaje: dest.invalidos.length > 0 ? `No son correos válidos: ${dest.invalidos.join(", ")}` : `Entre 1 y ${MAX_DESTINATARIOS} destinatarios`,
+          },
+        });
+      }
+      const r = await enTransaccion(op.pool, ctx, async (db): Promise<{ confirmar: boolean; valor: Salida }> => {
+        const x = await generar(db, ctx, { origen, enviadoA: dest.validos });
+        if (!x.ok) return { confirmar: false, valor: x };
+        const quien = await remitenteDe(db, ctx);
+        const texto = armar(x.archivo, quien, mensaje);
+        const env = await correo.enviar({
+          para: dest.validos, ...texto,
+          // Un listado que va en el cuerpo del correo no lleva adjunto.
+          adjuntos: x.archivo.contenido.length > 0 ? [{ nombre: x.archivo.nombre, contenido: x.archivo.contenido, tipo: x.archivo.tipo }] : [],
+        });
+        if (!env.ok) return { confirmar: false, valor: errorSalida(422, "CORREO_NO_ENVIADO", env.mensaje) };
+        return { confirmar: true, valor: x };
+      });
+      if (!r.ok) return reply.status(r.status).send(r.cuerpo);
+      return reply.status(200).send({ enviadoA: dest.validos });
+    }
+
+    app.post("/ordenes/:id/pdf/enviar", async (req, reply) => {
+      const id = zId.safeParse(params(req).id);
+      if (!id.success) return reply.status(404).send({ error: { codigo: "NO_EXISTE", mensaje: "La orden no existe" } });
+      return enviarArchivo(req, reply, "correo_orden", (db, ctx, aud) => pdfDeOrden(db, ctx, id.data, aud), (a, r, mensaje) =>
+        correoOrden({ empresa: r.empresa, folio: a.folio, vehiculo: a.vehiculo, quien: r.quien, ...(mensaje ? { mensaje } : {}) }),
+      );
+    });
+
+    /** "Llantas para cambiar" de sus sedes, en el cuerpo del correo. Solo la oficina. */
+    app.post("/alertas/enviar", async (req, reply) => {
+      let llantas: LlantaParaAviso[] = [];
+      return enviarArchivo(
+        req,
+        reply,
+        "correo_alertas",
+        async (db, ctx, auditoria) => {
+          if (!puedeAprobar(ctx.rol)) return errorSalida(403, "SIN_PERMISO", "Las alertas son de la oficina");
+          const alertas = await new TrabajosProgramados(db, reloj).revisarAlertas(ctx.empresaId, { soloSedesDe: ctx.usuarioId });
+          if (alertas.length === 0) return errorSalida(404, "SIN_REGISTROS", "No hay llantas para cambiar");
+          const ids = [...new Set(alertas.map((a) => a.vehiculoId))];
+          const vehiculos = (await db.query<{ id: string; codigo: string; cliente: string }>(
+            `SELECT v.id, v.codigo, c.nombre AS cliente FROM "Vehiculo" v
+               JOIN "SedeCliente" sc ON sc.id = v."sedeClienteId" JOIN "Cliente" c ON c.id = sc."clienteId"
+              WHERE v.id = ANY($1::text[])`,
+            [ids],
+          )).rows;
+          const porId = new Map(vehiculos.map((v) => [v.id, v]));
+          llantas = alertas.map((a) => ({
+            vehiculo: porId.get(a.vehiculoId)?.codigo ?? a.vehiculoId,
+            cliente: porId.get(a.vehiculoId)?.cliente ?? "",
+            posicion: a.posicion,
+            motivo: a.mensaje,
+          }));
+          await new ServicioInforme(db, reloj).registrarAuditoria(ctx, "exportar_informe", { llantas: llantas.length, ...auditoria });
+          return {
+            ok: true,
+            archivo: { nombre: "", contenido: Buffer.alloc(0), tipo: "text/plain", ordenes: 0, sinCerrar: 0, folio: "", vehiculo: "" },
+          };
+        },
+        (_a, r, mensaje) =>
+          correoLlantasParaCambio({ empresa: r.empresa, fecha: fechaEnColombia(reloj()), llantas, quien: r.quien, ...(mensaje ? { mensaje } : {}) }),
+      );
+    });
+
+    app.post("/informe/enviar", async (req, reply) => {
+      const filtro = filtroInforme(req);
+      if (!filtro.ok) return reply.status(filtro.r.status).send(filtro.r.cuerpo);
+      const q = sinIndefinidos(filtro.q);
+      const formato = (req.body as { formato?: unknown } | undefined)?.formato === "pdf" ? "pdf" : "csv";
+      return enviarArchivo(
+        req,
+        reply,
+        formato === "pdf" ? "correo_pdf_informe" : "correo_informe",
+        (db, ctx, aud) => (formato === "pdf" ? pdfDeInforme(db, ctx, q, aud) : csvDeInforme(db, ctx, q, aud)),
+        (a, r, mensaje) =>
+          correoInforme({ empresa: r.empresa, formato, ordenes: a.ordenes, sinCerrar: a.sinCerrar, quien: r.quien, ...(mensaje ? { mensaje } : {}) }),
+      );
+    });
 
     // ── Carga masiva desde Excel (R12) ──
     // En línea y en UNA transacción: con un error no se carga nada (la
@@ -1111,59 +1298,16 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
       const filtro = filtroInforme(req);
       if (!filtro.ok) return reply.status(filtro.r.status).send(filtro.r.cuerpo);
       const q = sinIndefinidos(filtro.q);
-      type ResultadoPdf =
-        | { tipo: "vacio" }
-        | { tipo: "demasiadas"; n: number }
-        | { tipo: "pdf"; nombre: string; pdf: Buffer };
-
-      const r = await enTransaccion(op.pool, ctx, async (db): Promise<{ confirmar: boolean; valor: ResultadoPdf }> => {
-        const informe = new ServicioInforme(db, reloj);
-        // Las órdenes que el filtro encuentra (con RLS: solo las visibles).
-        const ids = [...new Set((await informe.consultar(ctx, q)).map((x) => x.ordenId).filter((x): x is string => Boolean(x)))];
-        if (ids.length === 0) {
-          return { confirmar: false, valor: { tipo: "vacio" } };
-        }
-        if (ids.length > MAX_ORDENES_PDF) {
-          return { confirmar: false, valor: { tipo: "demasiadas", n: ids.length } };
-        }
-        const documento = new ServicioDocumento(db);
-        const lista = [];
-        // Una a una sobre la misma conexión: pg no admite consultas simultáneas en ella.
-        for (const id of ids) {
-          const d = await documento.datos(ctx, id);
-          if (d) lista.push(d);
-        }
-        if (lista.length === 0) return { confirmar: false, valor: { tipo: "vacio" } };
-        const folios = lista.map((d) => d.orden.folio ?? d.orden.codigoReferencia ?? "sin folio");
-        await informe.registrarAuditoria(ctx, "exportar_informe", {
-          origen: "pdf_informe",
-          ordenes: lista.length,
-          folios: folios.slice(0, 20),
-          sinCerrar: lista.filter((d) => d.orden.estado !== "cerrada").length,
-          filtros: q,
-        });
-        const hoy = fechaEnColombia(reloj());
-        const generadoEn = new Date(reloj().getTime() - 5 * 3_600_000).toISOString().slice(0, 16).replace("T", " ");
-        const nombre = lista.length === 1 ? documento.nombreArchivo(lista[0]!) : `ordenes-${hoy}.pdf`;
-        return {
-          confirmar: true,
-          valor: { tipo: "pdf", nombre, pdf: await documento.pdfVarias(lista, `Órdenes de servicio ${hoy}`, generadoEn) },
-        };
+      const r = await enTransaccion(op.pool, ctx, async (db) => {
+        const x = await pdfDeInforme(db, ctx, q, { origen: "pdf_informe" });
+        return { confirmar: x.ok, valor: x };
       });
-
-      if (r.tipo === "vacio") {
-        return reply.status(404).send({ error: { codigo: "SIN_REGISTROS", mensaje: "No hay órdenes con ese filtro" } });
-      }
-      if (r.tipo === "demasiadas") {
-        return reply.status(422).send({
-          error: { codigo: "DEMASIADAS_ORDENES", mensaje: `Son ${r.n} órdenes: elige hasta ${MAX_ORDENES_PDF} para el PDF, o exporta el CSV` },
-        });
-      }
+      if (!r.ok) return reply.status(r.status).send(r.cuerpo);
       return reply
         .status(200)
         .header("content-type", "application/pdf")
-        .header("content-disposition", `attachment; filename="${r.nombre}"`)
-        .send(r.pdf);
+        .header("content-disposition", `attachment; filename="${r.archivo.nombre}"`)
+        .send(r.archivo.contenido);
     });
 
     app.get("/informe/exportar", async (req, reply) => {

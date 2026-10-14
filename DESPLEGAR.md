@@ -105,7 +105,10 @@ desde un navegador.
 | `ALMACENAMIENTO` | `r2` |
 | `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Los del paso 2 |
 | `S3_REGION` | `auto` |
-| `TRABAJOS_CADA_MINUTOS` | `15` (cierre tácito y visitas recurrentes) |
+| `TRABAJOS_CADA_MINUTOS` | `15` (cierre tácito, visitas recurrentes y avisos por correo) |
+| `CORREO` | `ninguno` (por defecto) o `resend`. Sin cuenta, el envío por correo queda desactivado y se comparte por WhatsApp |
+| `RESEND_API_KEY` | Solo con `CORREO=resend`: la llave de [resend.com](https://resend.com) (plan gratuito: 3.000 correos al mes) |
+| `CORREO_REMITENTE` | Solo con `CORREO=resend`: `Asistectire <avisos@su-dominio.co>`, con el dominio verificado en Resend |
 
 Para generar el secreto:
 

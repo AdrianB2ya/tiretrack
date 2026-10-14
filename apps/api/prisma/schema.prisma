@@ -63,6 +63,9 @@ model Empresa {
   /// eje de la plantilla manda sobre ellos cuando está definido.
   limiteCambioInmediato Decimal     @default(3) @db.Decimal(5, 2)
   limiteProgramarCambio Decimal     @default(5) @db.Decimal(5, 2)
+  /// Día (Colombia, AAAA-MM-DD) del último resumen de llantas para cambio
+  /// enviado a la oficina (R13): uno por día.
+  ultimoAvisoCambios String?
   activa            Boolean           @default(true)
   creadoEn          DateTime          @default(now())
   actualizadoEn     DateTime          @updatedAt
@@ -595,6 +598,8 @@ model OrdenServicio {
   autoAprobada     Boolean   @default(false)
   enviadoClienteEn DateTime? @db.Date
   limiteCliente    DateTime? @db.Date
+  /// Cuándo se avisó por correo al cliente que espera su aprobación (R13).
+  avisoClienteEn   DateTime?
   cierreTacito     Boolean   @default(false)
   motivoCierre     String?
 

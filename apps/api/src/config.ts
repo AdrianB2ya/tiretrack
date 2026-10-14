@@ -79,6 +79,15 @@ const esquema = z.object({
    * apaga en esta instancia (por ejemplo, si se corren aparte). Más de un día
    * no tiene sentido: el cierre tácito se atrasaría.
    */
+  /**
+   * Correo (R13): avisos automáticos y envío de informes. "ninguno" mientras
+   * no haya cuenta: el teléfono sigue compartiendo por WhatsApp.
+   */
+  CORREO: z.enum(["ninguno", "resend"]).default("ninguno"),
+  RESEND_API_KEY: z.string().optional(),
+  /** "Asistectire <avisos@dominio.co>", con el dominio verificado en Resend. */
+  CORREO_REMITENTE: z.string().optional(),
+
   TRABAJOS_CADA_MINUTOS: z.coerce.number().int().min(0).max(1440).default(15),
 });
 
@@ -121,9 +130,20 @@ function problemasDeAlmacenamiento(e: Entorno): string[] {
   return p;
 }
 
+/** Con "resend", la llave y el remitente; se comprueban con el resto. */
+function problemasDeCorreo(e: Entorno): string[] {
+  if (e["CORREO"] !== "resend") return [];
+  const p: string[] = [];
+  if (!e["RESEND_API_KEY"]) p.push("RESEND_API_KEY: requerida con CORREO=resend");
+  const r = e["CORREO_REMITENTE"];
+  if (!r) p.push('CORREO_REMITENTE: requerida con CORREO=resend (ej. "Asistectire <avisos@dominio.co>")');
+  else if (!/@[^s>]+.[^s>]+/.test(r)) p.push("CORREO_REMITENTE: no contiene un correo válido");
+  return p;
+}
+
 export function leerConfig(entorno: Entorno = process.env): Config {
   const r = esquema.safeParse(entorno);
-  const delAlmacenamiento = problemasDeAlmacenamiento(entorno);
+  const delAlmacenamiento = [...problemasDeAlmacenamiento(entorno), ...problemasDeCorreo(entorno)];
   if (!r.success || delAlmacenamiento.length > 0) {
     throw new ErrorDeConfiguracion([
       ...(r.success ? [] : r.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`)),

@@ -44,3 +44,4 @@ export * from "./trabajos/reglas";
 export * from "./trabajos/programacion";
 export * from "./auditoria/vista";
 export * from "./carga/carga";
+export * from "./avisos/correo";

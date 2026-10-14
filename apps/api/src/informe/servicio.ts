@@ -268,7 +268,7 @@ export class ServicioInforme {
    * Exporta y **deja constancia**. La auditoría se registra aunque la
    * descarga falle después: la intención de sacar los datos ocurrió igual.
    */
-  async exportar(ctx: Contexto, f: FiltroInforme = {}, origen = "informe"): Promise<Resultado<Exportacion>> {
+  async exportar(ctx: Contexto, f: FiltroInforme = {}, origen = "informe", extra: Record<string, unknown> = {}): Promise<Resultado<Exportacion>> {
     const filas = await this.consultar(ctx, f);
     if (filas.length === 0) {
       return {
@@ -294,6 +294,7 @@ export class ServicioInforme {
       sinCerrar: resumen.sinCerrar,
       origen,
       filtros: limpiarFiltros(f),
+      ...extra,
     });
 
     return {

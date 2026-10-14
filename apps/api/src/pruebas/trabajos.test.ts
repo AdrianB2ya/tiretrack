@@ -3,6 +3,8 @@ import pg from "pg";
 import { hayBaseDeDatos, conectarAislado } from "./base";
 import { ddlDePrueba } from "./generar-esquema";
 import { TrabajosProgramados } from "../trabajos/programados";
+import { AvisosPorCorreo } from "../trabajos/avisos";
+import { CorreoDesactivado, CorreoMemoria } from "../correo/correo";
 
 /**
  * Trabajos programados contra PostgreSQL real.
@@ -531,6 +533,90 @@ describe.skipIf(!disponible)("trabajos programados", () => {
       expect(r.tokens).toBe(2);
     });
   });
+
+  describe("avisos por correo (R13)", () => {
+    let correo: CorreoMemoria;
+    let avisos: AvisosPorCorreo;
+    beforeEach(async () => {
+      correo = new CorreoMemoria();
+      avisos = new AvisosPorCorreo(db, correo, () => reloj);
+      await db.query(
+        `INSERT INTO "Usuario" (id,"empresaId",nombre,cedula,email,"passwordHash",rol,"clienteId") VALUES
+           ('u-cli',$1,'Ana Reyna','2001','ana@reyna.co','x','cliente','cli-1'),
+           ('u-cli-baja',$1,'Ex empleado','2002','ex@reyna.co','x','cliente','cli-1')`,
+        [EMP],
+      );
+      await db.query(`UPDATE "Usuario" SET activo = false WHERE id = 'u-cli-baja'`);
+      await db.query(`UPDATE "Cliente" SET email = 'compras@reyna.co'`);
+    });
+
+    it("avisa al cliente una sola vez, con el plazo, y lo deja en la auditoría", async () => {
+      await orden("o1", { limiteCliente: "2026-09-21" });
+      expect((await avisos.avisarClientes(EMP)).enviados).toBe(1);
+      const m = correo.enviados[0]!;
+      // El correo del cliente y sus usuarios activos; no el que se dio de baja.
+      expect(m.para).toEqual(["compras@reyna.co", "ana@reyna.co"]);
+      expect(m.asunto).toBe("Orden OS-FUN-o1 espera su aprobación");
+      expect(m.texto).toContain("hasta el 2026-09-21");
+      const a = await db.query(`SELECT entidad, "usuarioNombre" FROM "Auditoria"`);
+      expect(a.rows).toEqual([{ entidad: "aviso_cliente", usuarioNombre: "Sistema" }]);
+      // La segunda vuelta no repite.
+      expect((await avisos.avisarClientes(EMP)).enviados).toBe(0);
+      expect(correo.enviados).toHaveLength(1);
+    });
+
+    it("si el proveedor falla, la orden queda sin marcar y se reintenta", async () => {
+      await orden("o1", { limiteCliente: "2026-09-21" });
+      correo.fallar = true;
+      expect((await avisos.avisarClientes(EMP)).fallidos).toBe(1);
+      correo.fallar = false;
+      expect((await avisos.avisarClientes(EMP)).enviados).toBe(1);
+    });
+
+    it("solo avisa lo que espera al cliente", async () => {
+      await orden("o1", { estado: "en_revision" });
+      expect((await avisos.avisarClientes(EMP)).enviados).toBe(0);
+    });
+
+    it("sin correo configurado no hace nada", async () => {
+      await orden("o1", { limiteCliente: "2026-09-21" });
+      const r = await new AvisosPorCorreo(db, new CorreoDesactivado(), () => reloj).avisarClientes(EMP);
+      expect(r.enviados).toBe(0);
+      const o = await db.query(`SELECT "avisoClienteEn" FROM "OrdenServicio"`);
+      expect(o.rows[0].avisoClienteEn).toBeNull();
+    });
+
+    it("el resumen diario a la oficina: lo de cambio inmediato de sus sedes, una vez al día", async () => {
+      reloj = new Date("2026-09-14T13:00:00.000Z"); // 8 a. m. en Colombia
+      await orden("o1", { estado: "cerrada" });
+      await db.query(
+        `INSERT INTO "LlantaRegistro" (id,"ordenId","configuracionEjeId","capturadoPorId",posicion,serial,dot,profundidad)
+         VALUES ('lr-1','o1','cfg-1','u-tec1',1,'MX1','3624',2), ('lr-7','o1','cfg-1','u-tec1',7,'MX7','3624',4.9)`,
+      );
+      const r = await avisos.resumenDeCambios(EMP);
+      expect(r.enviados).toBe(1);
+      const m = correo.enviados[0]!;
+      expect(m.para).toEqual(["jorge@x.co"]);
+      expect(m.asunto).toBe("1 llanta para cambio inmediato · 2026-09-14");
+      expect(m.texto).toContain("CA-12 · Transportes Reyna");
+      // Lo preventivo (posición 7, programar cambio) no va en el resumen.
+      expect(m.texto).not.toContain("Posición 7");
+      expect((await avisos.resumenDeCambios(EMP)).enviados).toBe(0);
+    });
+
+    it("el resumen no sale de madrugada", async () => {
+      reloj = new Date("2026-09-14T09:00:00.000Z"); // 4 a. m. en Colombia
+      await orden("o1", { estado: "cerrada" });
+      await db.query(
+        `INSERT INTO "LlantaRegistro" (id,"ordenId","configuracionEjeId","capturadoPorId",posicion,serial,dot,profundidad)
+         VALUES ('lr-1','o1','cfg-1','u-tec1',1,'MX1','3624',2)`,
+      );
+      expect((await avisos.resumenDeCambios(EMP)).enviados).toBe(0);
+      const e = await db.query(`SELECT "ultimoAvisoCambios" FROM "Empresa"`);
+      expect(e.rows[0].ultimoAvisoCambios).toBeNull();
+    });
+  });
+
 });
 
 // Solo existe sin base: con base, un "omitido" haría fallar la guarda del CI.

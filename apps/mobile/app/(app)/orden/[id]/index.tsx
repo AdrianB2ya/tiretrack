@@ -17,6 +17,7 @@ import { OrdenNoDisponible } from "../../../../src/ordenes/OrdenNoDisponible";
 import { Recomendaciones } from "../../../../src/ordenes/Recomendaciones";
 import type { RecomendacionLocal } from "../../../../src/datos/repositorio";
 import { BotonPdf } from "../../../../src/ordenes/BotonPdf";
+import { EnviarPorCorreo } from "../../../../src/informe/EnviarPorCorreo";
 import { bajarACache, compartirUri } from "../../../../src/informe/compartirArchivo";
 import { useServicios } from "../../../../src/app/Arranque";
 
@@ -174,6 +175,11 @@ export default function PantallaDetalle() {
       <BotonPdf
         descargar={() => descargarArchivo(`/ordenes/${orden.id}/pdf`, bajarACache(`${orden.folio ?? orden.codigoReferencia ?? "orden"}.pdf`))}
         compartir={(uri) => compartirUri(uri, "application/pdf")}
+      />
+      <EnviarPorCorreo
+        etiqueta="Enviar el PDF por correo"
+        testID="correo-orden"
+        enviar={(para, mensaje) => enLinea("POST", `/ordenes/${orden.id}/pdf/enviar`, { para, ...(mensaje ? { mensaje } : {}) })}
       />
 
       <Recomendaciones

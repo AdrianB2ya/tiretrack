@@ -3575,7 +3575,7 @@ D queda fuera.
 - [x] R10 Retiro y fallas: motivos, foto si es falla, causas, garantías
 - [x] R11 Tableros, proyección de compras, portal del cliente con indicadores
 - [x] R12 Carga masiva desde Excel (flota, llantas, catálogo)
-- [ ] R13 Avisos y envío de informes por correo (WhatsApp: compartir)
+- [x] R13 Avisos y envío de informes por correo (WhatsApp: compartir)
 - [ ] R14 Cotización (sin precios hasta D)
 - [ ] R15 Código QR del vehículo
 - [ ] R16 Plataforma: alta de empresas, sesión de soporte, copias
@@ -3617,6 +3617,19 @@ conservadora y se anota aquí.)
 12. **R10 — motivos de retiro fijos** (lista del dominio). La brecha B decía
     "parametrizable"; se dejó fija como los servicios (la parametrización
     por empresa es la parte D, fuera por ahora). ¿Les sirve la lista?
+13. **R13 — proveedor de correo**: se preparó **Resend** (gratis hasta 3.000
+    correos al mes; pide verificar un dominio propio). Sin cuenta, el envío
+    queda desactivado y la app lo dice. ¿Resend, u otro (SendGrid, SES)? ¿Qué
+    dominio y qué remitente?
+14. **R13 — avisos automáticos**: al cliente cuando una orden espera su
+    aprobación (a su correo de cliente y a sus usuarios activos), y a cada
+    coordinador o administrador un resumen diario desde las 6 a. m. con lo de
+    **cambio inmediato** de sus sedes (lo preventivo no, para que el correo
+    se siga leyendo). No hay opción para apagarlos por persona. ¿Así?
+15. **R13 — WhatsApp directo** (sin pasar por el teléfono) necesita la API de
+    WhatsApp Business de Meta (negocio verificado, plantillas aprobadas, cobro
+    por conversación): no se construyó. Desde el teléfono se sigue
+    compartiendo por WhatsApp. ¿Se contrata?
 
 ## Catálogo de llantas desde la app (R1, 2026-10-13)
 
@@ -3657,6 +3670,43 @@ diseño que una empresa creaba bajo una marca global (su "XZE" de Michelin)
 diseño sea global o de la empresa, y lo mismo la medida. Probado contra RLS
 real en `aislamiento.test.ts` (las tablas de diseño y medida no estaban en
 ese banco); con la política vieja, la prueba falla.
+
+## Avisos y envío de informes por correo (R13, 2026-10-14)
+
+Brecha E. Dominio `avisos/correo.ts` (destinatarios y textos); servidor
+`correo/correo.ts` (transporte), `trabajos/avisos.ts` (avisos
+automáticos); app `src/informe/EnviarPorCorreo.tsx`.
+
+- **Transporte**: interfaz `Correo` como el almacenamiento de fotos.
+  `CorreoResend` por HTTP sin SDK; `CorreoDesactivado` mientras no haya
+  cuenta (`CORREO=ninguno`, por defecto): las rutas responden
+  `CORREO_NO_CONFIGURADO` y la app recuerda "Compartir"; `CorreoMemoria`
+  para pruebas. Con `CORREO=resend` la configuración exige
+  `RESEND_API_KEY` y `CORREO_REMITENTE`, junto con lo demás.
+- **Envío manual** (en línea): `POST /ordenes/:id/pdf/enviar`,
+  `POST /informe/enviar` (mismo filtro que el CSV; `formato` csv o pdf) y
+  `POST /alertas/enviar` (oficina; el listado va en el cuerpo, sin adjunto).
+  La descarga y el envío usan **la misma generación** (`pdfDeOrden`,
+  `pdfDeInforme`, `csvDeInforme`): lo que llega por correo es lo que se
+  descarga, con el mismo alcance por rol.
+- **Se envía dentro de la transacción**: si el proveedor falla, la
+  constancia de la auditoría se deshace (no salió nada). Los destinatarios
+  quedan en la auditoría (`enviadoA`, origen `correo_*`).
+- Destinatarios separados como sea, sin repetir, en minúsculas, hasta 10;
+  los mal escritos se dicen antes de enviar (misma regla en app y servidor).
+- **Avisos automáticos con los trabajos programados**, no en la petición:
+  salen después de confirmar por construcción, nadie espera al proveedor y
+  un fallo se reintenta en la vuelta siguiente.
+  - Al **cliente**, cuando una orden espera su aprobación: el plazo y que
+    vencerlo es **cierre tácito, no aprobación**. Una vez por orden
+    (`OrdenServicio.avisoClienteEn`); sin correo registrado se marca igual.
+    Queda en la auditoría a nombre de Sistema.
+  - A la **oficina**, un resumen diario desde las 6 a. m. (Colombia) con lo
+    de **cambio inmediato** y DOT vencido de **sus sedes**
+    (`Empresa.ultimoAvisoCambios`).
+  - Migración `20261014170000_avisos_correo`.
+- **WhatsApp directo no se construyó**: necesita la API de WhatsApp Business.
+  Desde el teléfono se comparte como antes.
 
 ## Carga masiva desde Excel (R12, 2026-10-14)
 
@@ -3996,7 +4046,7 @@ identificador **`com.asistectire.app`**, rojo de la marca **como acento**.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 1066/1066, mobile 996 + recorrido 584.
+**Verificado:** `npm run verify` con base: raíz 1085/1085, mobile 999 + recorrido 584.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

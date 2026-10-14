@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Aviso, Boton, Insignia, Tarjeta, Vacio } from "../diseno/componentes";
+import { EnviarPorCorreo } from "../informe/EnviarPorCorreo";
 import { colores, espacio, texto } from "../diseno/tokens";
 
 /**
@@ -62,7 +63,16 @@ export function agruparAlertas(alertas: readonly AlertaLlanta[]) {
     .sort((a, b) => peso(a[0] as AlertaLlanta) - peso(b[0] as AlertaLlanta) || (a[0]?.vehiculoCodigo ?? "").localeCompare(b[0]?.vehiculoCodigo ?? ""));
 }
 
-export function AlertasLlantas({ cargar, onProgramar }: { cargar: () => Promise<R<AlertaLlanta[]>>; onProgramar: () => void }) {
+export function AlertasLlantas({
+  cargar,
+  onProgramar,
+  enviarPorCorreo,
+}: {
+  cargar: () => Promise<R<AlertaLlanta[]>>;
+  onProgramar: () => void;
+  /** R13: el listado por correo, para quien compra o programa los cambios. */
+  enviarPorCorreo?: (para: string[], mensaje?: string) => Promise<{ ok: true; datos: { enviadoA?: string[] } } | { ok: false; status: number; mensaje: string }>;
+}) {
   const [alertas, setAlertas] = useState<AlertaLlanta[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -100,6 +110,9 @@ export function AlertasLlantas({ cargar, onProgramar }: { cargar: () => Promise<
         {contarNiveles(alertas).inmediato} para cambio inmediato · {contarNiveles(alertas).programar} para programar
         el cambio. Según la última orden cerrada de cada posición y los límites de tu empresa.
       </Text>
+      {enviarPorCorreo ? (
+        <EnviarPorCorreo etiqueta="Enviar el listado por correo" testID="correo-alertas" enviar={(para, mensaje) => enviarPorCorreo(para, mensaje)} />
+      ) : null}
       {grupos.map((g) => {
         const v = g[0] as AlertaLlanta;
         return (

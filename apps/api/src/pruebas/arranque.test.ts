@@ -1,3 +1,4 @@
+import { CorreoResend } from "../correo/correo";
 import { describe, it, expect, afterEach } from "vitest";
 import { leerConfig, ErrorDeConfiguracion } from "../config";
 import { arrancar } from "../server";
@@ -45,6 +46,44 @@ describe("configuración", () => {
     expect(p.length).toBeGreaterThanOrEqual(4);
     expect(p.join(" ")).toContain("DATABASE_URL");
     expect(p.join(" ")).toContain("S3_BUCKET");
+  });
+
+  describe("correo (R13)", () => {
+    it("sin configurar no pide nada: queda desactivado", () => {
+      expect(problemasDe(BASE)).toEqual([]);
+    });
+
+    it("con resend exige la llave y el remitente, junto con lo demás", () => {
+      expect(problemasDe({ ...BASE, CORREO: "resend" })).toEqual([
+        "RESEND_API_KEY: requerida con CORREO=resend",
+        'CORREO_REMITENTE: requerida con CORREO=resend (ej. "Asistectire <avisos@dominio.co>")',
+      ]);
+      expect(problemasDe({ ...BASE, CORREO: "resend", RESEND_API_KEY: "re_x", CORREO_REMITENTE: "Asistectire" })).toEqual([
+        "CORREO_REMITENTE: no contiene un correo válido",
+      ]);
+      expect(
+        problemasDe({ ...BASE, CORREO: "resend", RESEND_API_KEY: "re_x", CORREO_REMITENTE: "Asistectire <avisos@asistectire.co>" }),
+      ).toEqual([]);
+    });
+
+    it("el transporte de Resend manda el adjunto en base64 y traduce el rechazo", async () => {
+      const llamadas: { url: string; cuerpo: Record<string, unknown>; auth: string }[] = [];
+      let status = 200;
+      const http = async (url: string, init: { headers: Record<string, string>; body: string }) => {
+        llamadas.push({ url, cuerpo: JSON.parse(init.body), auth: init.headers["authorization"] ?? "" });
+        return { ok: status < 300, status, text: async () => "" };
+      };
+      const c = new CorreoResend("re_llave", "Asistectire <avisos@asistectire.co>", http);
+      const ok = await c.enviar({ para: ["a@b.co"], asunto: "A", texto: "T", adjuntos: [{ nombre: "x.csv", contenido: Buffer.from("hola"), tipo: "text/csv" }] });
+      expect(ok).toEqual({ ok: true });
+      expect(llamadas[0]).toMatchObject({
+        url: "https://api.resend.com/emails",
+        auth: "Bearer re_llave",
+        cuerpo: { from: "Asistectire <avisos@asistectire.co>", to: ["a@b.co"], attachments: [{ filename: "x.csv", content: "aG9sYQ==" }] },
+      });
+      status = 403;
+      expect(await c.enviar({ para: ["a@b.co"], asunto: "A", texto: "T" })).toEqual({ ok: false, mensaje: "El proveedor de correo rechazó el envío (403)" });
+    });
   });
 
   describe("almacenamiento de fotos", () => {

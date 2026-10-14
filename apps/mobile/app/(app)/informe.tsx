@@ -35,6 +35,8 @@ export default function RutaInforme() {
         return c.ok ? { ok: true } : { ok: false, status: 0, mensaje: c.mensaje };
       },
       compartir: compartirArchivo,
+      enviarPorCorreo: (q, formato, para, mensaje) =>
+        enLinea("POST", `/informe/enviar${q}`, { formato, para, ...(mensaje ? { mensaje } : {}) }),
       // El día en Colombia, igual que el servidor: no la zona que tenga
       // configurada el celular.
       hoy: () => fechaEnColombia(),

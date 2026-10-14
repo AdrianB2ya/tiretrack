@@ -4,6 +4,7 @@ import { construirServidor } from "./http/servidor";
 import { ServicioAuth } from "./acceso/servicio";
 import { RepositorioPg } from "./acceso/repositorio";
 import { AlmacenamientoS3, type Almacenamiento } from "./fotos/almacenamiento";
+import { CorreoDesactivado, CorreoResend, type Correo } from "./correo/correo";
 import { AlmacenamientoDisco, montarArchivosLocales } from "./fotos/almacenamientoDisco";
 import { configurarUtc, OPCIONES_SESION_UTC } from "./db/utc";
 import { iniciarTrabajos } from "./trabajos/planificador";
@@ -62,11 +63,17 @@ export async function arrancar(config: Config): Promise<Servicios> {
       secretAccessKey: config.S3_SECRET_ACCESS_KEY as string,
     });
 
+  const correo: Correo =
+    config.CORREO === "resend"
+      ? new CorreoResend(config.RESEND_API_KEY as string, config.CORREO_REMITENTE as string)
+      : new CorreoDesactivado();
+
   const app = construirServidor({
     pool,
     auth,
     verificarToken: (t) => auth.verificarToken(t),
     almacen,
+    correo,
     registro: config.NODE_ENV !== "test",
   });
   if (disco) {
@@ -104,7 +111,7 @@ export async function arrancar(config: Config): Promise<Servicios> {
   // Cierre tácito y órdenes recurrentes. Sin esto no corrían nunca.
   const detenerTrabajos =
     config.TRABAJOS_CADA_MINUTOS > 0
-      ? iniciarTrabajos({ pool, intervaloMs: config.TRABAJOS_CADA_MINUTOS * 60_000, registro: app.log })
+      ? iniciarTrabajos({ pool, correo, intervaloMs: config.TRABAJOS_CADA_MINUTOS * 60_000, registro: app.log })
       : async () => undefined;
 
   let cerrando = false;

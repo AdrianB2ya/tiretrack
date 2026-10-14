@@ -8,6 +8,7 @@ import { construirServidor, enTransaccion, PREFIJO_API } from "../http/servidor"
 import { ServicioDocumento } from "../informe/documento";
 import type { Claims } from "../acceso/servicio";
 import type { Almacenamiento } from "../fotos/almacenamiento";
+import { CorreoMemoria } from "../correo/correo";
 
 /**
  * Servidor HTTP contra PostgreSQL real.
@@ -49,6 +50,9 @@ let app: ReturnType<typeof construirServidor>;
 // UUID, como lo genera el dispositivo: un id inventado no pasaría un contrato real.
 const ORDEN = "11111111-1111-4111-8111-0000000000bb";
 
+/** Correo en memoria (R13): se ve qué salió sin enviar nada. */
+const correo = new CorreoMemoria();
+
 function pedir(opciones: {
   metodo?: "POST" | "PUT" | "PATCH";
   ruta: string;
@@ -89,6 +93,7 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
       verificarToken: (t) => TOKENS[t] ?? null,
       almacen: almacenFalso,
       auth: authFalso,
+      correo,
       reloj: () => new Date("2026-09-21T10:00:00Z"),
     });
     await app.ready();
@@ -652,6 +657,75 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
       expect((await desactivar(`/flota/clientes/${SEMILLA.cliente}/desactivar`, "tok-coordinador")).statusCode).toBe(200);
       // El técnico opera, no gestiona.
       expect((await desactivar(`/flota/clientes/${SEMILLA.cliente}/desactivar`, "tok-tecnico")).statusCode).toBe(403);
+    });
+  });
+
+  describe("envío por correo (R13)", () => {
+    const enviar = (ruta: string, cuerpo: unknown, token = "tok-coordinador") =>
+      pedir({ ruta, token, clave: null, cuerpo });
+    const auditoria = async () => (await pool.query(`SELECT detalle FROM "Auditoria" ORDER BY "creadoEn" DESC LIMIT 1`)).rows[0]?.detalle;
+
+    beforeEach(() => {
+      correo.enviados.length = 0;
+      correo.fallar = false;
+    });
+
+    it("envía el PDF de la orden adjunto y deja los destinatarios en la auditoría", async () => {
+      await guardarMedicion(medicion(1, { serial: "MX1", profundidad: 9 }));
+      const r = await enviar(`/ordenes/${ORDEN}/pdf/enviar`, { para: "Jefe@Flota.co; jefe@flota.co, otro@flota.co", mensaje: "Buen día" });
+      expect(r.statusCode, r.body).toBe(200);
+      expect(r.json().enviadoA).toEqual(["jefe@flota.co", "otro@flota.co"]);
+      const m = correo.enviados[0]!;
+      expect(m.para).toEqual(["jefe@flota.co", "otro@flota.co"]);
+      expect(m.texto.startsWith("Buen día")).toBe(true);
+      expect(m.adjuntos?.[0]?.tipo).toBe("application/pdf");
+      expect(m.adjuntos?.[0]?.contenido.subarray(0, 5).toString()).toBe("%PDF-");
+      expect(await auditoria()).toMatchObject({ origen: "correo_orden", enviadoA: ["jefe@flota.co", "otro@flota.co"] });
+    });
+
+    it("el informe sale en CSV o en PDF", async () => {
+      await guardarMedicion(medicion(1, { serial: "MX1", profundidad: 9 }));
+      const csv = await enviar(`/informe/enviar?ordenIds=${ORDEN}`, { para: ["a@flota.co"], formato: "csv" });
+      expect(csv.statusCode, csv.body).toBe(200);
+      expect(correo.enviados[0]!.adjuntos?.[0]?.tipo).toBe("text/csv");
+      expect(correo.enviados[0]!.texto).toContain("no están cerradas");
+      const pdf = await enviar(`/informe/enviar?ordenIds=${ORDEN}`, { para: ["a@flota.co"], formato: "pdf" });
+      expect(pdf.statusCode, pdf.body).toBe(200);
+      expect(correo.enviados[1]!.adjuntos?.[0]?.tipo).toBe("application/pdf");
+    });
+
+    it("si el proveedor falla no queda nada en la auditoría: no salió nada", async () => {
+      correo.fallar = true;
+      const antes = (await pool.query(`SELECT count(*)::int AS n FROM "Auditoria"`)).rows[0].n;
+      const r = await enviar(`/ordenes/${ORDEN}/pdf/enviar`, { para: "a@flota.co" });
+      expect(r.statusCode).toBe(422);
+      expect(r.json().error.codigo).toBe("CORREO_NO_ENVIADO");
+      expect((await pool.query(`SELECT count(*)::int AS n FROM "Auditoria"`)).rows[0].n).toBe(antes);
+    });
+
+    it("destinatarios mal escritos se dicen, sin enviar", async () => {
+      const r = await enviar(`/ordenes/${ORDEN}/pdf/enviar`, { para: "a@flota.co, mal@" });
+      expect(r.statusCode).toBe(422);
+      expect(r.json().error.mensaje).toBe("No son correos válidos: mal@");
+      expect(correo.enviados).toEqual([]);
+    });
+
+    it("las llantas para cambiar van en el cuerpo, sin adjunto; el técnico no las envía", async () => {
+      // Solo sus sedes: el coordinador de la semilla no estaba en ninguna.
+      await pool.query(`INSERT INTO "UsuarioSede" ("usuarioId","sedeId") VALUES ($1,$2) ON CONFLICT DO NOTHING`, [SEMILLA.coordinador, SEMILLA.sede]);
+      await guardarMedicion(medicion(1, { serial: "MX1", profundidad: 2 }));
+      await pool.query(`UPDATE "OrdenServicio" SET estado = 'cerrada' WHERE id = $1`, [ORDEN]);
+      const r = await enviar("/alertas/enviar", { para: "jefe@flota.co" });
+      expect(r.statusCode, r.body).toBe(200);
+      expect(correo.enviados[0]!.adjuntos).toEqual([]);
+      expect(correo.enviados[0]!.texto).toContain("Posición 1");
+      expect((await enviar("/alertas/enviar", { para: "jefe@flota.co" }, "tok-tecnico")).statusCode).toBe(403);
+    });
+
+    it("una orden que no ve es 404, también por correo", async () => {
+      const r = await enviar(`/ordenes/${nuevoId()}/pdf/enviar`, { para: "a@flota.co" });
+      expect(r.statusCode).toBe(404);
+      expect(correo.enviados).toEqual([]);
     });
   });
 
