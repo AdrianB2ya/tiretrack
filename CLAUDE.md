@@ -3528,6 +3528,28 @@ registra mediciones por posición, pero la llanta no existe como objeto propio:
   motivo, ticket y vencimiento (ya decidida para antes de la 2ª empresa).
 - Copias de seguridad y plan de paso a producción (plan gratuito duerme).
 
+**Alcance decidido por el usuario (2026-10-13):** se hacen **A, B, C, E y F**;
+**D queda fuera por ahora** (servicios con precio, festivos, plazos y
+tolerancias configurables, horómetro). Ojo: la *cotización* de E necesita
+precios, que estaban en D; sin precios, la cotización lista cantidades y
+servicios, y el valor se agrega cuando D entre.
+
+**Nuevo pedido: enviar los informes directamente por correo o WhatsApp**
+(PDF de la orden, PDF de órdenes, CSV, informe de llantas para cambio).
+- Hoy ya se pueden *compartir* desde el teléfono con la hoja de compartir
+  del sistema (WhatsApp incluido); "directamente" es enviarlos sin pasar por
+  el teléfono de quien lo genera (destinatarios guardados, envío automático).
+- **Necesita cuentas del usuario**: correo con un proveedor de envío
+  (Resend, SendGrid, Amazon SES: tienen plan gratuito) y WhatsApp con la API
+  de WhatsApp Business (Meta), que pide verificar el negocio, plantillas
+  aprobadas y cobra por conversación. Decidir proveedor y quién paga.
+- Orden de recomendación revisado: 1) crear todo desde la app y
+  parametrizar lo que no es D (catálogo de llantas, límites por empresa);
+  2) rediseño de flujos y listas con búsqueda; 3) llanta como activo +
+  levantamiento; 4) indicadores, portal del cliente, carga desde Excel,
+  avisos y envío de informes, cotización; 5) plataforma (alta de empresas,
+  soporte, copias).
+
 
 ## Tres profundidades y punto decimal (2026-10-09)
 
