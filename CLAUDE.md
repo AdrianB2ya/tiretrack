@@ -3725,6 +3725,28 @@ diseño sea global o de la empresa, y lo mismo la medida. Probado contra RLS
 real en `aislamiento.test.ts` (las tablas de diseño y medida no estaban en
 ese banco); con la política vieja, la prueba falla.
 
+## Catálogo general desde la app (2026-10-14)
+
+Lineamiento 3 (crear todo desde la app). El catálogo **general** (marcas,
+diseños y medidas que ven todas las empresas) se llenaba con SQL en Neon.
+
+- **Base**: política permisiva `plataforma_catalogo` en Marca, Diseno y
+  DisenoMedida (`rls.sql`, `@seccion:plataforma_catalogo`, migración
+  `20261014200000_catalogo_plataforma`): escribe SOLO entradas globales y
+  SOLO con contexto de superadmin. Una empresa sigue sin poder tocar lo
+  general, y el superadmin no crea nada a nombre de una empresa (probado con
+  las políticas reales del catálogo, extraídas de `rls.sql`).
+- **Servicio**: con rol superadmin (sin empresa), `ServicioCatalogo` crea con
+  ámbito global (`esPlataforma`); ve solo lo global, así que los duplicados
+  se comparan contra lo global. Corrige la profundidad de fábrica de las
+  medidas generales.
+- **Rutas** `/plataforma/catalogo/*` (solo superadmin). No van a la
+  auditoría de ninguna empresa: no es dato de una empresa.
+- **App**: "Catálogo general de llantas" en la pantalla de plataforma. Es la
+  misma `PantallaCatalogo` con otra fuente (`accionesCatalogoGeneral`, en
+  línea, sin pasar por la base del teléfono). La pantalla ahora muestra el
+  motivo si un alta falla (antes la excepción quedaba suelta).
+
 ## Rediseño de flujos (R17, 2026-10-14)
 
 Lineamiento 1 (más intuitivo). Sin poder ver la app en un teléfono desde aquí,
