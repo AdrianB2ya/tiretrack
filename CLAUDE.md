@@ -270,7 +270,7 @@ Estado: `[x]` hecha · `[ ]` pendiente
 - [x] 6.3 PDF de la orden (`GET /ordenes/:id/pdf`, botón en el detalle)
 
 ### Fase 7 · Distribución
-- [ ] 7.1 EAS y primer APK instalable
+- [x] 7.1 EAS y primer APK instalable (perfil `campo`; `com.asistectire.app` desde el 2026-10-09)
 - [x] 7.2 GitHub Actions (adelantada: es el único sitio donde corren las pruebas de base de datos)
 - [ ] 7.3 Build de iOS
 - [ ] 7.4 Envío a tiendas
