@@ -33,7 +33,7 @@ describe("bloqueo de la orden (R7)", () => {
     expect(puedeLiberarBloqueo({ ...base, usuarioId: "tec-2", bloqueadaPorId: "tec-1", motivo: "x".repeat(20) }).codigo).toBe("SIN_PERMISO");
   });
 
-  it("reasignar o anular una orden bloqueada exige liberarla primero", () => {
+  it("reasignar una orden bloqueada exige liberarla primero (anular no: lo decidió el usuario)", () => {
     expect(exigeLiberar("tec-1", "coo-1").codigo).toBe("ORDEN_BLOQUEADA");
     expect(exigeLiberar(null, "coo-1").permitido).toBe(true);
   });

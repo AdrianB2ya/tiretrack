@@ -6,8 +6,9 @@ import { type Veredicto, PERMITIDO, negar, type Rol, type EstadoOrden } from "..
  * El técnico asignado, **con señal**, se lleva la orden antes de salir a
  * trabajar sin ella ("me llevo esta orden"). Mientras la tenga:
  *
- * - la oficina **solo la ve**: para reasignarla o anularla, primero la libera
- *   (con motivo, que queda en la auditoría);
+ * - la oficina **solo la ve**: para reasignarla, primero la libera (con
+ *   motivo, que queda en la auditoría). Anularla sí puede sin liberarla, y
+ *   el bloqueo se suelta solo (decisión del usuario, 2026-10-14);
  * - la liberan el administrador o el coordinador, o el propio técnico; y se
  *   libera sola cuando él la envía a revisión.
  *
@@ -59,8 +60,9 @@ export function puedeLiberarBloqueo(s: SituacionBloqueo & { motivo?: string | nu
 }
 
 /**
- * Reasignar o anular con la orden en manos de un técnico: primero se libera.
- * Si no, el técnico sigue trabajando sin señal sobre algo que ya cambió.
+ * Reasignar con la orden en manos de un técnico: primero se libera. Si no, el
+ * técnico sigue trabajando sin señal sobre algo que ya cambió. (Anular no lo
+ * exige: una anulada no la trabaja nadie.)
  */
 export function exigeLiberar(bloqueadaPorId: string | null, usuarioId: string): Veredicto {
   if (bloqueadaPorId && bloqueadaPorId !== usuarioId) {

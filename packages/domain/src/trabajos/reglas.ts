@@ -226,7 +226,7 @@ export function evaluarAlertas(l: LlantaParaRevisar, hoy: Date, limites: Limites
 
   // R6: la banda gastada de un lado pide revisar, no cambiar: pesa menos.
   const lados = diferenciaDeLados({ exterior: l.profExterior ?? null, interior: l.profInterior ?? null });
-  const revisar = recomendacionPorLados(lados, l.tipoEje);
+  const revisar = recomendacionPorLados(lados, l.posicion);
   if (revisar && lados !== null) {
     alertas.push({
       vehiculoId: l.vehiculoId,

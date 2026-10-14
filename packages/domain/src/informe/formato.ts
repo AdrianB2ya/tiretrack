@@ -183,7 +183,7 @@ export function aCeldas(f: FilaCruda): string[] {
     texto(f.psiRecomendada),
     texto(diferenciaPresion(f.psiEncontrada, f.psiRecomendada)),
     texto(lados),
-    recomendacionPorLados(lados, f.tipoEje) ?? "",
+    recomendacionPorLados(lados, f.posicion) ?? "",
     ...[
       i?.profInicial, i?.profBaja, i?.profMedia, i?.mmDesgaste, i?.pctRodado, i?.referencia,
       i?.kmMontaje, i?.kmRecorrido, i?.kmPorMm, i?.proyeccionKm, i?.costo, i?.cpk,

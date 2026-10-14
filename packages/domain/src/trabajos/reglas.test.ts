@@ -243,9 +243,12 @@ describe("alertas de llanta", () => {
   });
 
   it("diferencia de lados desde 1 mm: revisar, con menos peso que el cambio (R6)", () => {
-    const a = evaluarAlertas({ ...base, profExterior: 8, profInterior: 9.5, tipoEje: "direccional" }, HOY);
+    const a = evaluarAlertas({ ...base, posicion: 1, profExterior: 8, profInterior: 9.5 }, HOY);
     expect(a).toEqual([expect.objectContaining({ tipo: "diferencia_lados", severidad: "media" })]);
     expect(a[0]?.mensaje).toContain("alinear");
+    // Manda el número de posición, no el tipo de eje (decisión del usuario).
+    const p7 = evaluarAlertas({ ...base, posicion: 7, profExterior: 8, profInterior: 9.5, tipoEje: "direccional" }, HOY);
+    expect(p7[0]?.mensaje).toContain("rotación");
     expect(evaluarAlertas({ ...base, profExterior: 9, profInterior: 9.5 }, HOY)).toHaveLength(0);
   });
 

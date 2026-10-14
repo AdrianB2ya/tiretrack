@@ -407,16 +407,15 @@ export class ServicioOrdenes {
     });
     if (!veredicto.permitido) return { ok: false, veredicto };
 
-    // R7: anular la orden que un técnico se llevó exige liberarla primero.
-    if (destino === "anulada") {
-      const b = exigeLiberar(orden.bloqueadaPorId, ctx.usuarioId);
-      if (!b.permitido) return { ok: false, veredicto: b };
-    }
-
     const extra = await this.datosDeTransicion(orden, destino, ctx, opciones);
     if ("veredicto" in extra) return { ok: false, veredicto: extra.veredicto };
-    // R7: al enviarla a revisión el técnico ya terminó: el bloqueo se suelta solo.
-    const campos = destino === "en_revision" ? { ...extra.campos, bloqueadaPorId: null, bloqueadaEn: null } : extra.campos;
+    // R7: el bloqueo se suelta solo al enviarla a revisión (el técnico ya
+    // terminó) y al anularla. El coordinador SÍ puede anular una orden
+    // bloqueada sin liberarla antes (decisión del usuario, 2026-10-14): una
+    // anulada no la trabaja nadie, y lo que traiga el técnico al recuperar
+    // señal se rechaza y queda apartado en su teléfono.
+    const sueltaBloqueo = destino === "en_revision" || destino === "anulada";
+    const campos = sueltaBloqueo ? { ...extra.campos, bloqueadaPorId: null, bloqueadaEn: null } : extra.campos;
 
     const actualizada = await this.repo.cambiarEstado(ordenId, version, destino, campos);
     if (!actualizada) return "carrera";

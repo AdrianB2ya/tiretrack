@@ -330,7 +330,7 @@ export function revisar(
   }
   // R6: la banda gastada de un lado. Es un hallazgo, no un error: se informa.
   const lados = diferenciaDeLados(b.profundidades);
-  const revisarLados = recomendacionPorLados(lados, casilla.tipoEje);
+  const revisarLados = recomendacionPorLados(lados, casilla.numero);
   if (revisarLados && lados !== null) {
     avisos.push({
       campo: "profundidad",

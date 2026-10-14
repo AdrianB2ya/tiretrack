@@ -3586,6 +3586,30 @@ D queda fuera.
 (Se agregan a medida que aparecen; mientras, se toma la opción más
 conservadora y se anota aquí.)
 
+**Respuestas del usuario (2026-10-14):**
+
+- **1, 2, 5, 10, 11, 12**: confirmadas tal como estaban (3 mm cuenta como
+  cambio inmediato; con mínimo de eje 4 el preventivo llega a 6; la
+  diferencia de lados solo informa; la profundidad inicial de la
+  reencauchada es la de la banda; el CPK es el de esa vida; motivos de
+  retiro fijos).
+- **3**: los límites son parametrizables por empresa (ya lo eran desde la
+  R2, "Más → Límites de cambio"); 3 y 5 mm quedan como valor inicial.
+- **4**: "posiciones 1 y 2" es el **número de posición de la llanta**, no el
+  tipo de eje. Cambiado: `recomendacionPorLados(diferencia, posicion)` con
+  `POSICIONES_ALINEACION = [1, 2]` (editor, alertas e informe).
+- **6**: el técnico suelta el bloqueo sin motivo, pero **no se desasigna**:
+  reasignar es de la oficina (ya era así).
+- **7**: el coordinador **puede anular una orden bloqueada sin liberarla**;
+  al anularla el bloqueo se suelta solo. Reasignar sigue exigiendo liberar.
+  **Hueco encontrado:** la app no tiene botón para anular (solo la API).
+- **8**: Asistectire también tiene llantas para vender, pero **por ahora solo
+  se maneja el inventario del cliente** (las de sus vehículos). Como estaba.
+- **9**: el usuario preguntó cuál es lo ideal; se le respondió con la
+  recomendación (ver abajo) y queda pendiente su decisión.
+- **13 a 20**: quedan pendientes, a decisión del usuario.
+- **21**: "varias" pantallas; falta que diga cuáles.
+
 1. **R2 — el límite se incluye**: "3 mm en rojo" se tomó como 3 mm **o
    menos** es cambio inmediato (antes, "bajo el mínimo" era estrictamente
    menor). ¿Correcto?

@@ -1330,11 +1330,12 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
       expect((await bloquear("tok-tecnico")).statusCode).toBe(200);
     });
 
-    it("anular una orden bloqueada también exige liberarla", async () => {
+    it("el coordinador anula una orden bloqueada sin liberarla, y el bloqueo se suelta", async () => {
       await bloquear("tok-tecnico");
       const r = await pedir({ ruta: `/ordenes/${ORDEN}/estado`, token: "tok-coordinador", cuerpo: { estado: "anulada", motivo: "Vehículo vendido" } });
-      expect(r.statusCode).toBe(409);
-      expect(r.json().error.codigo).toBe("ORDEN_BLOQUEADA");
+      expect(r.statusCode, r.body).toBe(200);
+      const f = await pool.query(`SELECT estado::text AS estado, "bloqueadaPorId" FROM "OrdenServicio" WHERE id = $1`, [ORDEN]);
+      expect(f.rows[0]).toEqual({ estado: "anulada", bloqueadaPorId: null });
     });
 
     it("el técnico la suelta sin motivo", async () => {

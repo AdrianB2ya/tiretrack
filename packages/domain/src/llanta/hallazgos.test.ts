@@ -11,11 +11,11 @@ describe("diferencia de lados (R6)", () => {
     expect(diferenciaDeLados({ exterior: 8, interior: null })).toBeNull();
   });
 
-  it("desde 1 mm: en el direccional, alinear; en los demás, calibración y rotación", () => {
-    expect(recomendacionPorLados(1, "direccional")).toBe("Alinear, revisar calibración y balanceo");
-    expect(recomendacionPorLados(1.2, "traccion")).toBe("Revisar calibración, rotación y balanceo");
-    expect(recomendacionPorLados(0.9, "direccional")).toBeNull();
-    expect(recomendacionPorLados(null, "direccional")).toBeNull();
+  it("desde 1 mm: en las posiciones 1 y 2, alinear; en las demás, calibración y rotación", () => {
+    expect(recomendacionPorLados(1, 1)).toBe("Alinear, revisar calibración y balanceo");
+    expect(recomendacionPorLados(1.2, 3)).toBe("Revisar calibración, rotación y balanceo");
+    expect(recomendacionPorLados(0.9, 2)).toBeNull();
+    expect(recomendacionPorLados(null, 1)).toBeNull();
   });
 });
 

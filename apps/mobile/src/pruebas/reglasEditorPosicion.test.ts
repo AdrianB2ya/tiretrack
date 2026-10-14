@@ -269,10 +269,10 @@ describe("presión", () => {
     expect(alta.find((a) => a.campo === "psiEncontrada")?.mensaje).toContain("+40 PSI");
   });
 
-  it("diferencia de lados desde 1 mm: en el direccional, alinear (R6)", () => {
+  it("diferencia de lados desde 1 mm: en las posiciones 1 y 2, alinear; el número manda, no el tipo de eje (R6)", () => {
     const avisos = revisar(borrador({ profundidades: medidas({ exterior: 8, centro: 9, interior: 9.5 }), serial: "MX1" }), casillaDireccional, HOY);
     expect(avisos).toContainEqual({ campo: "profundidad", severidad: "informacion", mensaje: "Diferencia de lados 1,5 mm: alinear, revisar calibración y balanceo" });
-    const traccion = revisar(borrador({ profundidades: medidas({ exterior: 8, interior: 9 }), serial: "MX1" }), { ...casillaDireccional, tipoEje: "traccion" }, HOY);
+    const traccion = revisar(borrador({ profundidades: medidas({ exterior: 8, interior: 9 }), serial: "MX1" }), { ...casillaDireccional, numero: 3 }, HOY);
     expect(traccion.find((a) => a.mensaje.startsWith("Diferencia de lados"))?.mensaje).toContain("rotación");
     const pareja = revisar(borrador({ profundidades: medidas({ exterior: 8, interior: 8.5 }), serial: "MX1" }), casillaDireccional, HOY);
     expect(pareja.find((a) => a.mensaje.startsWith("Diferencia de lados"))).toBeUndefined();
