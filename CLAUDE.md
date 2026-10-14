@@ -3572,7 +3572,7 @@ D queda fuera.
   inventario por sede
 - [x] R9 Kilómetros por llanta e indicadores del levantamiento (% rodado,
   referencia de desgaste, km/mm, proyección, costo, CPK)
-- [ ] R10 Retiro y fallas: motivos, foto si es falla, causas, garantías
+- [x] R10 Retiro y fallas: motivos, foto si es falla, causas, garantías
 - [ ] R11 Tableros, proyección de compras, portal del cliente con indicadores
 - [ ] R12 Carga masiva desde Excel (flota, llantas, catálogo)
 - [ ] R13 Avisos y envío de informes por correo (WhatsApp: compartir)
@@ -3614,6 +3614,9 @@ conservadora y se anota aquí.)
 11. **R9 — costo por km de una reencauchada**: el costo de ESA vida (el del
     reencauche) y los km de esa vida. ¿O el costo acumulado de todas sus
     vidas?
+12. **R10 — motivos de retiro fijos** (lista del dominio). La brecha B decía
+    "parametrizable"; se dejó fija como los servicios (la parametrización
+    por empresa es la parte D, fuera por ahora). ¿Les sirve la lista?
 
 ## Catálogo de llantas desde la app (R1, 2026-10-13)
 
@@ -3654,6 +3657,32 @@ diseño que una empresa creaba bajo una marca global (su "XZE" de Michelin)
 diseño sea global o de la empresa, y lo mismo la medida. Probado contra RLS
 real en `aislamiento.test.ts` (las tablas de diseño y medida no estaban en
 ese banco); con la política vieja, la prueba falla.
+
+## Retiro, fallas y garantías (R10, 2026-10-14)
+
+Brecha B. Dominio `llanta/retiro.ts`.
+
+- **Motivos de retiro**: lista fija con código estable (desgaste normal,
+  desgaste irregular, corte, impacto, separación, falla de reencauche,
+  pinchazo, vencida por DOT, otro). Las **fallas** (irregular, corte,
+  impacto, separación, falla de reencauche) piden foto.
+- **En la orden**: "Por qué sale" en el bloque de la llanta desmontada
+  (`LlantaRegistro.desMotivoRetiro`; en el celular, migración 18, en la lista
+  de columnas de la desmontada). **Una falla sin foto impide enviar la orden**
+  ("Llanta retirada por falla sin foto: posición 3"): la evidencia se toma
+  frente a la llanta, después ya no se puede. Viaja en la descarga, sale en
+  el PDF (bajo la llanta que salió), en el CSV (MOTIVO RETIRO) y en la
+  historia de la llanta.
+- **Causas de retiro** (`GET /informe/causas-retiro`): por motivo, marca
+  (la unificada cuenta como la correcta), posición y vehículo. El cliente ve
+  las de su flota (solo órdenes aprobadas o cerradas). Pantalla con período y
+  cifras en texto con su porcentaje.
+- **Garantías y reclamos** (tabla `Reclamo`, migración
+  `20261014160000_retiro_reclamos`, RLS por empresa y cliente): se abren
+  desde la ficha de una llanta que no está montada; abierto → enviado →
+  aprobado (con el valor reconocido, obligatorio) o rechazado → cerrado. Las
+  notas se acumulan con fecha. Uno en curso por llanta. Oficina, en línea,
+  auditado.
 
 ## Kilómetros e indicadores del levantamiento (R9, 2026-10-14)
 
@@ -3914,7 +3943,7 @@ identificador **`com.asistectire.app`**, rojo de la marca **como acento**.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 1044/1044, mobile 981 + recorrido 544.
+**Verificado:** `npm run verify` con base: raíz 1051/1051, mobile 987 + recorrido 564.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

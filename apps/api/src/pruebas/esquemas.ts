@@ -26,7 +26,7 @@ export const TABLAS = [
   "Marca", "Diseno", "DisenoMedida", "Servicio", "Consecutivo",
   "OrdenServicio", "OrdenEstadoHistorial", "LlantaRegistro", "LlantaServicio",
   "Foto", "OperacionAplicada", "Auditoria", "ProgramacionRecurrente", "Recomendacion",
-  "Llanta", "LlantaVida", "LlantaMovimiento", "StockMinimo",
+  "Llanta", "LlantaVida", "LlantaMovimiento", "StockMinimo", "Reclamo",
 ] as const;
 
 /**

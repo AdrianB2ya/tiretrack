@@ -692,6 +692,8 @@ model LlantaRegistro {
   desLlantaId  String?
   /// Costo de la llanta, capturado en el levantamiento (R9). Dinero: Decimal.
   costo        Decimal? @db.Decimal(14, 2)
+  /// Por qué salió la llanta desmontada (R10, dominio llanta/retiro).
+  desMotivoRetiro String?
 
   marcaId      String?
   disenoId     String?
@@ -1054,4 +1056,26 @@ model StockMinimo {
   cantidad  Int
 
   @@unique([empresaId, sedeId, medida])
+}
+
+/// Reclamo de garantía al proveedor por una llanta que falló (R10).
+model Reclamo {
+  id              String    @id
+  empresaId       String
+  llantaId        String
+  clienteId       String
+  /// Marca o distribuidor al que se reclama.
+  proveedor       String
+  motivoRetiro    String
+  /// abierto | enviado | aprobado | rechazado | cerrado (dominio llanta/retiro)
+  estado          String    @default("abierto")
+  fecha           DateTime  @db.Date
+  valorReconocido Decimal?  @db.Decimal(14, 2)
+  notas           String?
+  creadoPorId     String
+  creadoEn        DateTime  @default(now())
+  actualizadoEn   DateTime  @updatedAt
+
+  @@index([empresaId, estado])
+  @@index([empresaId, llantaId])
 }

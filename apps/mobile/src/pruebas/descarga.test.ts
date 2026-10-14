@@ -463,7 +463,7 @@ describe("mediciones descargadas", () => {
   it("la llanta desmontada llega con la medición: corregir la orden no la borra", async () => {
     const desmontada = {
       posicionOrigen: 3, marcaId: null, disenoId: null, medida: null, numCalor: null, serial: "VIEJA-3", dot: "1520",
-      profundidad: 2.5, profundidades: { exterior: 3, centro: 2.5, interior: 2.8 }, destino: "Reencauche", detalle: null,
+      profundidad: 2.5, profundidades: { exterior: 3, centro: 2.5, interior: 2.8 }, destino: "Reencauche", detalle: null, motivoRetiro: "desgaste_normal",
     };
     await descargador.descargar(servidorCon(unPaquete({
       mediciones: [{ ...completa, profundidades: { exterior: 9, centro: 8.5, interior: 8 }, desmontada }],

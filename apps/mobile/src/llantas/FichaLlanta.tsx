@@ -4,7 +4,10 @@ import {
   ETIQUETA_ESTADO_ACTIVO,
   ETIQUETA_MOVIMIENTO,
   MOVIMIENTOS_MANUALES,
+  MOTIVOS_FALLA,
+  ETIQUETA_MOTIVO_RETIRO,
   evaluarMovimiento,
+  type MotivoRetiro,
   type TipoMovimiento,
 } from "@tiretrack/domain";
 import { Aviso, Boton, Campo, CampoDecimal, Insignia, Opcion, Tarjeta, Vacio } from "../diseno/componentes";
@@ -47,6 +50,8 @@ export interface FuentesFicha {
   /** null si la persona no maneja el inventario (técnico, cliente). */
   mover: ((m: MovimientoPedido) => Promise<R<unknown>>) | null;
   sedes: { id: string; nombre: string }[];
+  /** R10: abrir un reclamo de garantía (oficina). */
+  abrirReclamo?: ((r: { proveedor: string; motivoRetiro: MotivoRetiro; notas?: string }) => Promise<R<unknown>>) | null;
 }
 
 const mm = (n: number | null) => (n === null ? "—" : `${String(n).replace(".", ",")} mm`);
@@ -136,6 +141,10 @@ export function FichaLlanta({ fuentes }: { fuentes: FuentesFicha }) {
         </Text>
       ))}
 
+      {fuentes.abrirReclamo && l.estado !== "montada" ? (
+        <AbrirReclamo marca={l.marca} onAbrir={fuentes.abrirReclamo} />
+      ) : null}
+
       {posibles.length > 0 && fuentes.mover ? (
         <Tarjeta>
           <Text style={estilos.subtitulo}>Mover</Text>
@@ -182,6 +191,52 @@ function Indicadores({ i }: { i: NonNullable<FichaVista["indicadores"]> }) {
       </Text>
       {i.profInicial === null ? <Text style={estilos.detalle}>Sin profundidad de fábrica de la medida: complétala en el catálogo para calcular el rendimiento.</Text> : null}
     </View>
+  );
+}
+
+/** R10: una llanta que falló se reclama al proveedor; el reclamo sigue en "Garantías". */
+function AbrirReclamo({ marca, onAbrir }: {
+  marca: string | null;
+  onAbrir: NonNullable<FuentesFicha["abrirReclamo"]>;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const [proveedor, setProveedor] = useState(marca ?? "");
+  const [motivo, setMotivo] = useState<MotivoRetiro | null>(null);
+  const [notas, setNotas] = useState("");
+  const [mensaje, setMensaje] = useState<{ ok: boolean; texto: string } | null>(null);
+  if (!abierto) {
+    return (
+      <Boton tipo="fantasma" testID="abrir-reclamo" onPress={() => setAbierto(true)}>
+        Abrir reclamo de garantía
+      </Boton>
+    );
+  }
+  return (
+    <Tarjeta>
+      <Text style={estilos.subtitulo}>Reclamo de garantía</Text>
+      <Campo etiqueta="Proveedor o marca" value={proveedor} onChangeText={setProveedor} testID="reclamo-proveedor" />
+      <Text style={estilos.etiqueta}>Por qué falló</Text>
+      <View style={estilos.fila}>
+        {MOTIVOS_FALLA.map((m) => (
+          <Opcion key={m} etiqueta={ETIQUETA_MOTIVO_RETIRO[m]} activa={motivo === m} onPress={() => setMotivo(m)} testID={`reclamo-motivo-${m}`} />
+        ))}
+      </View>
+      <Campo etiqueta="Notas (opcional)" value={notas} onChangeText={setNotas} testID="reclamo-notas" />
+      {mensaje ? <Aviso tono={mensaje.ok ? "exito" : "advertencia"} titulo={mensaje.texto} /> : null}
+      <Boton
+        testID="crear-reclamo"
+        deshabilitado={!proveedor.trim() || !motivo}
+        onPress={() =>
+          void (async () => {
+            if (!motivo) return;
+            const r = await onAbrir({ proveedor: proveedor.trim(), motivoRetiro: motivo, ...(notas.trim() ? { notas: notas.trim() } : {}) });
+            setMensaje(r.ok ? { ok: true, texto: "Reclamo abierto: síguelo en Garantías." } : { ok: false, texto: r.status === 0 ? "Sin señal: se abre en línea." : r.mensaje });
+          })()
+        }
+      >
+        Abrir el reclamo
+      </Boton>
+    </Tarjeta>
   );
 }
 

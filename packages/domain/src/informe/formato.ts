@@ -1,4 +1,5 @@
 import { CODIGOS_SERVICIO_LLANTA, definicionDeServicio } from "../tipos";
+import { ETIQUETA_MOTIVO_RETIRO, type MotivoRetiro } from "../llanta/retiro";
 import { diferenciaDeLados, diferenciaPresion, recomendacionPorLados } from "../llanta/hallazgos";
 import { leerDOT } from "../llanta/dot";
 
@@ -88,6 +89,8 @@ export interface FilaCruda {
   readonly desMarca: string | null;
   readonly desDiseno: string | null;
   readonly desDestino: string | null;
+  /** R10: código del motivo de retiro. */
+  readonly desMotivoRetiro?: string | null;
   readonly desDetalle: string | null;
 }
 
@@ -109,7 +112,7 @@ export const BLOQUES = {
   desmontada: [
     "POS", "CALOR", "SERIAL", "DOT", "DIMENSION",
     "PROF EXT", "PROF CENTRO", "PROF INT", "PROF MÍN",
-    "MARCA", "DISEÑO", "DESTINO", "DETALLE",
+    "MARCA", "DISEÑO", "DESTINO", "MOTIVO RETIRO", "DETALLE",
   ],
 } as const;
 
@@ -196,6 +199,7 @@ export function aCeldas(f: FilaCruda): string[] {
     texto(f.desMarca),
     texto(f.desDiseno),
     texto(f.desDestino),
+    f.desMotivoRetiro ? (ETIQUETA_MOTIVO_RETIRO[f.desMotivoRetiro as MotivoRetiro] ?? f.desMotivoRetiro) : "",
     texto(f.desDetalle),
   ];
 }

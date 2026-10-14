@@ -16,6 +16,9 @@ import {
   zMovimientoLlanta,
   zFiltroLlantas,
   zStockMinimo,
+  zCrearReclamo,
+  zCambioReclamo,
+  zFiltroCausas,
   zCrearMarca,
   zCrearOrden,
   zActivarCuenta,
@@ -54,6 +57,7 @@ import type { Claims, ResultadoActivacion, ResultadoLogin } from "../acceso/serv
 import { ServicioUsuarios } from "../usuarios/servicio";
 import { ServicioEmpresa } from "../empresa/servicio";
 import { ServicioLlantas } from "../llantas/servicio";
+import { ServicioReclamos } from "../llantas/reclamos";
 import { ServicioProgramaciones } from "../programaciones/servicio";
 import { ServicioRecomendaciones } from "../recomendaciones/servicio";
 import { ServicioDocumento } from "../informe/documento";
@@ -333,6 +337,7 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
       usuarios: new ServicioUsuarios(db),
       empresa: new ServicioEmpresa(db),
       llantas: new ServicioLlantas(db, reloj),
+      reclamos: new ServicioReclamos(db, reloj),
       programaciones: new ServicioProgramaciones(db),
       recomendaciones: new ServicioRecomendaciones(db),
       // Solo lectura de alertas: no abre transacciones propias.
@@ -828,6 +833,39 @@ export function construirServidor(op: OpcionesServidor): FastifyInstance {
       if (!p.success) return datosInvalidos(p.error.issues);
       const r = await s.llantas.fijarStockMinimo(ctx, p.data);
       return r.ok ? { status: 200, cuerpo: {} } : rechazo(r.veredicto);
+    }));
+
+    // ── Retiro y garantías (R10) ──
+
+    app.get("/informe/causas-retiro", consulta(async (s, ctx, req) => {
+      const p = zFiltroCausas.safeParse(req.query ?? {});
+      if (!p.success) return datosInvalidos(p.error.issues);
+      return { status: 200, cuerpo: await s.reclamos.causas(ctx, p.data) };
+    }));
+
+    app.get("/reclamos", consulta(async (s, _ctx, req) => {
+      const estado = (req.query as Record<string, string> | undefined)?.["estado"];
+      return { status: 200, cuerpo: await s.reclamos.listar(estado) };
+    }));
+
+    app.post("/reclamos", administracion(async (s, ctx, req) => {
+      const p = zCrearReclamo.safeParse(req.body ?? {});
+      if (!p.success) return datosInvalidos(p.error.issues);
+      const r = await s.reclamos.crear(ctx, p.data);
+      if (!r.ok) return rechazo(r.veredicto);
+      await s.informe.registrarAuditoria(ctx, "crear", { entidad: "reclamo", id: p.data.id, llantaId: p.data.llantaId });
+      return { status: 201, cuerpo: r.valor };
+    }));
+
+    app.post("/reclamos/:id/estado", administracion(async (s, ctx, req) => {
+      const id = zId.safeParse(params(req).id);
+      if (!id.success) return { status: 404, cuerpo: { error: { codigo: "NO_EXISTE", mensaje: "No existe" } } };
+      const p = zCambioReclamo.safeParse(req.body ?? {});
+      if (!p.success) return datosInvalidos(p.error.issues);
+      const r = await s.reclamos.cambiarEstado(ctx, id.data, p.data);
+      if (!r.ok) return rechazo(r.veredicto);
+      await s.informe.registrarAuditoria(ctx, "actualizar", { entidad: "reclamo", id: id.data, estado: p.data.estado });
+      return { status: 200, cuerpo: r.valor };
     }));
 
     // ── Límites de cambio de la empresa (R2) ──

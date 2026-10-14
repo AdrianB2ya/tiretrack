@@ -53,6 +53,7 @@ const TABLAS_OPERATIVAS = [
   "LlantaVida",
   "LlantaMovimiento",
   "StockMinimo",
+  "Reclamo",
 ];
 
 /** Tablas que cuelgan de otra y heredan el aislamiento por su padre. */

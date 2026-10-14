@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ESTADOS_ACTIVO, MOVIMIENTOS_MANUALES } from "@tiretrack/domain";
+import { ESTADOS_ACTIVO, ESTADOS_RECLAMO, MOTIVOS_RETIRO, MOVIMIENTOS_MANUALES } from "@tiretrack/domain";
 import { zFechaISO, zId, zProfundidad, zTextoCorto } from "./comunes";
 
 /**
@@ -62,4 +62,26 @@ export const zStockMinimo = z.object({
   sedeId: zId,
   medida: zTextoCorto,
   cantidad: z.number().int().min(0).max(100_000),
+});
+
+// ── Retiro y garantías (R10) ────────────────────────────────────────────────
+
+export const zCrearReclamo = z.object({
+  id: zId,
+  llantaId: zId,
+  proveedor: zTextoCorto,
+  motivoRetiro: z.enum(MOTIVOS_RETIRO),
+  notas: z.string().trim().max(1000).optional(),
+});
+
+export const zCambioReclamo = z.object({
+  estado: z.enum(ESTADOS_RECLAMO),
+  valorReconocido: zDinero.optional(),
+  nota: z.string().trim().max(1000).optional(),
+});
+
+export const zFiltroCausas = z.object({
+  desde: zFechaISO.optional(),
+  hasta: zFechaISO.optional(),
+  clienteId: zId.optional(),
 });

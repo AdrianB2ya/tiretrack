@@ -1,7 +1,14 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { Aviso, Boton, Campo, CampoDecimal, Insignia, Opcion as OpcionElegible } from "../diseno/componentes";
-import { DESTINOS_LLANTA, ETIQUETA_PUNTO_PROFUNDIDAD, PUNTOS_PROFUNDIDAD } from "@tiretrack/domain";
+import {
+  DESTINOS_LLANTA,
+  ETIQUETA_MOTIVO_RETIRO,
+  ETIQUETA_PUNTO_PROFUNDIDAD,
+  MOTIVOS_RETIRO,
+  PUNTOS_PROFUNDIDAD,
+  esFalla,
+} from "@tiretrack/domain";
 import { colores, conOpacidad, espacio, radio, tactil, texto, tiposEje } from "../diseno/tokens";
 import type { Casilla } from "./diagrama";
 import {
@@ -501,6 +508,23 @@ function BloqueDesmontada({ d, avisos, traida, onCambiar }: {
         desmontada
         ayuda={avisoProps(avisos, "desProfundidad").ayuda ?? ""}
       />
+      {/* R10: por qué sale. Es lo que dice qué marca rinde y cuál falla. */}
+      <Text style={estilos.etiquetaGrupo}>Por qué sale</Text>
+      <View style={estilos.chips}>
+        {MOTIVOS_RETIRO.map((m) => (
+          <OpcionElegible
+            key={m}
+            etiqueta={ETIQUETA_MOTIVO_RETIRO[m]}
+            activa={d.motivoRetiro === m}
+            onPress={() => poner("motivoRetiro", d.motivoRetiro === m ? null : m)}
+          />
+        ))}
+      </View>
+      {esFalla(d.motivoRetiro) ? (
+        <Text style={estilos.ayudaSwitch} testID="falla-pide-foto">
+          Es una falla: toma una foto de la llanta que sale antes de enviar la orden. Sin ella no se puede enviar.
+        </Text>
+      ) : null}
       <Text style={estilos.etiquetaGrupo}>A dónde va</Text>
       <View style={estilos.chips}>
         {DESTINOS_LLANTA.map((destino) => (

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { nuevoId } from "@tiretrack/domain";
 import { useLocalSearchParams } from "expo-router";
 import { FichaLlanta, type FichaVista, type FuentesFicha } from "../../../src/llantas/FichaLlanta";
 import { useServicios } from "../../../src/app/Arranque";
@@ -21,6 +22,9 @@ export default function RutaFichaLlanta() {
       cargar: () => enLinea<FichaVista>("GET", `/llantas/${id ?? ""}`),
       mover: puedeGestionarCatalogo(usuario.rol) ? (m) => enLinea("POST", `/llantas/${id ?? ""}/movimientos`, m) : null,
       sedes,
+      abrirReclamo: puedeGestionarCatalogo(usuario.rol)
+        ? (r) => enLinea("POST", "/reclamos", { id: nuevoId(), llantaId: id ?? "", ...r })
+        : null,
     }),
     [enLinea, id, usuario.rol, sedes],
   );

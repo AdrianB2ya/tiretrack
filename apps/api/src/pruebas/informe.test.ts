@@ -91,7 +91,7 @@ describe.skipIf(!disponible)("informe", () => {
         "desMarcaId" text, "desDisenoId" text, "desDestino" text, "desDetalle" text,
         "profExterior" numeric(5,2), "profCentro" numeric(5,2), "profInterior" numeric(5,2),
         "desProfExterior" numeric(5,2), "desProfCentro" numeric(5,2), "desProfInterior" numeric(5,2),
-        "llantaId" text, costo numeric(14,2)
+        "llantaId" text, costo numeric(14,2), "desMotivoRetiro" text
       );
 
       CREATE TABLE "LlantaServicio" (

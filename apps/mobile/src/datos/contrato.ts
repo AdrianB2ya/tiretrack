@@ -51,6 +51,8 @@ export interface Desmontada {
   readonly profundidades?: TresProfundidades | null;
   readonly destino: string | null;
   readonly detalle: string | null;
+  /** R10: código del motivo de retiro. */
+  readonly motivoRetiro?: string | null;
 }
 
 /** Solo las medidas tomadas: el contrato no admite `null`. Null si no hay ninguna. */

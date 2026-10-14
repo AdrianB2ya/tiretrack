@@ -170,7 +170,7 @@ export interface MedicionDescargada {
 /** Columnas de la llanta desmontada, en el orden de `valoresDesmontada`. */
 const COLUMNAS_DESMONTADA =
   "des_posicion, des_marca_id, des_diseno_id, des_medida, des_num_calor, des_serial, des_dot, des_profundidad, des_destino, des_detalle, " +
-  "des_prof_exterior, des_prof_centro, des_prof_interior";
+  "des_prof_exterior, des_prof_centro, des_prof_interior, des_motivo_retiro";
 
 /** Columnas de las tres medidas de la llanta montada, en el orden de `valoresTres`. */
 const COLUMNAS_TRES = "prof_exterior, prof_centro, prof_interior";
@@ -187,8 +187,9 @@ function profundidadDe(unica: number | null | undefined, tres: TresProfundidades
 function valoresDesmontada(d: Desmontada | null): (string | number | null)[] {
   return d
     ? [d.posicionOrigen, d.marcaId, d.disenoId, d.medida, d.numCalor, d.serial, d.dot,
-        profundidadDe(d.profundidad, d.profundidades), d.destino, d.detalle, ...valoresTres(d.profundidades)]
-    : [null, null, null, null, null, null, null, null, null, null, null, null, null];
+        profundidadDe(d.profundidad, d.profundidades), d.destino, d.detalle, ...valoresTres(d.profundidades),
+        d.motivoRetiro ?? null]
+    : [null, null, null, null, null, null, null, null, null, null, null, null, null, null];
 }
 
 const numeroONulo = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
@@ -218,6 +219,7 @@ function aDesmontada(f: Record<string, unknown>): Desmontada | null {
     profundidad: v("des_profundidad") === null ? null : Number(v("des_profundidad")),
     destino: v("des_destino") as string | null,
     detalle: v("des_detalle") as string | null,
+    motivoRetiro: v("des_motivo_retiro") as string | null,
   };
   const profundidades = tresDe(f, "des_");
   // El objeto de las tres nunca es null: se mira lo que trae.

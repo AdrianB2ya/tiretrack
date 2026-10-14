@@ -1,3 +1,4 @@
+import { ETIQUETA_MOTIVO_RETIRO, type MotivoRetiro } from "../llanta/retiro";
 import { diferenciaDeLados, UMBRAL_DIFERENCIA_LADOS } from "../llanta/hallazgos";
 import { describirProfundidades, type TresProfundidades } from "../llanta/profundidades";
 import { textoVencimientoDOT } from "../llanta/dot";
@@ -38,6 +39,8 @@ export interface PosicionDocumento {
   readonly servicios: readonly string[];
   readonly desmontada: {
     serial: string | null; profundidad: number | null; profundidades?: TresProfundidades | null; destino: string | null;
+    /** R10: por qué salió. */
+    motivoRetiro?: string | null;
   } | null;
 }
 
@@ -142,7 +145,15 @@ export function armarDocumentoOrden(d: DatosDocumentoOrden): Documento {
       p.psiEncontrada === null && p.psiCalibrado === null ? "" : `${num(p.psiEncontrada) || "—"} / ${num(p.psiCalibrado) || "—"}`,
       p.servicios.map((c) => NOMBRE_SERVICIO.get(c) ?? c).join(", "),
       p.desmontada
-        ? [p.desmontada.serial, celdaProfundidad(p.desmontada.profundidad, p.desmontada.profundidades).replace("\n", " "), p.desmontada.destino]
+        ? [
+            p.desmontada.serial,
+            celdaProfundidad(p.desmontada.profundidad, p.desmontada.profundidades).replace("\n", " "),
+            // R10: por qué salió, con su nombre.
+            p.desmontada.motivoRetiro
+              ? (ETIQUETA_MOTIVO_RETIRO[p.desmontada.motivoRetiro as MotivoRetiro] ?? p.desmontada.motivoRetiro)
+              : null,
+            p.desmontada.destino,
+          ]
             .filter(Boolean).join(" · ")
         : "",
     ]),

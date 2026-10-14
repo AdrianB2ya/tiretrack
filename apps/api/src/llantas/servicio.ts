@@ -1,6 +1,8 @@
 import {
   claveIdentificador,
   estadoTrasDesmontaje,
+  ETIQUETA_MOTIVO_RETIRO,
+  type MotivoRetiro,
   evaluarMovimiento,
   fechaEnColombia,
   nuevoId,
@@ -298,7 +300,7 @@ export class ServicioLlantas {
 
     const filas = (await this.db.query<Record<string, unknown>>(
       `SELECT id, posicion, serial, "numCalor", dot, "marcaId", "disenoId", medida, "noIdentificada", costo,
-              "desSerial", "desNumCalor", "desDot", "desMarcaId", "desDisenoId", "desMedida", "desDestino"
+              "desSerial", "desNumCalor", "desDot", "desMarcaId", "desDisenoId", "desMedida", "desDestino", "desMotivoRetiro"
          FROM "LlantaRegistro" WHERE "ordenId" = $1 ORDER BY posicion`,
       [ordenId],
     )).rows;
@@ -316,7 +318,10 @@ export class ServicioLlantas {
         `UPDATE "Llanta" SET estado = $2, "vehiculoId" = NULL, posicion = NULL WHERE id = $1`,
         [id, destino],
       );
-      await this.movimiento(ctx, id, "desmontaje", { ...lugar, posicion: Number(f["posicion"]), detalle: (f["desDestino"] as string) ?? null });
+      // R10: en la historia, por qué salió y a dónde fue.
+      const motivo = f["desMotivoRetiro"] ? (ETIQUETA_MOTIVO_RETIRO[f["desMotivoRetiro"] as MotivoRetiro] ?? String(f["desMotivoRetiro"])) : null;
+      const detalle = [motivo, f["desDestino"] as string | null].filter(Boolean).join(" · ") || null;
+      await this.movimiento(ctx, id, "desmontaje", { ...lugar, posicion: Number(f["posicion"]), detalle });
       await this.db.query(`UPDATE "LlantaRegistro" SET "desLlantaId" = $2 WHERE id = $1`, [f["id"], id]);
       resumen.desmontadas++;
     }

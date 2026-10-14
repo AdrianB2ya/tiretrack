@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PRIORIDADES_RECOMENDACION } from "@tiretrack/domain";
+import { PRIORIDADES_RECOMENDACION, MOTIVOS_RETIRO } from "@tiretrack/domain";
 import {
   zClientRequestId,
   zDestinoLlanta,
@@ -66,6 +66,8 @@ export const zLlantaDesmontada = z.object({
   profundidades: zTresProfundidades.optional(),
   destino: zDestinoLlanta.optional(),
   detalle: zTextoLargo.optional(),
+  /** Por qué salió (R10). Del dominio: lo que viaja es el código. */
+  motivoRetiro: z.enum(MOTIVOS_RETIRO).optional(),
 });
 export type LlantaDesmontada = z.infer<typeof zLlantaDesmontada>;
 

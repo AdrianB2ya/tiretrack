@@ -76,7 +76,7 @@ describe("en el teléfono", () => {
     await repo.guardarOrden({ id: "ord-1", sedeId: "s", clienteId: "c", sedeClienteId: "sc", vehiculoId: "v", tecnicoId: "u", configuracionEjeId: "cfg", tipo: "preventivo", estado: "en_proceso", fecha: "2026-10-06", encolar: false });
     const desmontada = {
       posicionOrigen: 3, marcaId: null, disenoId: null, medida: null, numCalor: null, serial: "VIEJA-3", dot: "1520",
-      profundidad: null, profundidades: { exterior: 3, centro: 2.5, interior: null }, destino: "Desecho", detalle: "Corte",
+      profundidad: null, profundidades: { exterior: 3, centro: 2.5, interior: null }, destino: "Desecho", detalle: "Corte", motivoRetiro: "corte",
     };
     await repo.guardarMedicion({ ordenId: "ord-1", posicion: 3, serial: "NUEVA", capturadoPorId: "u", desmontada });
     // La profundidad de la desmontada es la mínima de sus medidas.

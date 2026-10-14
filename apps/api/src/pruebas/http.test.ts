@@ -1067,6 +1067,45 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
     });
   });
 
+  describe("retiro y garantías (R10)", () => {
+    const traer = (ruta: string, token = "tok-coordinador") =>
+      app.inject({ method: "GET", url: PREFIJO_API + ruta, headers: { authorization: `Bearer ${token}` } });
+
+    it("el motivo de retiro se guarda y alimenta las causas de retiro", async () => {
+      const g = await guardarMedicion(medicion(2, { serial: "MX-NUEVA", desmontada: { serial: "MX-VIEJA", motivoRetiro: "corte", destino: "Desecho" } }));
+      expect(g.statusCode, g.body).toBeLessThan(300);
+      const fila = await pool.query(`SELECT "desMotivoRetiro" FROM "LlantaRegistro" WHERE "ordenId" = $1`, [ORDEN]);
+      expect(fila.rows[0].desMotivoRetiro).toBe("corte");
+      const causas = (await traer("/informe/causas-retiro")).json();
+      expect(causas.total).toBe(1);
+      expect(causas.porMotivo).toEqual([{ motivo: "corte", cantidad: 1 }]);
+      expect(causas.porPosicion).toEqual([{ grupo: "2", motivo: "corte", cantidad: 1 }]);
+    });
+
+    it("un motivo inventado no pasa el contrato", async () => {
+      const g = await guardarMedicion(medicion(2, { desmontada: { serial: "X", motivoRetiro: "mala suerte" } }));
+      expect(g.statusCode).toBe(422);
+    });
+
+    it("el reclamo de garantía sigue su curso; aprobar exige el valor reconocido", async () => {
+      const llanta = nuevoId();
+      await pedir({ ruta: "/llantas", token: "tok-coordinador", clave: null, cuerpo: { id: llanta, clienteId: SEMILLA.cliente, sedeId: SEMILLA.sede, numeroInterno: "A-9" } });
+      const id = nuevoId();
+      const crear = await pedir({ ruta: "/reclamos", token: "tok-coordinador", clave: null, cuerpo: { id, llantaId: llanta, proveedor: "Michelin", motivoRetiro: "separacion", notas: "Separación de banda a 40.000 km" } });
+      expect(crear.statusCode).toBe(201);
+      const otra = await pedir({ ruta: "/reclamos", token: "tok-coordinador", clave: null, cuerpo: { id: nuevoId(), llantaId: llanta, proveedor: "Michelin", motivoRetiro: "separacion" } });
+      expect(otra.statusCode).toBe(409);
+      const estado = (cuerpo: unknown) => pedir({ ruta: `/reclamos/${id}/estado`, token: "tok-coordinador", clave: null, cuerpo });
+      expect((await estado({ estado: "aprobado" })).statusCode).toBe(409);
+      expect((await estado({ estado: "enviado", nota: "Enviado al distribuidor" })).statusCode).toBe(200);
+      expect((await estado({ estado: "aprobado" })).statusCode).toBe(422);
+      expect((await estado({ estado: "aprobado", valorReconocido: 600000 })).statusCode).toBe(200);
+      const lista = (await traer("/reclamos")).json();
+      expect(lista[0]).toMatchObject({ estado: "aprobado", valorReconocido: 600000, llanta: "A-9" });
+      expect(lista[0].notas).toContain("Enviado al distribuidor");
+    });
+  });
+
   describe("bloqueo de la orden (R7)", () => {
     const bloquear = (token: string) => pedir({ ruta: `/ordenes/${ORDEN}/bloqueo`, token, clave: null });
     const liberar = (token: string, motivo?: string) =>

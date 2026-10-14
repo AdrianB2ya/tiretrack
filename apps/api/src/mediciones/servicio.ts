@@ -171,9 +171,9 @@ export class RepositorioMedicionesPg implements RepositorioMediciones {
          "desPosicionOrigen", "desMarcaId", "desDisenoId", "desMedida", "desNumCalor",
          "desSerial", "desDot", "desProfundidad", "desDestino", "desDetalle",
          "profExterior", "profCentro", "profInterior",
-         "desProfExterior", "desProfCentro", "desProfInterior", costo)
+         "desProfExterior", "desProfCentro", "desProfInterior", costo, "desMotivoRetiro")
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$19,
-               $20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36)
+               $20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37)
        ON CONFLICT (id) DO UPDATE SET
          "marcaId" = EXCLUDED."marcaId", "disenoId" = EXCLUDED."disenoId",
          medida = EXCLUDED.medida, "numCalor" = EXCLUDED."numCalor",
@@ -192,7 +192,7 @@ export class RepositorioMedicionesPg implements RepositorioMediciones {
          "profInterior" = EXCLUDED."profInterior",
          "desProfExterior" = EXCLUDED."desProfExterior", "desProfCentro" = EXCLUDED."desProfCentro",
          "desProfInterior" = EXCLUDED."desProfInterior",
-         costo = EXCLUDED.costo,
+         costo = EXCLUDED.costo, "desMotivoRetiro" = EXCLUDED."desMotivoRetiro",
          "actualizadoEn" = EXCLUDED."actualizadoEn",
          version = "LlantaRegistro".version + 1`,
       [
@@ -214,6 +214,7 @@ export class RepositorioMedicionesPg implements RepositorioMediciones {
         des?.profundidades?.exterior ?? null, des?.profundidades?.centro ?? null, des?.profundidades?.interior ?? null,
         // R9: el costo de la llanta, que se captura en el levantamiento.
         d.costo ?? null,
+        d.desmontada?.motivoRetiro ?? null,
       ],
     );
   }

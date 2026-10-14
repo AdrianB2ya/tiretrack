@@ -221,7 +221,7 @@ export class ServicioInforme {
          lr."desPosicionOrigen" AS "desPosicion", lr."desNumCalor", lr."desSerial", lr."desDot",
          lr."desMedida", lr."desProfundidad",
          coalesce(dmc.nombre, dm.nombre) AS "desMarca", coalesce(ddc.nombre, dd.nombre) AS "desDiseno",
-         lr."desDestino", lr."desDetalle"
+         lr."desDestino", lr."desDetalle", lr."desMotivoRetiro"
        FROM "OrdenServicio" o
        JOIN "LlantaRegistro" lr ON lr."ordenId" = o.id
        LEFT JOIN "Vehiculo" v ON v.id = o."vehiculoId"

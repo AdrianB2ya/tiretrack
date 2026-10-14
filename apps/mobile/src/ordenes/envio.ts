@@ -16,6 +16,8 @@ export interface EstadoEnvio {
   readonly diagrama: Diagrama;
   readonly fotosSinSubir: number;
   readonly operacionesPendientes: number;
+  /** R10: posiciones cuya llanta salió por una falla y no tienen foto. */
+  readonly retirosSinFoto?: readonly number[];
 }
 
 export type ClaseBloqueo = "impide" | "advierte";
@@ -77,6 +79,19 @@ export function revisarEnvio(e: EstadoEnvio): PuntoRevision[] {
       ? { comoResolver: "Vuelve a capturar la firma antes de enviar" }
       : {}),
   });
+
+  // R10: sin evidencia de la falla no hay análisis de causa ni reclamo. La
+  // foto se toma frente a la llanta: después ya no se puede.
+  const sinFoto = e.retirosSinFoto ?? [];
+  if (sinFoto.length > 0) {
+    puntos.push({
+      clave: "fallas_sin_foto",
+      cumplido: false,
+      clase: "impide",
+      texto: `Llanta retirada por falla sin foto: posición ${sinFoto.join(", ")}`,
+      comoResolver: "Abre la posición y toma la foto de la llanta que sale",
+    });
+  }
 
   // ── Advierten ──
   if (diagrama.faltantes.length > 0) {

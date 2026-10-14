@@ -226,3 +226,11 @@ ALTER TABLE "Llanta" ADD CONSTRAINT llanta_identificable
 ALTER TABLE "StockMinimo" ADD CONSTRAINT stock_minimo_no_negativo CHECK (cantidad >= 0);
 -- Una posición de un vehículo tiene a lo sumo una llanta montada.
 CREATE UNIQUE INDEX llanta_una_por_posicion ON "Llanta"("vehiculoId", posicion) WHERE estado = 'montada';
+
+-- ── Reclamos de garantía (R10) ──────────────────────────────────────────────
+ALTER TABLE "Reclamo" ADD CONSTRAINT "Reclamo_llanta_empresa_fkey"
+  FOREIGN KEY ("llantaId", "empresaId") REFERENCES "Llanta"("id", "empresaId");
+ALTER TABLE "Reclamo" ADD CONSTRAINT "Reclamo_cliente_empresa_fkey"
+  FOREIGN KEY ("clienteId", "empresaId") REFERENCES "Cliente"("id", "empresaId");
+ALTER TABLE "Reclamo" ADD CONSTRAINT reclamo_estado_valido
+  CHECK (estado IN ('abierto','enviado','aprobado','rechazado','cerrado'));

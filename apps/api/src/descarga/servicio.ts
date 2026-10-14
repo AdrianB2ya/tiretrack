@@ -163,6 +163,8 @@ export interface MedicionDescargada {
     numCalor: string | null; serial: string | null; dot: string | null; profundidad: number | null;
     profundidades: TresMedidas;
     destino: string | null; detalle: string | null;
+    /** R10. */
+    motivoRetiro?: string | null;
   } | null;
 }
 
@@ -182,6 +184,7 @@ function desmontadaDe(
     posicionOrigen: num(f["desPosicionOrigen"]), marcaId: txt(f["desMarcaId"]), disenoId: txt(f["desDisenoId"]),
     medida: txt(f["desMedida"]), numCalor: txt(f["desNumCalor"]), serial: txt(f["desSerial"]), dot: txt(f["desDot"]),
     profundidad: num(f["desProfundidad"]), destino: txt(f["desDestino"]), detalle: txt(f["desDetalle"]),
+    motivoRetiro: txt(f["desMotivoRetiro"]),
   };
   const profundidades = {
     exterior: num(f["desProfExterior"]), centro: num(f["desProfCentro"]), interior: num(f["desProfInterior"]),
@@ -343,7 +346,7 @@ export class ServicioDescarga {
               lr.serial, lr.dot, lr."estadoLlanta", lr."psiEncontrada", lr."psiCalibrado", lr.profundidad,
               lr.observaciones, lr.costo, lr."noIdentificada", lr."motivoNoIdentificada", lr."capturadoPorId",
               lr."desPosicionOrigen", lr."desMarcaId", lr."desDisenoId", lr."desMedida", lr."desNumCalor",
-              lr."desSerial", lr."desDot", lr."desProfundidad", lr."desDestino", lr."desDetalle",
+              lr."desSerial", lr."desDot", lr."desProfundidad", lr."desDestino", lr."desDetalle", lr."desMotivoRetiro",
               lr."profExterior", lr."profCentro", lr."profInterior",
               lr."desProfExterior", lr."desProfCentro", lr."desProfInterior",
               coalesce((SELECT array_agg(s.codigo ORDER BY s.codigo)

@@ -503,6 +503,14 @@ export const MIGRACIONES: readonly Migracion[] = [
       ALTER TABLE medicion ADD COLUMN costo REAL;
     `,
   },
+  {
+    version: 18,
+    nombre: "motivo de retiro",
+    sql: `
+      -- R10: por qué salió la llanta desmontada (código del dominio).
+      ALTER TABLE medicion ADD COLUMN des_motivo_retiro TEXT;
+    `,
+  },
 ];
 
 export const VERSION_ESQUEMA = MIGRACIONES[MIGRACIONES.length - 1]?.version ?? 0;

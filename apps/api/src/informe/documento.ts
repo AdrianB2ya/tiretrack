@@ -81,7 +81,7 @@ export class ServicioDocumento {
     const pos = await this.db.query<Record<string, unknown>>(
       `SELECT lr.posicion, m.nombre AS marca, d.nombre AS diseno, lr.medida, lr.serial, lr.dot, lr.profundidad,
               lr."psiEncontrada", lr."psiCalibrado", lr."noIdentificada",
-              lr."desSerial", lr."desProfundidad", lr."desDestino",
+              lr."desSerial", lr."desProfundidad", lr."desDestino", lr."desMotivoRetiro",
               lr."profExterior", lr."profCentro", lr."profInterior",
               lr."desProfExterior", lr."desProfCentro", lr."desProfInterior",
               coalesce((SELECT array_agg(s.codigo ORDER BY s.codigo) FROM "LlantaServicio" ls
@@ -118,6 +118,7 @@ export class ServicioDocumento {
         desmontada: p["desSerial"] || p["desProfundidad"] !== null || p["desDestino"]
           ? {
               serial: t(p["desSerial"]), profundidad: n(p["desProfundidad"]), destino: t(p["desDestino"]),
+              motivoRetiro: t(p["desMotivoRetiro"]),
               profundidades: { exterior: n(p["desProfExterior"]), centro: n(p["desProfCentro"]), interior: n(p["desProfInterior"]) },
             }
           : null,

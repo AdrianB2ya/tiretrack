@@ -77,6 +77,8 @@ export interface DesmontadaBorrador {
   profundidades: TresMedidas;
   destino: string | null;
   detalle: string | null;
+  /** R10: por qué sale (código del dominio). */
+  motivoRetiro: string | null;
   /** Fecha de la orden de donde se trajo la identidad, para decirlo en pantalla. */
   traidaDe: string | null;
 }
@@ -99,6 +101,8 @@ export function desmontadaDesde(anterior: MedicionLocal | null, posicion: number
     profundidades: sinMedidas(),
     destino: null,
     detalle: null,
+    // El motivo es de ESTE retiro: no se copia de la orden anterior.
+    motivoRetiro: null,
     traidaDe: anterior ? fechaAnterior : null,
   };
 }
@@ -185,7 +189,7 @@ export function borradorDesde(m: MedicionLocal): BorradorMedicion {
     motivoNoId: m.motivoNoId as BorradorMedicion["motivoNoId"],
     servicios: [...m.servicios],
     desmontada: m.desmontada
-      ? { ...m.desmontada, profundidades: { ...sinMedidas(), ...(m.desmontada.profundidades ?? {}) }, traidaDe: null }
+      ? { ...m.desmontada, profundidades: { ...sinMedidas(), ...(m.desmontada.profundidades ?? {}) }, traidaDe: null, motivoRetiro: m.desmontada.motivoRetiro ?? null }
       : null,
   };
 }

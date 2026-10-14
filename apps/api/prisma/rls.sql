@@ -157,7 +157,9 @@ BEGIN
     -- empresa leía las suplantaciones de las demás, con motivo y ticket.
     'SesionSuplantacion',
     -- La llanta como activo (R8).
-    'Llanta', 'LlantaVida', 'LlantaMovimiento', 'StockMinimo'
+    'Llanta', 'LlantaVida', 'LlantaMovimiento', 'StockMinimo',
+    -- Garantías (R10).
+    'Reclamo'
   ]
   LOOP
     -- Se salta lo que no exista. Sin esto el bucle es atómico: una sola
@@ -347,6 +349,11 @@ CREATE POLICY cliente_solo_lo_suyo ON "Cliente"
 -- R8: el cliente ve sus llantas, no las de otra flota.
 DROP POLICY IF EXISTS cliente_solo_lo_suyo ON "Llanta";
 CREATE POLICY cliente_solo_lo_suyo ON "Llanta"
+  AS RESTRICTIVE
+  USING (app_rol() <> 'cliente' OR "clienteId" = app_cliente_id());
+
+DROP POLICY IF EXISTS cliente_solo_lo_suyo ON "Reclamo";
+CREATE POLICY cliente_solo_lo_suyo ON "Reclamo"
   AS RESTRICTIVE
   USING (app_rol() <> 'cliente' OR "clienteId" = app_cliente_id());
 

@@ -88,6 +88,12 @@ export function opcionesMas(rol: Rol | string): OpcionMas[] {
   if (r !== "superadmin") {
     o.push({ clave: "llantas", etiqueta: "Llantas", detalle: "Cada llanta: dónde está, sus vidas y su historia", ruta: "/llantas" });
   }
+  if (r !== "superadmin" && r !== "tecnico") {
+    o.push({ clave: "causas-retiro", etiqueta: "Causas de retiro", detalle: "Por qué salen las llantas: por motivo, marca, posición y vehículo", ruta: "/causas-retiro" });
+  }
+  if (puedeGestionarCatalogo(r)) {
+    o.push({ clave: "reclamos", etiqueta: "Garantías y reclamos", detalle: "Reclamos al proveedor por llantas que fallaron", ruta: "/reclamos" });
+  }
   if (puedeGestionarCatalogo(r)) {
     o.push({ clave: "stock", etiqueta: "Stock de bodega", detalle: "Llantas en bodega por sede y medida, contra el mínimo", ruta: "/stock" });
   }
