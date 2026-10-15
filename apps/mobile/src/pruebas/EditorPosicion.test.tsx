@@ -112,6 +112,8 @@ describe("selección en cascada", () => {
   it("cambiar de marca limpia diseño y medida", () => {
     // Un diseño de otra marca sería un dato imposible.
     const { onCambiar } = montar({ marcaId: "mar-1", disenoId: "dis-1", medida: "295/80R22.5" });
+    // Elegida, la marca se ve cerrada en una línea: se abre para cambiarla.
+    fireEvent.click(screen.getByTestId("lista-marca-abrir"));
     fireEvent.click(screen.getByTestId("opcion-mar-2"));
 
     const nuevo = onCambiar.mock.calls[0]?.[0] as BorradorMedicion;
@@ -263,6 +265,7 @@ describe("servicios", () => {
 
   it("las opciones únicas también anuncian cuál está elegida", () => {
     montar({ marcaId: "mar-1" });
+    fireEvent.click(screen.getByTestId("lista-marca-abrir"));
     expect(screen.getByTestId("opcion-mar-1").getAttribute("aria-checked")).toBe("true");
     expect(screen.getByTestId("opcion-mar-2").getAttribute("aria-checked")).toBe("false");
   });

@@ -33,9 +33,15 @@ describe("orden nueva en cascada", () => {
     const onCrear = montar(coord);
     await elegir("Sede Fundación");
     await elegir("Transportes Reyna");
-    await elegir("Planta Fundación");
+    // Una sola sede del cliente: se elige sola y queda cerrada en una línea.
+    expect(await screen.findByTestId("paso-sede-cliente-abrir")).toBeTruthy();
+    // El técnico espera cerrado mientras falte el vehículo: no alarga la pantalla.
+    expect(screen.getByTestId("paso-tecnico-abrir")).toBeTruthy();
+    expect(screen.queryByText("Carlos Méndez")).toBeNull();
     await elegir(/CA-12/);
+    // Elegido el vehículo, el técnico es el paso siguiente: se abre solo.
     await elegir("Carlos Méndez");
+    expect(screen.getByTestId("paso-tecnico-abrir")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Quién entrega el vehículo"), { target: { value: "Pedro Gómez" } });
     fireEvent.click(screen.getByTestId("crear-orden"));
     await waitFor(() => expect(onCrear).toHaveBeenCalled());
@@ -56,7 +62,6 @@ describe("orden nueva en cascada", () => {
   it("el técnico no elige técnico ni sede (tiene una): se asigna a sí mismo", async () => {
     const onCrear = montar(tecnico);
     await elegir("Transportes Reyna");
-    await elegir("Planta Fundación");
     await elegir(/CA-12/);
     expect(screen.queryByText("Carlos Méndez")).toBeNull();
     expect(screen.queryByText("Sede Fundación")).toBeNull();

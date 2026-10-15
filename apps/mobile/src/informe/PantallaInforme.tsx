@@ -87,6 +87,10 @@ export function PantallaInforme({ fuentes }: { fuentes: FuentesInforme }) {
     void fuentes.vehiculosDe(f.clienteId).then(setVehiculos);
   }, [fuentes, f.clienteId]);
 
+  // Los filtros de todos los días (fechas, cliente, vehículo) a la vista; el
+  // resto plegado, y abierto solo si alguno está en uso o tiene un error.
+  const extras = [f.vehiculo.trim(), f.serial.trim(), f.numCalor.trim(), f.servicio, f.estadoLlanta].filter((x) => x).length;
+  const [masFiltros, setMasFiltros] = useState(extras > 0);
   const problemas = revisarFiltro(f);
   const error = (campo: string) => (intentado ? problemas.find((p) => p.campo === campo)?.mensaje : undefined);
   const consulta = aConsulta(f);
@@ -100,7 +104,10 @@ export function PantallaInforme({ fuentes }: { fuentes: FuentesInforme }) {
 
   const ver = async () => {
     setIntentado(true);
-    if (problemas.length > 0) return;
+    if (problemas.length > 0) {
+      if (problemas.some((p) => ["vehiculo", "serial", "numCalor"].includes(p.campo))) setMasFiltros(true);
+      return;
+    }
     setBuscando(true);
     setAviso(null);
     setTraza(null);
@@ -194,7 +201,7 @@ export function PantallaInforme({ fuentes }: { fuentes: FuentesInforme }) {
 
       <Text style={estilos.etiqueta}>Cliente</Text>
       <ElegirUno
-        enLinea
+        testID="filtro-cliente"
         opciones={[{ id: TODOS, texto: "Todos" }, ...clientes.map((c) => ({ id: c.id, texto: c.nombre }))]}
         seleccionado={f.clienteId ?? TODOS}
         onElegir={(id) => cambiar(id === TODOS ? { clienteId: null } : { clienteId: id, vehiculoId: null })}
@@ -204,7 +211,7 @@ export function PantallaInforme({ fuentes }: { fuentes: FuentesInforme }) {
         <>
           <Text style={estilos.etiqueta}>Vehículo</Text>
           <ElegirUno
-            enLinea
+            testID="filtro-vehiculo"
             opciones={[
               { id: TODOS, texto: "Todos" },
               ...vehiculos.map((v) => ({ id: v.id, texto: v.placa ? `${v.codigo} · ${v.placa}` : v.codigo, testID: `vehiculo-${v.id}` })),
@@ -214,6 +221,13 @@ export function PantallaInforme({ fuentes }: { fuentes: FuentesInforme }) {
           />
         </>
       ) : null}
+      <Boton tipo="fantasma" ancho testID="mas-filtros" onPress={() => setMasFiltros((x) => !x)}>
+        {masFiltros
+          ? "Ocultar los demás filtros ▴"
+          : `Más filtros: placa, serial, calor, servicio, estado ▾${extras > 0 ? ` (${extras} en uso)` : ""}`}
+      </Boton>
+      {masFiltros ? (
+      <>
       <Campo
         etiqueta="Placa o código del vehículo"
         ayuda="Basta una parte: SXK482, sxk 482 o CA-12"
@@ -241,20 +255,22 @@ export function PantallaInforme({ fuentes }: { fuentes: FuentesInforme }) {
       />
 
       <Text style={estilos.etiqueta}>Servicio</Text>
-      <View style={estilos.enLinea}>
-        <Opcion etiqueta="Todos" activa={f.servicio === null} onPress={() => cambiar({ servicio: null })} />
-        {SERVICIOS_FILTRO.map((s) => (
-          <Opcion key={s.codigo} etiqueta={s.nombre} activa={f.servicio === s.codigo} onPress={() => cambiar({ servicio: s.codigo })} />
-        ))}
-      </View>
+      <ElegirUno
+        testID="filtro-servicio"
+        opciones={[{ id: TODOS, texto: "Todos" }, ...SERVICIOS_FILTRO.map((x) => ({ id: x.codigo, texto: x.nombre }))]}
+        seleccionado={f.servicio ?? TODOS}
+        onElegir={(id) => cambiar({ servicio: id === TODOS ? null : id })}
+      />
 
       <Text style={estilos.etiqueta}>Estado de la llanta</Text>
-      <View style={estilos.enLinea}>
-        <Opcion etiqueta="Todos" activa={f.estadoLlanta === null} onPress={() => cambiar({ estadoLlanta: null })} />
-        {ESTADOS_FILTRO.map((e) => (
-          <Opcion key={e} etiqueta={e} activa={f.estadoLlanta === e} onPress={() => cambiar({ estadoLlanta: e })} />
-        ))}
-      </View>
+      <ElegirUno
+        testID="filtro-estado"
+        opciones={[{ id: TODOS, texto: "Todos" }, ...ESTADOS_FILTRO.map((e) => ({ id: e, texto: e }))]}
+        seleccionado={f.estadoLlanta ?? TODOS}
+        onElegir={(id) => cambiar({ estadoLlanta: id === TODOS ? null : id })}
+      />
+      </>
+      ) : null}
 
       <Boton ancho testID="ver-informe" cargando={buscando} onPress={() => void ver()}>
         Ver resultados

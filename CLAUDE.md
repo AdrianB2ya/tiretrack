@@ -3744,6 +3744,27 @@ nada. Ahora:
   "Hay N más: escribe para encontrarlas".
 - Con 8 opciones o menos, igual que antes: no estorba donde no hace falta.
 
+### Segunda pasada: aplicación limpia (2026-10-15)
+
+El usuario siguió viendo pantallas que crecían: con pocos clientes o sedes
+(≤ 8) la lista se quedaba abierta entera aunque ya hubiera algo elegido, y
+el informe tenía dos bloques de fichas (servicio y estado). Regla de diseño:
+
+- **Todo selector de algo que crece** (clientes, sedes, vehículos,
+  técnicos) **es un desplegable, con 3 opciones o con mil**: elegido, una
+  línea. La búsqueda dentro solo aparece con más de 8. Solo un **vocabulario
+  fijo y corto** (tipo de orden, prioridad, rangos de fecha; `enLinea` y
+  hasta `MAX_FICHAS = 5`) va como fichas en fila.
+- **Solo el paso siguiente está abierto.** `abrirSola`: lo que aún no toca
+  se ve cerrado ("Toca para elegir · Elegir ▾"). En la orden nueva el técnico
+  espera cerrado hasta que hay vehículo. Si la elección cambia desde fuera,
+  la lista se cierra (o se reabre si la cascada la limpió).
+- **Una sola sede del cliente se elige sola** en la orden nueva.
+- **Informe**: a la vista fechas, cliente y vehículo; placa, serial, calor,
+  servicio y estado en "Más filtros ▾" (dice cuántos hay en uso y se abre
+  solo si uno tiene error). Servicio y estado pasaron a desplegable.
+- La sede de destino al trasladar una llanta, también desplegable.
+
 ### Listas de datos: búsqueda y "Mostrar más"
 
 `src/diseno/BusquedaLista.tsx`: `useBusqueda` + `CampoBusqueda` +

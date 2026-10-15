@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { useState } from "react";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { coincide, POR_PAGINA } from "../diseno/BusquedaLista";
 import { PantallaFlota, type FuentesFlota } from "../flota/PantallaFlota";
@@ -52,5 +53,29 @@ describe("búsqueda en listas", () => {
     unmount();
     const { container: c2 } = render(<ElegirUno opciones={opciones} seleccionado={null} onElegir={vi.fn()} />);
     expect(c2.querySelectorAll('[role="radio"]').length).toBeLessThanOrEqual(10);
+  });
+
+  it("con pocas opciones también: elegida, queda en una línea (la pantalla no crece con cada cliente)", async () => {
+    const pocas = [
+      { id: "a", texto: "Sede Norte" },
+      { id: "b", texto: "Sede Sur" },
+      { id: "c", texto: "Sede Centro" },
+    ];
+    const Envoltura = () => {
+      const [elegida, setElegida] = useState<string | null>(null);
+      return <ElegirUno testID="sede" opciones={pocas} seleccionado={elegida} onElegir={setElegida} />;
+    };
+    const { container } = render(<Envoltura />);
+    expect(container.querySelectorAll('[role="radio"]')).toHaveLength(3);
+    await act(async () => { fireEvent.click(screen.getByText("Sede Sur")); });
+    expect(container.querySelectorAll('[role="radio"]')).toHaveLength(0);
+    expect(screen.getByTestId("sede-abrir").textContent).toContain("Sede Sur");
+  });
+
+  it("un vocabulario fijo y corto en fila sigue a la vista", () => {
+    const { container } = render(
+      <ElegirUno enLinea opciones={[{ id: "baja", texto: "Baja" }, { id: "alta", texto: "Alta" }]} seleccionado="baja" onElegir={vi.fn()} />,
+    );
+    expect(container.querySelectorAll('[role="radio"]')).toHaveLength(2);
   });
 });

@@ -12,6 +12,7 @@ import {
 } from "@tiretrack/domain";
 import { Aviso, Boton, Campo, CampoDecimal, Insignia, Opcion, Tarjeta, Vacio } from "../diseno/componentes";
 import { colores, espacio, texto } from "../diseno/tokens";
+import { ElegirUno } from "../diseno/ListaBuscable";
 import { COLOR_ESTADO, dondeEsta, nombreLlanta, type LlantaVista } from "./PantallaLlantas";
 
 /**
@@ -288,11 +289,7 @@ function FormularioMovimiento({ tipo, sedes, onEnviar }: {
       {tipo === "traslado" ? (
         <>
           <Text style={estilos.etiqueta}>Sede de destino</Text>
-          <View style={estilos.fila}>
-            {sedes.map((s) => (
-              <Opcion key={s.id} etiqueta={s.nombre} activa={sedeId === s.id} onPress={() => setSedeId(s.id)} />
-            ))}
-          </View>
+          <ElegirUno testID="sede-destino" opciones={sedes.map((s) => ({ id: s.id, texto: s.nombre }))} seleccionado={sedeId} onElegir={setSedeId} />
         </>
       ) : null}
       {tipo === "retorno_reencauche" ? (

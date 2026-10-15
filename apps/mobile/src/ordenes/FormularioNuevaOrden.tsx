@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { ListaBuscable, MAX_SIN_BUSQUEDA } from "../diseno/ListaBuscable";
+import { ListaBuscable } from "../diseno/ListaBuscable";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { type Prioridad, type TipoServicio, TIPOS_SERVICIO, ETIQUETA_TIPO_SERVICIO } from "@tiretrack/domain";
 import { Aviso, Boton, Campo } from "../diseno/componentes";
@@ -84,6 +84,11 @@ export function FormularioNuevaOrden({
     if (f.clienteId) void fuentes.sedesDeCliente(f.clienteId).then(setSedesCliente);
     else setSedesCliente([]);
   }, [fuentes, f.clienteId, recarga]);
+  // Una sola sede del cliente (lo común): se elige sola, un toque menos.
+  useEffect(() => {
+    const unica = sedesCliente[0];
+    if (sedesCliente.length === 1 && unica && f.clienteId && !f.sedeClienteId) poner("sedeClienteId", unica.id);
+  }, [sedesCliente]);
   useEffect(() => {
     if (f.sedeClienteId) void fuentes.vehiculos(f.sedeClienteId).then(setVehiculos);
     else setVehiculos([]);
@@ -130,6 +135,7 @@ export function FormularioNuevaOrden({
             <Opciones
               opciones={sedes.map((s) => ({ id: s.id, etiqueta: s.nombre, detalle: s.codigo }))}
               elegida={f.sedeId}
+              testID="paso-sede"
               onElegir={(id) => poner("sedeId", id)}
             />
           </Paso>
@@ -142,6 +148,7 @@ export function FormularioNuevaOrden({
             <Opciones
               opciones={clientes.map((c) => ({ id: c.id, etiqueta: c.nombre }))}
               elegida={f.clienteId}
+              testID="paso-cliente"
               onElegir={(id) => poner("clienteId", id)}
             />
           )}
@@ -157,6 +164,7 @@ export function FormularioNuevaOrden({
             <Opciones
               opciones={sedesCliente.map((s) => ({ id: s.id, etiqueta: s.nombre }))}
               elegida={f.sedeClienteId}
+              testID="paso-sede-cliente"
               onElegir={(id) => poner("sedeClienteId", id)}
             />
           </Paso>
@@ -175,6 +183,7 @@ export function FormularioNuevaOrden({
                 }))}
                 elegida={f.vehiculoId}
                 onElegir={(id) => poner("vehiculoId", id)}
+                testID="paso-vehiculo"
               />
             )}
             {abiertas.length > 0 ? (
@@ -197,6 +206,9 @@ export function FormularioNuevaOrden({
                 opciones={tecnicos.map((t) => ({ id: t.id, etiqueta: t.nombre }))}
                 elegida={f.tecnicoId}
                 onElegir={(id) => poner("tecnicoId", id)}
+                testID="paso-tecnico"
+                // No es el paso siguiente mientras falte el vehículo: cerrado, no alarga la pantalla.
+                abrirSola={f.vehiculoId !== null}
               />
             )}
           </Paso>
@@ -289,19 +301,26 @@ function Opciones({
   elegida,
   onElegir,
   enLinea = false,
+  testID,
+  abrirSola,
 }: {
   opciones: Opcion[];
   elegida: string | null;
   onElegir: (id: string) => void;
   enLinea?: boolean;
+  testID?: string;
+  abrirSola?: boolean;
 }) {
-  // Con muchas (clientes, vehículos de una flota grande) se busca (R3).
-  if (opciones.length > MAX_SIN_BUSQUEDA) {
+  // Sede, cliente, vehículo y técnico crecen con el tiempo: desplegable, que
+  // se cierra al elegir. Solo tipo y prioridad (fijos y cortos) van en fila.
+  if (!enLinea) {
     return (
       <ListaBuscable
         opciones={opciones.map((o) => ({ id: o.id, texto: o.etiqueta, ...(o.detalle ? { detalle: o.detalle } : {}) }))}
         seleccionado={elegida}
         onElegir={onElegir}
+        {...(testID ? { testID } : {})}
+        {...(abrirSola !== undefined ? { abrirSola } : {})}
       />
     );
   }

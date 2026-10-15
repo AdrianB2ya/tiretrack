@@ -119,7 +119,10 @@ describe("pantalla del informe", () => {
   it("primero se ve: cuenta, aviso de preliminares y filas", async () => {
     const f = fuentes();
     render(<PantallaInforme fuentes={f} />);
+    // El cliente es un desplegable cerrado en "Todos": se abre y se elige.
+    fireEvent.click(await screen.findByTestId("filtro-cliente-abrir"));
     fireEvent.click(await screen.findByLabelText("Transportes Reyna"));
+    expect(screen.queryByLabelText("Transportes Reyna")).toBeNull();
     fireEvent.click(screen.getByLabelText("Este mes"));
     fireEvent.click(screen.getByTestId("ver-informe"));
     expect((await screen.findByTestId("resumen-informe")).textContent).toBe("2 llantas de 1 orden");
@@ -158,6 +161,9 @@ describe("pantalla del informe", () => {
   it("exporta con los MISMOS filtros que se vieron, y conserva el BOM", async () => {
     const f = fuentes();
     render(<PantallaInforme fuentes={f} />);
+    // Servicio va en "Más filtros", plegado.
+    fireEvent.click(screen.getByTestId("mas-filtros"));
+    fireEvent.click(screen.getByTestId("filtro-servicio-abrir"));
     fireEvent.click(screen.getByLabelText("Calibración"));
     fireEvent.click(screen.getByTestId("ver-informe"));
     fireEvent.click(await screen.findByTestId("exportar-informe"));
@@ -172,10 +178,24 @@ describe("pantalla del informe", () => {
     render(<PantallaInforme fuentes={f} />);
     fireEvent.click(screen.getByTestId("ver-informe"));
     await screen.findByTestId("exportar-informe");
+    fireEvent.click(screen.getByTestId("mas-filtros"));
+    fireEvent.click(screen.getByTestId("filtro-servicio-abrir"));
     fireEvent.click(screen.getByLabelText("Rotación"));
     expect(screen.getByText("Cambiaste el filtro")).toBeTruthy();
     fireEvent.click(screen.getByTestId("exportar-informe"));
     expect(f.exportar).not.toHaveBeenCalled();
+  });
+
+  it("a la vista solo lo de todos los días; lo demás, plegado en Más filtros", async () => {
+    render(<PantallaInforme fuentes={fuentes()} />);
+    expect(await screen.findByTestId("filtro-cliente-abrir")).toBeTruthy();
+    expect(screen.queryByLabelText("Serial de la llanta")).toBeNull();
+    expect(screen.queryByLabelText("Calibración")).toBeNull();
+    fireEvent.click(screen.getByTestId("mas-filtros"));
+    expect(screen.getByLabelText("Serial de la llanta")).toBeTruthy();
+    // Servicio y estado son desplegables, no un bloque de fichas.
+    expect(screen.getByTestId("filtro-servicio-abrir").textContent).toContain("Todos");
+    expect(screen.queryByLabelText("Calibración")).toBeNull();
   });
 
   it("una fecha imposible no consulta", async () => {
@@ -190,6 +210,7 @@ describe("pantalla del informe", () => {
   it("con serial muestra el recorrido de la llanta y cuánto se gastó", async () => {
     const f = fuentes();
     render(<PantallaInforme fuentes={f} />);
+    fireEvent.click(screen.getByTestId("mas-filtros"));
     fireEvent.change(screen.getByLabelText("Serial de la llanta"), { target: { value: "mx1" } });
     fireEvent.click(screen.getByTestId("ver-informe"));
     expect(await screen.findByTestId("trazabilidad")).toBeTruthy();

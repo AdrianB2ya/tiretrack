@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Aviso, Boton, Campo, CampoDecimal, Opcion } from "./componentes";
 import { colores, espacio, radio, tactil, texto } from "./tokens";
@@ -7,8 +7,10 @@ import { filtrarPorTexto, type EvaluacionAlta } from "../catalogo/alta";
 /**
  * Lista para elegir uno entre muchos (marcas, diseños, medidas, clientes…).
  *
- * Con pocas opciones se ven todas, como siempre. Con muchas aparece un campo
- * para buscar: con guantes, escribir tres letras es más rápido y más seguro
+ * Es un desplegable: con algo elegido se ve CERRADO en una sola línea, tenga
+ * tres opciones o mil (pedido del usuario: "una aplicación limpia"; con pocas
+ * opciones la lista se quedaba abierta y la pantalla crecía con cada cliente).
+ * Con muchas, al abrirlo aparece un campo para buscar: con guantes, escribir tres letras es más rápido y más seguro
  * que desplazarse por cincuenta fichas. La búsqueda ignora tildes,
  * mayúsculas, espacios y guiones ("xze" encuentra "X-ZE").
  *
@@ -57,6 +59,8 @@ export function ListaBuscable({
   alta,
   vacio = "Sin opciones descargadas. Sincroniza cuando tengas señal",
   testID = "lista",
+  abrirSola = true,
+  placeholder = "Toca para elegir",
 }: {
   /** Sin etiqueta, cuando la pantalla ya pone su propio título encima. */
   etiqueta?: string;
@@ -66,6 +70,13 @@ export function ListaBuscable({
   alta?: AltaLista;
   vacio?: string;
   testID?: string;
+  /**
+   * Sin nada elegido, abierta de entrada (en una cascada, lo siguiente es
+   * elegir). Con false se ve cerrada con `placeholder`: para un campo que
+   * no es el paso siguiente y no debe alargar la pantalla.
+   */
+  abrirSola?: boolean;
+  placeholder?: string;
 }) {
   const [termino, setTermino] = useState("");
   const [numero, setNumero] = useState<number | null>(null);
@@ -77,7 +88,12 @@ export function ListaBuscable({
   const elegida = opciones.find((o) => o.id === seleccionado);
   // Desplegable: con algo elegido se muestra cerrado, en una sola línea; sin
   // nada elegido se abre solo (en una cascada, lo siguiente es elegir).
-  const [abierta, setAbierta] = useState(!elegida);
+  const [abierta, setAbierta] = useState(!elegida && abrirSola);
+  // Si la elección cambia desde fuera (se eligió sola, o la cascada la
+  // limpió), la lista se cierra o se vuelve a abrir como al montarse.
+  useEffect(() => {
+    setAbierta(seleccionado ? false : abrirSola);
+  }, [seleccionado, abrirSola]);
   const filtradas = useMemo(() => filtrarPorTexto(opciones, termino), [opciones, termino]);
   const tope = termino.trim() === "" ? MAX_SIN_TEXTO : MAX_A_LA_VISTA;
   const aLaVista = filtradas.slice(0, tope);
@@ -116,24 +132,30 @@ export function ListaBuscable({
     }
   };
 
-  if (conBusqueda && !abierta && elegida) {
+  if (!abierta && (elegida || opciones.length > 0)) {
     return (
       <View style={estilos.grupo} testID={testID}>
         {etiqueta ? <Text style={estilos.etiqueta}>{etiqueta}</Text> : null}
         <Pressable
           onPress={() => setAbierta(true)}
           accessibilityRole="button"
-          accessibilityLabel={`${etiqueta ?? "Elegido"}: ${elegida.texto}. Tocar para cambiar`}
+          accessibilityLabel={elegida ? `${etiqueta ?? "Elegido"}: ${elegida.texto}. Tocar para cambiar` : `${etiqueta ?? placeholder}. Tocar para elegir`}
           testID={`${testID}-abrir`}
           style={({ pressed }) => [estilos.cerrada, pressed && estilos.presionada]}
         >
           <View style={estilos.cerradaTexto}>
-            <Text style={estilos.valor} numberOfLines={1}>
-              {elegida.nueva ? `${elegida.texto} (nueva)` : elegida.texto}
-            </Text>
-            {elegida.detalle ? <Text style={estilos.tenue} numberOfLines={1}>{elegida.detalle}</Text> : null}
+            {elegida ? (
+              <>
+                <Text style={estilos.valor} numberOfLines={1}>
+                  {elegida.nueva ? `${elegida.texto} (nueva)` : elegida.texto}
+                </Text>
+                {elegida.detalle ? <Text style={estilos.tenue} numberOfLines={1}>{elegida.detalle}</Text> : null}
+              </>
+            ) : (
+              <Text style={estilos.tenue} numberOfLines={1}>{placeholder}</Text>
+            )}
           </View>
-          <Text style={estilos.cambiar}>Cambiar ▾</Text>
+          <Text style={estilos.cambiar}>{elegida ? "Cambiar ▾" : "Elegir ▾"}</Text>
         </Pressable>
       </View>
     );
@@ -173,9 +195,9 @@ export function ListaBuscable({
           Hay {filtradas.length - tope} más: escribe para encontrarlas.
         </Text>
       ) : null}
-      {conBusqueda && elegida ? (
+      {elegida || !abrirSola ? (
         <Boton tipo="fantasma" testID={`${testID}-cerrar`} onPress={() => { setTermino(""); setAbierta(false); }}>
-          Dejar {elegida.texto}
+          {elegida ? `Dejar ${elegida.texto}` : "Cerrar"}
         </Boton>
       ) : null}
       {termino.trim() !== "" && filtradas.length === 0 && !alta ? (
@@ -255,28 +277,45 @@ const estilos = StyleSheet.create({
 });
 
 /**
- * Elegir uno (R3): con pocas opciones, la lista de siempre, una debajo de la
- * otra; con muchas, la misma lista con búsqueda. Así una flota de 200
- * vehículos no obliga a desplazarse con guantes, y una de tres no gana un
- * campo de texto que no hace falta.
+ * Elegir uno: siempre el desplegable (clientes, sedes, vehículos, técnicos
+ * crecen con el tiempo y no deben alargar la pantalla). Solo un vocabulario
+ * fijo y corto (`enLinea`, hasta `MAX_FICHAS`) se ve como fichas en fila,
+ * porque elegirlo de un toque es más rápido que abrir una lista.
  */
+export const MAX_FICHAS = 5;
+
 export function ElegirUno({
   opciones,
   seleccionado,
   onElegir,
   enLinea = false,
+  testID,
+  abrirSola,
+  placeholder,
 }: {
   opciones: readonly OpcionLista[];
   seleccionado: string | null;
   onElegir: (id: string) => void;
-  /** Fichas en fila (opciones cortas como "Todos"), en vez de una por línea. */
+  /** Vocabulario fijo y corto: fichas en fila en vez de desplegable. */
   enLinea?: boolean;
+  testID?: string;
+  abrirSola?: boolean;
+  placeholder?: string;
 }) {
-  if (opciones.length > MAX_SIN_BUSQUEDA) {
-    return <ListaBuscable opciones={opciones} seleccionado={seleccionado} onElegir={onElegir} />;
+  if (!enLinea || opciones.length > MAX_FICHAS) {
+    return (
+      <ListaBuscable
+        opciones={opciones}
+        seleccionado={seleccionado}
+        onElegir={onElegir}
+        {...(testID ? { testID } : {})}
+        {...(abrirSola !== undefined ? { abrirSola } : {})}
+        {...(placeholder ? { placeholder } : {})}
+      />
+    );
   }
   return (
-    <View style={enLinea ? estilos.fichas : estilos.columna}>
+    <View style={estilos.fichas}>
       {opciones.map((o) => (
         <Opcion
           key={o.id}
