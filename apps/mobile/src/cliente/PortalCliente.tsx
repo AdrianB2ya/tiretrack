@@ -68,17 +68,35 @@ export function PortalCliente({
                 </Insignia>
               ) : null}
             </View>
-            <Text style={estilos.vehiculo}>{o.vehiculoCodigo}</Text>
-            <Text style={estilos.detalle}>{fechaCorta(o.orden.fecha)}</Text>
+            <Text style={estilos.vehiculo}>
+              {o.vehiculoCodigo}
+              {o.vehiculoPlaca ? ` · ${o.vehiculoPlaca}` : ""}
+            </Text>
+            <Text style={estilos.detalle}>Servicio del {fechaCorta(o.orden.fecha)}</Text>
+            {/* El plazo en palabras y qué pasa si vence: antes solo decía "Vencido". */}
+            {o.orden.limiteCliente ? (
+              <Text style={[estilos.plazo, d !== null && d <= 1 && { color: colores.peligro }]}>
+                {d !== null && d < 0
+                  ? `El plazo venció el ${fechaCorta(o.orden.limiteCliente)}: se cierra por vencimiento`
+                  : `Tienes hasta el ${fechaCorta(o.orden.limiteCliente)} para aprobarla u objetarla`}
+              </Text>
+            ) : null}
+            <Boton ancho testID={`revisar-aprobar-${o.orden.id}`} onPress={() => onAbrir(o.orden.id)}>
+              Revisar y aprobar
+            </Boton>
           </Tarjeta>
         );
       })}
 
       <Text style={estilos.seccion}>Servicios cerrados ({cerradas.length})</Text>
+      {cerradas.length === 0 ? <Vacio mensaje="Todavía no hay servicios cerrados. Aquí quedan los que apruebes." /> : null}
       {cerradas.map((o) => (
         <Tarjeta key={o.orden.id} onPress={() => onAbrir(o.orden.id)}>
           <Text style={estilos.folio}>{o.orden.folio ?? o.orden.codigoReferencia}</Text>
-          <Text style={estilos.vehiculo}>{o.vehiculoCodigo}</Text>
+          <Text style={estilos.vehiculo}>
+            {o.vehiculoCodigo}
+            {o.vehiculoPlaca ? ` · ${o.vehiculoPlaca}` : ""}
+          </Text>
           <Text style={estilos.detalle}>{fechaCorta(o.orden.fecha)}</Text>
         </Tarjeta>
       ))}
@@ -94,4 +112,5 @@ const estilos = StyleSheet.create({
   folio: { ...texto.codigo, color: colores.primario },
   vehiculo: { ...texto.cuerpoFuerte, color: colores.texto },
   detalle: { ...texto.ayuda, color: colores.textoTenue },
+  plazo: { ...texto.etiqueta, color: colores.advertencia },
 });

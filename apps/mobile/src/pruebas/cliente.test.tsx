@@ -76,3 +76,25 @@ describe("portal", () => {
     expect(onAbrir).toHaveBeenCalledWith("b");
   });
 });
+
+describe("portal: qué hacer con cada orden", () => {
+  it("cada orden por aprobar tiene su botón y el plazo en palabras", () => {
+    const onAbrir = vi.fn();
+    render(
+      <PortalCliente
+        ordenes={[{ ...item({ id: "o1", estado: "pendiente_cliente", limiteCliente: "2026-10-09" }), vehiculoPlaca: "SXK482" }]}
+        hoy="2026-10-06"
+        onAbrir={onAbrir}
+      />,
+    );
+    expect(screen.getByText("CA-12 · SXK482")).toBeTruthy();
+    expect(screen.getByText(/Tienes hasta el 9 oct 2026/)).toBeTruthy();
+    fireEvent.click(screen.getByTestId("revisar-aprobar-o1"));
+    expect(onAbrir).toHaveBeenCalledWith("o1");
+  });
+
+  it("vencido el plazo dice que se cierra por vencimiento, no que se aprueba", () => {
+    render(<PortalCliente ordenes={[item({ id: "o1", estado: "pendiente_cliente", limiteCliente: "2026-10-01" })]} hoy="2026-10-06" onAbrir={vi.fn()} />);
+    expect(screen.getByText(/se cierra por vencimiento/)).toBeTruthy();
+  });
+});

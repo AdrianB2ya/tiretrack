@@ -241,3 +241,23 @@ describe("panel", () => {
     expect(screen.queryByText(/sin enviar/)).toBeNull();
   });
 });
+
+describe("antigüedad de lo que espera revisión", () => {
+  it("'Por revisar' dice desde cuándo espera la más antigua", () => {
+    const i = calcularIndicadores(
+      [
+        unaOrden({ id: "a", estado: "en_revision", enviadaRevisionEn: "2026-10-03T15:00:00.000Z" }),
+        unaOrden({ id: "b", estado: "en_revision", enviadaRevisionEn: "2026-10-05T15:00:00.000Z" }),
+      ],
+      "2026-10-06",
+      0,
+    );
+    expect(i.revisionMasAntiguaDias).toBe(3);
+    expect(tarjetasDelPanel(i).find((t) => t.accion === "revisar")?.detalle).toBe("La más antigua lleva 3 días");
+  });
+
+  it("sin nada por revisar no dice nada", () => {
+    const i = calcularIndicadores([], "2026-10-06", 0);
+    expect(tarjetasDelPanel(i).find((t) => t.accion === "revisar")?.detalle).toBeUndefined();
+  });
+});

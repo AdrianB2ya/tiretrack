@@ -216,3 +216,14 @@ describe("devolución", () => {
     expect(screen.getByTestId("aprobar")).toBeTruthy();
   });
 });
+
+describe("decisión con el diagrama a la vista", () => {
+  it("muestra el diagrama y la leyenda sin salir de la pantalla; tocar una casilla abre la orden", () => {
+    const onVerOrden = vi.fn();
+    render(<DecisionRevision item={enBandeja()} ctx={COORD} onAprobar={vi.fn()} onDevolver={vi.fn()} onVerOrden={onVerOrden} />);
+    expect(screen.getByTestId("diagrama-decision")).toBeTruthy();
+    expect(screen.getByTestId("leyenda-diagrama")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("posicion-1"));
+    expect(onVerOrden).toHaveBeenCalled();
+  });
+});

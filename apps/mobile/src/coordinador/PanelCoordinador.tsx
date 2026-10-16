@@ -19,6 +19,8 @@ export interface Indicadores {
   readonly clienteVencePronto: number;
   readonly enCurso: number;
   readonly sinEnviar: number;
+  /** Días que lleva en revisión la más antigua: "1 por revisar" no dice si es de hoy o de hace una semana. */
+  readonly revisionMasAntiguaDias?: number | null;
 }
 
 /** Días hábiles antes del límite en que ya conviene recordar al cliente. */
@@ -47,7 +49,19 @@ export function calcularIndicadores(
     ).length,
     enCurso: ordenes.filter((o) => o.estado === "en_proceso" && !o.motivoDevolucion).length,
     sinEnviar: pendientesDeEnviar,
+    revisionMasAntiguaDias: diasDeLaMasAntigua(ordenes, hoy),
   };
+}
+
+function diasDeLaMasAntigua(ordenes: readonly OrdenLocal[], hoy: string): number | null {
+  const fechas = ordenes
+    .filter((o) => o.estado === "en_revision" && o.enviadaRevisionEn)
+    .map((o) => (o.enviadaRevisionEn as string).slice(0, 10))
+    .sort();
+  const primera = fechas[0];
+  if (!primera) return null;
+  const dias = Math.round((Date.parse(`${hoy}T00:00:00Z`) - Date.parse(`${primera}T00:00:00Z`)) / 86_400_000);
+  return Math.max(0, dias);
 }
 
 function sumarDias(fechaISO: string, dias: number): string {
@@ -79,6 +93,14 @@ export function tarjetasDelPanel(i: Indicadores): Tarjeta[] {
       accion: "revisar",
       titulo: "Por revisar",
       valor: i.porRevisar,
+      ...(i.porRevisar > 0 && i.revisionMasAntiguaDias != null
+        ? {
+            detalle:
+              i.revisionMasAntiguaDias === 0
+                ? "La más antigua llegó hoy"
+                : `La más antigua lleva ${i.revisionMasAntiguaDias} ${i.revisionMasAntiguaDias === 1 ? "día" : "días"}`,
+          }
+        : {}),
       urgente: i.porRevisar > 0,
     },
     {

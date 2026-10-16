@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Aviso, Boton, Campo, Insignia, Tarjeta, Vacio } from "../diseno/componentes";
+import { DiagramaLlantas, LeyendaDiagrama, ResumenDiagrama } from "../ordenes/DiagramaLlantas";
 import { colores, conOpacidad, espacio, radio, tactil, texto } from "../diseno/tokens";
 import {
   accionesDe,
@@ -111,6 +112,8 @@ export interface DecisionRevisionProps {
   onAprobar: () => void;
   onDevolver: (motivo: string) => void;
   procesando?: boolean;
+  /** Tocar una casilla abre la orden completa. */
+  onVerOrden?: () => void;
 }
 
 export function DecisionRevision({
@@ -119,6 +122,7 @@ export function DecisionRevision({
   onAprobar,
   onDevolver,
   procesando = false,
+  onVerOrden,
 }: DecisionRevisionProps) {
   const [devolviendo, setDevolviendo] = useState(false);
   const [motivo, setMotivo] = useState("");
@@ -197,6 +201,13 @@ export function DecisionRevision({
       {/* Revisión de diseño: la pantalla de decidir no decía qué orden era; el
           coordinador aprobaba viendo solo dos botones. */}
       <TarjetaRevision item={item} ctx={ctx} />
+      {/* El diagrama aquí mismo: antes había que salir a "Ver el diagrama
+          completo" para saber qué llanta quedó bajo el mínimo. */}
+      <View style={estilos.diagrama} testID="diagrama-decision">
+        <ResumenDiagrama diagrama={item.diagrama} />
+        <DiagramaLlantas diagrama={item.diagrama} onTocarPosicion={() => onVerOrden?.()} />
+        <LeyendaDiagrama />
+      </View>
       {item.orden.hallazgos ? (
         <View style={estilos.hallazgos}>
           <Text style={estilos.tituloHallazgos}>Hallazgos del técnico</Text>
@@ -270,6 +281,13 @@ const estilos = StyleSheet.create({
   textoSugerencia: { ...texto.ayuda, color: colores.secundario },
   acciones: { gap: espacio.md },
   hallazgos: { gap: espacio.xs },
+  diagrama: {
+    padding: espacio.md,
+    borderRadius: radio.md,
+    borderWidth: 1,
+    borderColor: colores.borde,
+    backgroundColor: colores.tarjeta,
+  },
   tituloHallazgos: { ...texto.etiqueta, color: colores.texto },
   textoHallazgos: { ...texto.cuerpo, color: colores.textoTenue },
 });

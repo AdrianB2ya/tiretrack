@@ -90,7 +90,10 @@ export function senalesDe(item: OrdenEnBandeja, ctx: ContextoCoordinador): Senal
     senales.push({
       clave: "incompleta",
       clase: "atencion",
-      texto: `Faltan ${diagrama.faltantes.length} de ${diagrama.totalPosiciones} posiciones`,
+      texto:
+        diagrama.capturadas === 0
+          ? "Ninguna posición capturada"
+          : `Faltan ${diagrama.faltantes.length} de ${diagrama.totalPosiciones} posiciones`,
     });
   }
 

@@ -73,6 +73,7 @@ export default function RutaDecidir() {
         procesando={procesando}
         onAprobar={() => void decidir("pendiente_cliente")}
         onDevolver={(motivo) => void decidir("en_proceso", motivo)}
+        onVerOrden={() => router.push(`/orden/${item.orden.id}` as never)}
       />
       <View style={estilos.pie}>
         {/* Aprobar sin ver la evidencia era lo único posible antes. */}
