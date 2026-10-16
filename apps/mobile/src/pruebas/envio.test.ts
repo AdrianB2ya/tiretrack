@@ -268,3 +268,14 @@ describe("resumen", () => {
     expect(r.conAlerta).toBe(1);
   });
 });
+
+describe("repuestos", () => {
+  it("uno sin medir advierte (no impide) y explica qué pasa si ya no lo lleva", () => {
+    const e = { ...estado(), diagrama: construirDiagrama(configuracion, [1, 2, 3, 4].map((n) => med(n)), undefined, 2) };
+    const punto = revisarEnvio(e).find((p) => p.clave === "repuestos_sin_medir");
+    expect(punto?.clase).toBe("advierte");
+    expect(punto?.texto).toBe("2 repuestos sin medir: repuesto 1, repuesto 2");
+    expect(punto?.comoResolver).toMatch(/no aparecerá en la próxima visita/);
+    expect(puedeEnviar(e, "tecnico", "u-tec1").permitido).toBe(true);
+  });
+});

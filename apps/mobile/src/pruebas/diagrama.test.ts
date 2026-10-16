@@ -5,6 +5,7 @@ import {
   hermanasDe,
   hermanaCapturada,
   estaCompleto,
+  buscarCasilla,
 } from "../ordenes/diagrama";
 import type { MedicionLocal, PosicionEjeLocal } from "../datos/repositorio";
 
@@ -250,5 +251,41 @@ describe("diagrama completo", () => {
 
   it("un diagrama sin posiciones no cuenta como completo", () => {
     expect(estaCompleto(construirDiagrama([], []))).toBe(false);
+  });
+});
+
+describe("llantas de repuesto", () => {
+  it("aparecen las que el vehículo recuerda, fuera de los ejes y sin contar como faltantes", () => {
+    const d = construirDiagrama(configuracion, [med(101)], undefined, 2);
+    expect(d.repuestos.map((c) => c.numero)).toEqual([101, 102]);
+    expect(d.repuestos[0]?.estado).toBe("capturada");
+    expect(d.repuestosFaltantes).toEqual([102]);
+    expect(d.totalPosiciones).toBe(6);
+    expect(d.faltantes).not.toContain(102);
+  });
+
+  it("uno agregado en esta orden aparece aunque el vehículo no lo recordara", () => {
+    const d = construirDiagrama(configuracion, [med(101)], undefined, 0);
+    expect(d.repuestos.map((c) => c.numero)).toEqual([101]);
+  });
+
+  it("al capturar de corrido, los repuestos van después de los ejes", () => {
+    const todas = [1, 2, 3, 4, 5, 6].map((n) => med(n));
+    const d = construirDiagrama(configuracion, todas.filter((m) => m.posicion !== 2), undefined, 1);
+    expect(siguienteSinCapturar(d, 1)).toBe(2);
+    expect(siguienteSinCapturar(d, 2)).toBe(101);
+  });
+
+  it("un repuesto para cambio inmediato se avisa como cualquier llanta", () => {
+    const d = construirDiagrama(configuracion, [med(101, { profundidad: 2 })], undefined, 1);
+    expect(d.conAlerta).toContain(101);
+  });
+
+  it("solo se puede abrir el repuesto siguiente, no saltarse números", () => {
+    const d = construirDiagrama(configuracion, [], undefined, 1);
+    expect(buscarCasilla(d, 101)?.numero).toBe(101);
+    expect(buscarCasilla(d, 102)?.psiObjetivo).toBeNull();
+    expect(buscarCasilla(d, 103)).toBeNull();
+    expect(buscarCasilla(d, 7)).toBeNull();
   });
 });

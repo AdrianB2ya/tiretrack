@@ -9,6 +9,7 @@ import {
   evaluarMovimiento,
   type MotivoRetiro,
   type TipoMovimiento,
+  etiquetaPosicion,
 } from "@tiretrack/domain";
 import { Aviso, Boton, Campo, CampoDecimal, Insignia, Opcion, Tarjeta, Vacio } from "../diseno/componentes";
 import { colores, espacio, texto } from "../diseno/tokens";
@@ -125,7 +126,7 @@ export function FichaLlanta({ fuentes }: { fuentes: FuentesFicha }) {
       {ficha.movimientos.map((m, i) => (
         <Text key={i} style={estilos.linea}>
           {m.fecha} · {ETIQUETA_MOVIMIENTO[m.tipo as TipoMovimiento] ?? m.tipo}
-          {m.vehiculoCodigo ? ` · ${m.vehiculoCodigo}${m.posicion ? ` pos. ${m.posicion}` : ""}` : ""}
+          {m.vehiculoCodigo ? ` · ${m.vehiculoCodigo}${m.posicion ? ` pos. ${etiquetaPosicion(m.posicion)}` : ""}` : ""}
           {m.sedeNombre ? ` · ${m.sedeNombre}` : ""}
           {m.kilometraje !== null ? ` · ${m.kilometraje.toLocaleString("es-CO")} km` : ""}
           {m.folio ? ` · ${m.folio}` : ""}
@@ -137,7 +138,7 @@ export function FichaLlanta({ fuentes }: { fuentes: FuentesFicha }) {
       {ficha.mediciones.length === 0 ? <Text style={estilos.detalle}>Todavía no se ha medido en una orden aprobada.</Text> : null}
       {ficha.mediciones.map((m, i) => (
         <Text key={i} style={estilos.linea}>
-          {m.fecha} · {m.vehiculoCodigo ?? ""} pos. {m.posicion} · {mm(m.profundidad)}
+          {m.fecha} · {m.vehiculoCodigo ?? ""} pos. {etiquetaPosicion(m.posicion)} · {mm(m.profundidad)}
           {m.folio ? ` · ${m.folio}` : ""}
         </Text>
       ))}

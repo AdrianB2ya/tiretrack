@@ -62,7 +62,7 @@ describe.skipIf(!disponible)("órdenes de servicio", () => {
       CREATE TABLE "Cliente" (id text PRIMARY KEY, "empresaId" text NOT NULL, nombre text NOT NULL, nit text NOT NULL);
       CREATE TABLE "SedeCliente" (id text PRIMARY KEY, "clienteId" text NOT NULL, nombre text NOT NULL);
       CREATE TABLE "ConfiguracionEje" (id text PRIMARY KEY, "empresaId" text NOT NULL, nombre text, "totalPosiciones" int);
-      CREATE TABLE "Vehiculo" (id text PRIMARY KEY, "sedeClienteId" text NOT NULL, codigo text NOT NULL, placa text);
+      CREATE TABLE "Vehiculo" (id text PRIMARY KEY, "sedeClienteId" text NOT NULL, codigo text NOT NULL, placa text, repuestos int NOT NULL DEFAULT 0);
 
       CREATE TABLE "Consecutivo" (
         id text PRIMARY KEY,
@@ -858,6 +858,36 @@ describe.skipIf(!disponible)("órdenes de servicio", () => {
       expect(r.ok).toBe(false);
       if (r.ok) return;
       expect(r.veredicto.codigo).toBe("SIN_CONSENTIMIENTO");
+    });
+  });
+
+  describe("el vehículo recuerda sus repuestos", () => {
+    const repuestosDe = async () =>
+      (await db.query(`SELECT repuestos FROM "Vehiculo" WHERE id = 'veh-1'`)).rows[0].repuestos as number;
+    const conRepuestos = async (tipo: string, posiciones: number[]) => {
+      // Otra orden abierta del mismo vehículo avisa; aquí se confirma.
+      const o = await nuevaOrden(COORD, { tipo, confirmarDuplicada: true });
+      for (const p of posiciones) {
+        await db.query(`INSERT INTO "LlantaRegistro" (id,"ordenId",posicion) VALUES ($1,$2,$3)`, [nuevoId(), o.id, p]);
+      }
+      await hastaRevisionDesde(o);
+    };
+
+    it("al enviar a revisión guarda hasta el último repuesto medido", async () => {
+      await conRepuestos("preventivo", [101, 102]);
+      expect(await repuestosDe()).toBe(2);
+    });
+
+    it("una inspección completa sin el segundo repuesto lo olvida (ya no lo lleva)", async () => {
+      await conRepuestos("preventivo", [101, 102]);
+      await conRepuestos("preventivo", [101]);
+      expect(await repuestosDe()).toBe(1);
+    });
+
+    it("un correctivo no olvida los repuestos que no revisó", async () => {
+      await conRepuestos("preventivo", [101, 102]);
+      await conRepuestos("correctivo", []);
+      expect(await repuestosDe()).toBe(2);
     });
   });
 

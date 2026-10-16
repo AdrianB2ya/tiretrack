@@ -5,6 +5,7 @@ import {
   PRIORIDADES_RECOMENDACION,
   ordenarRecomendaciones,
   type PrioridadRecomendacion,
+  nombrePosicion,
 } from "@tiretrack/domain";
 import { Aviso, Boton, Campo, CampoNumerico, Insignia, Opcion, Tarjeta } from "../diseno/componentes";
 import { colores, espacio, texto } from "../diseno/tokens";
@@ -71,7 +72,7 @@ export function Recomendaciones({ ordenId, recomendaciones, bloqueo, onCrear, on
         <Insignia color={TONO[r.prioridad] ?? colores.textoTenue} compacta>
           {ETIQUETA_PRIORIDAD_RECOMENDACION[r.prioridad as PrioridadRecomendacion] ?? r.prioridad}
         </Insignia>
-        {r.posicion !== null ? <Text style={estilos.detalle}>Posición {r.posicion}</Text> : null}
+        {r.posicion !== null ? <Text style={estilos.detalle}>{nombrePosicion(r.posicion)}</Text> : null}
         {r.estado !== "abierta" ? (
           <Text style={estilos.detalle}>{r.estado === "ejecutada" ? "✓ Hecha" : "Descartada"}</Text>
         ) : null}

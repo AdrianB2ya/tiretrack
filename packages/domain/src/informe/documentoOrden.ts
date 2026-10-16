@@ -5,6 +5,7 @@ import { textoVencimientoDOT } from "../llanta/dot";
 import { ETIQUETA_TIPO_SERVICIO, type TipoServicio } from "../tipos";
 import { CATALOGO_SERVICIOS } from "../tipos";
 import { ETIQUETA_PRIORIDAD_RECOMENDACION, type PrioridadRecomendacion } from "../orden/recomendaciones";
+import { etiquetaPosicion, nombrePosicion } from "../llanta/repuestos";
 
 /**
  * El documento de la orden (PDF): qué dice, separado de cómo se dibuja.
@@ -137,7 +138,7 @@ export function armarDocumentoOrden(d: DatosDocumentoOrden): Documento {
     ],
     columnas: ["Pos.", "Llanta", "Serial", "DOT", "Prof. ext · cen · int", "PSI enc./cal.", "Servicios", "Llanta que salió"],
     filas: [...d.posiciones].sort((a, b) => a.posicion - b.posicion).map((p) => [
-      String(p.posicion),
+      etiquetaPosicion(p.posicion),
       // El blanco parece un olvido; esto fue una decisión del técnico (1.8).
       p.noIdentificada ? "SIN IDENTIFICAR" : [p.marca, p.diseno, p.medida].filter(Boolean).join(" ") || "—",
       p.serial ?? "",
@@ -163,7 +164,7 @@ export function armarDocumentoOrden(d: DatosDocumentoOrden): Documento {
     accion: o.accion,
     recomendaciones: d.recomendaciones.map((r) => {
       const prioridad = ETIQUETA_PRIORIDAD_RECOMENDACION[r.prioridad as PrioridadRecomendacion] ?? r.prioridad;
-      return `${prioridad}${r.posicion !== null ? ` · posición ${r.posicion}` : ""}: ${r.texto}`;
+      return `${prioridad}${r.posicion !== null ? ` · ${nombrePosicion(r.posicion).toLowerCase()}` : ""}: ${r.texto}`;
     }),
     firma: d.firma
       ? {

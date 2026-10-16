@@ -371,6 +371,9 @@ model Vehiculo {
   modelo             String?
   anio               Int?
   kmActual           Int              @default(0)
+  /// Cuántas llantas de repuesto lleva (dominio llanta/repuestos). No depende
+  /// de la plantilla: lo recuerda de la última inspección.
+  repuestos          Int              @default(0)
   ultimoPM           DateTime?
   proximoPM          DateTime?
   estado             EstadoVehiculo   @default(operativo)
@@ -688,8 +691,13 @@ model LlantaRegistro {
   /// Se repite aquí para poder validar la posición contra la configuración
   /// que la orden congeló, con FK compuesta
   configuracionEjeId String
+  /// 1 a 60 en un eje; 101 en adelante, un repuesto (fuera del diagrama).
   posicion           Int
-  posicionEje        PosicionEje @relation(fields: [configuracionEjeId, posicion], references: [configuracionEjeId, numero])
+  /// La misma posición si es de un eje; nula si es un repuesto. La llave
+  /// hacia la plantilla va por aquí: un repuesto no existe en ella, y con la
+  /// columna nula la llave no se comprueba (CHECK en la migración).
+  posicionEnEje      Int?
+  posicionEje        PosicionEje? @relation(fields: [configuracionEjeId, posicionEnEje], references: [configuracionEjeId, numero])
 
   /// El activo medido y el que salió (R8). Nulos si la llanta no se pudo
   /// identificar: un dato faltante no se inventa.

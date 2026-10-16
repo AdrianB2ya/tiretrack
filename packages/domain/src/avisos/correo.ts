@@ -1,3 +1,4 @@
+import { nombrePosicion } from "../llanta/repuestos";
 /**
  * Avisos y envío de informes por correo (R13, brecha E).
  *
@@ -109,7 +110,7 @@ function porVehiculo(llantas: readonly LlantaParaAviso[]): { vehiculos: number; 
   }
   const texto = [...grupos.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([v, ls]) => `${v}\n${[...ls].sort((a, b) => a.posicion - b.posicion).map((l) => `  · Posición ${l.posicion}: ${l.motivo}`).join("\n")}`)
+    .map(([v, ls]) => `${v}\n${[...ls].sort((a, b) => a.posicion - b.posicion).map((l) => `  · ${nombrePosicion(l.posicion)}: ${l.motivo}`).join("\n")}`)
     .join("\n\n");
   return { vehiculos: grupos.size, texto };
 }

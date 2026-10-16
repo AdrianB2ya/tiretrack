@@ -56,6 +56,8 @@ export interface Paquete {
     vehiculos: {
       id: string; sedeClienteId: string; configuracionEjeId: string;
       codigo: string; placa: string | null; nombre: string; kmActual: number; activo: boolean;
+      /** Llantas de repuesto que lleva (para mostrarlas en la orden). */
+      repuestos: number;
     }[];
   };
   readonly configuraciones: {
@@ -415,7 +417,7 @@ export class ServicioDescarga {
     const clientes = await this.db.query<Record<string, unknown>>(`SELECT id, nombre, nit, activo FROM "Cliente" ORDER BY nombre`);
     const sedes = await this.db.query<Record<string, unknown>>(`SELECT id, "clienteId", nombre, activa FROM "SedeCliente"`);
     const vehiculos = await this.db.query<Record<string, unknown>>(
-      `SELECT id, "sedeClienteId", "configuracionEjeId", codigo, placa, nombre, "kmActual", activo
+      `SELECT id, "sedeClienteId", "configuracionEjeId", codigo, placa, nombre, "kmActual", activo, repuestos
          FROM "Vehiculo"`,
     );
     return {
@@ -430,6 +432,7 @@ export class ServicioDescarga {
         configuracionEjeId: String(f["configuracionEjeId"]), codigo: String(f["codigo"]),
         placa: (f["placa"] as string) ?? null, nombre: String(f["nombre"] ?? f["codigo"]),
         kmActual: Number(f["kmActual"] ?? 0), activo: Boolean(f["activo"]),
+        repuestos: Number(f["repuestos"] ?? 0),
       })),
     };
   }

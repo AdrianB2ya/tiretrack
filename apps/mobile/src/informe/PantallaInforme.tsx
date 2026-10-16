@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ElegirUno } from "../diseno/ListaBuscable";
+import { etiquetaPosicion } from "@tiretrack/domain";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Aviso, Boton, Campo, Insignia, Opcion, Tarjeta } from "../diseno/componentes";
 import { CampoBusqueda, PieBusqueda, useBusqueda } from "../diseno/BusquedaLista";
@@ -329,7 +330,7 @@ export function PantallaInforme({ fuentes }: { fuentes: FuentesInforme }) {
               {desgaste ? <Text style={estilos.detalle}>{desgaste}</Text> : null}
               {traza.pasos.map((p, i) => (
                 <Text key={i} style={estilos.detalle}>
-                  {p.fecha} · {p.vehiculoCodigo ?? "—"} · Pos. {p.posicion}
+                  {p.fecha} · {p.vehiculoCodigo ?? "—"} · Pos. {etiquetaPosicion(p.posicion)}
                   {p.profundidad === null ? "" : ` · ${String(p.profundidad).replace(".", ",")} mm`}
                 </Text>
               ))}

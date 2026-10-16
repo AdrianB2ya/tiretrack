@@ -10,7 +10,8 @@ import {
   type BorradorMedicion,
   type DesmontadaBorrador,
 } from "../../../../../src/ordenes/reglasEditorPosicion";
-import { hermanaCapturada } from "../../../../../src/ordenes/diagrama";
+import { buscarCasilla, hermanaCapturada } from "../../../../../src/ordenes/diagrama";
+import { nombrePosicion, posicionEnFrase } from "@tiretrack/domain";
 import { useDatos, type DatosOrden } from "../../../../../src/app/ProveedorDatos";
 import { useUsuario } from "../../../../../src/app/ProveedorSesion";
 import { Vacio } from "../../../../../src/diseno/componentes";
@@ -51,9 +52,7 @@ export default function PantallaPosicion() {
       if (!vigente) return;
       if (!d) return setDatos(null);
 
-      const casilla = [...d.diagrama.ejes]
-        .flatMap((e) => [...e.izquierda, ...e.derecha])
-        .find((c) => c.numero === posicion);
+      const casilla = buscarCasilla(d.diagrama, posicion);
       // Una posición que el vehículo no tiene: se dice, no se queda cargando.
       if (!casilla) return setNoExistePosicion(true);
 
@@ -76,9 +75,7 @@ export default function PantallaPosicion() {
     let vigente = true;
     void (async () => {
       if (!datos || !borrador) return;
-      const casilla = [...datos.diagrama.ejes]
-        .flatMap((e) => [...e.izquierda, ...e.derecha])
-        .find((c) => c.numero === posicion);
+      const casilla = buscarCasilla(datos.diagrama, posicion);
 
       const c = await catalogoPara(borrador.marcaId, borrador.disenoId, casilla?.tipoEje ?? "multiuso");
       if (vigente) setCatalogo(c);
@@ -124,7 +121,8 @@ export default function PantallaPosicion() {
 
       // El diagrama recién guardado todavía no incluye esta posición, así que
       // se calcula la siguiente descontándola.
-      const faltantes = datos.diagrama.faltantes.filter((n) => n !== posicion);
+      // Los repuestos van después de los ejes.
+      const faltantes = [...datos.diagrama.faltantes, ...datos.diagrama.repuestosFaltantes].filter((n) => n !== posicion);
       const siguiente = faltantes.find((n) => n > posicion) ?? faltantes[0];
 
       if (siguiente !== undefined) {
@@ -146,7 +144,7 @@ export default function PantallaPosicion() {
   }, [datos, borrador, posicion]);
 
   if (datos === null) return <OrdenNoDisponible />;
-  if (noExistePosicion) return <OrdenNoDisponible mensaje={`El vehículo de esta orden no tiene la posición ${posicion}.`} />;
+  if (noExistePosicion) return <OrdenNoDisponible mensaje={`El vehículo de esta orden no tiene ${posicionEnFrase(posicion)}.`} />;
   if (!datos || !borrador || !catalogo) {
     return (
       <View style={estilos.centrado}>
@@ -155,12 +153,10 @@ export default function PantallaPosicion() {
     );
   }
 
-  const casilla = [...datos.diagrama.ejes]
-    .flatMap((e) => [...e.izquierda, ...e.derecha])
-    .find((c) => c.numero === posicion);
+  const casilla = buscarCasilla(datos.diagrama, posicion);
 
   if (!casilla) {
-    return <Vacio mensaje={`La posición ${posicion} no existe en este vehículo`} />;
+    return <Vacio mensaje={`${nombrePosicion(posicion)} no existe en este vehículo`} />;
   }
 
   const numeroHermana = hermanaCapturada(datos.diagrama, posicion);

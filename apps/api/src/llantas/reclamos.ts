@@ -117,7 +117,7 @@ export class ServicioReclamos {
       porMotivo,
       // La marca unificada se cuenta como la correcta (revisión del catálogo).
       porMarca: await agrupar(`coalesce(mc.nombre, m.nombre, 'Sin marca')`),
-      porPosicion: await agrupar(`lr.posicion::text`),
+      porPosicion: await agrupar(`CASE WHEN lr.posicion > 100 THEN 'R' || (lr.posicion - 100) ELSE lr.posicion::text END`),
       porVehiculo: await agrupar(`coalesce(o."vehiculoCodigo", v.codigo)`),
     };
   }

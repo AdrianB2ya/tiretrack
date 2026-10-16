@@ -32,7 +32,7 @@ describe("motivo de retiro", () => {
 describe("envío con una falla sin foto", () => {
   const estado = (retirosSinFoto: number[]): EstadoEnvio => ({
     orden: unaOrden({ firmaNombre: "Luis", firmaCedula: "1", firmaVersion: 0, versionContenido: 0 }),
-    diagrama: { ejes: [], totalPosiciones: 4, capturadas: 4, faltantes: [], conAlerta: [] },
+    diagrama: { ejes: [], totalPosiciones: 4, capturadas: 4, faltantes: [], conAlerta: [], repuestos: [], repuestosFaltantes: [] },
     fotosSinSubir: 0,
     operacionesPendientes: 0,
     retirosSinFoto,

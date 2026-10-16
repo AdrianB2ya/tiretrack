@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Aviso, Boton, Vacio } from "../diseno/componentes";
 import { colores, espacio, radio, texto } from "../diseno/tokens";
+import { nombrePosicion } from "@tiretrack/domain";
 
 /**
  * La evidencia de una orden tal como está en el servidor: la ve cualquiera
@@ -29,7 +30,7 @@ export function agruparEvidencia(fotos: readonly FotoServidor[]): { titulo: stri
   for (const f of fotos) grupos.set(f.posicion, [...(grupos.get(f.posicion) ?? []), f]);
   return [...grupos.entries()]
     .sort(([a], [b]) => (a === null ? -1 : b === null ? 1 : a - b))
-    .map(([posicion, fs]) => ({ titulo: posicion === null ? "De la orden" : `Posición ${posicion}`, fotos: fs }));
+    .map(([posicion, fs]) => ({ titulo: posicion === null ? "De la orden" : nombrePosicion(posicion), fotos: fs }));
 }
 
 export function Evidencia({ cargar }: { cargar: () => Promise<R<FotoServidor[]>> }) {

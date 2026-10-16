@@ -12,7 +12,7 @@ import { siguienteSinCapturar } from "../../../../src/ordenes/diagrama";
 import { FotosDe } from "../../../../src/fotos/FotosDe";
 import { DecisionCliente } from "../../../../src/cliente/DecisionCliente";
 import { camaraDelDispositivo, manipuladorDelDispositivo } from "../../../../src/fotos/captura";
-import { deserializarTrazo, estaAbierta, fechaEnColombia, MAXIMO_POR_ORDEN, puedeAprobar, puedeGestionarRecomendaciones, type EstadoOrden, ETIQUETA_TIPO_SERVICIO, type TipoServicio } from "@tiretrack/domain";
+import { nombrePosicion, posicionRepuesto, deserializarTrazo, estaAbierta, fechaEnColombia, MAXIMO_POR_ORDEN, puedeAprobar, puedeGestionarRecomendaciones, type EstadoOrden, ETIQUETA_TIPO_SERVICIO, type TipoServicio } from "@tiretrack/domain";
 import { colores, espacio, estadosOrden, texto } from "../../../../src/diseno/tokens";
 import { OrdenNoDisponible } from "../../../../src/ordenes/OrdenNoDisponible";
 import { Recomendaciones } from "../../../../src/ordenes/Recomendaciones";
@@ -166,6 +166,10 @@ export default function PantallaDetalle() {
         diagrama={diagrama}
         // El cliente consulta; no abre el editor de una posición.
         onTocarPosicion={(n) => !esCliente && router.push(`/orden/${orden.id}/posicion/${n}` as never)}
+        // Repuestos: el técnico agrega los que lleva el vehículo, uno por uno.
+        {...(capturar?.habilitada
+          ? { onAgregarRepuesto: () => router.push(`/orden/${orden.id}/posicion/${posicionRepuesto(diagrama.repuestos.length + 1)}` as never) }
+          : {})}
       />
 
       {/* Fotos de la orden en general (placa, odómetro, estado del vehículo);
@@ -263,7 +267,7 @@ export default function PantallaDetalle() {
         deshabilitado={!capturar?.habilitada || siguiente === null}
         onPress={() => siguiente !== null && router.push(`/orden/${orden.id}/posicion/${siguiente}` as never)}
       >
-        {siguiente === null ? "Todas las posiciones capturadas" : `Continuar captura (posición ${siguiente})`}
+        {siguiente === null ? "Todas las posiciones capturadas" : `Continuar captura (${nombrePosicion(siguiente).toLowerCase()})`}
       </Boton>
 
       <Boton

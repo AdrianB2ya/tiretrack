@@ -1,5 +1,6 @@
 import {
   esAutoaprobacion,
+  etiquetaPosicion,
   evaluarTransicion,
   firmaVigente,
   puedeAprobar,
@@ -266,7 +267,7 @@ export function motivosSugeridos(item: OrdenEnBandeja, ctx: ContextoCoordinador)
   }
   if (senales.some((s) => s.clave === "alertas")) {
     sugerencias.push(
-      `Confirma el estado de las llantas ${item.diagrama.conAlerta.join(", ")}, que están bajo el mínimo`,
+      `Confirma el estado de las llantas ${item.diagrama.conAlerta.map(etiquetaPosicion).join(", ")}, que están bajo el mínimo`,
     );
   }
 

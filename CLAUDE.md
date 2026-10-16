@@ -3725,6 +3725,39 @@ diseño sea global o de la empresa, y lo mismo la medida. Probado contra RLS
 real en `aislamiento.test.ts` (las tablas de diseño y medida no estaban en
 ese banco); con la política vieja, la prueba falla.
 
+## Llantas de repuesto (2026-10-16)
+
+Pedido del usuario: agregar los repuestos **en la operación**, tantos como
+lleve cada vehículo (no fijo en la plantilla). Decisiones del usuario: **el
+vehículo los recuerda** para la siguiente visita; **se miden como cualquier
+llanta**; **uno sin medir avisa, no bloquea**.
+
+- **Posiciones aparte del diagrama** (dominio `llanta/repuestos.ts`):
+  Repuesto 1 = posición **101**, el 2 = 102… hasta 10. Todo lo que ya funciona
+  por posición (una medición por posición, desmontada, historia del activo,
+  informe, alertas) sirve sin tabla nueva, y nunca chocan con un eje (una
+  plantilla no pasa de 60). `zPosicionLlanta` (contratos) acepta 1–60 y
+  101–110; las plantillas siguen con `zPosicion`.
+- **La llave a la plantilla pasa por `posicionEnEje`** (migración
+  `20261016120000_llantas_repuesto`): igual a `posicion` en un eje, nula en
+  un repuesto (con la columna nula PostgreSQL no comprueba la llave). Un CHECK
+  exige una de las dos formas: un eje no puede saltarse la llave.
+- **El vehículo recuerda** (`Vehiculo.repuestos`, viaja en la descarga;
+  migración 19 del celular). Se actualiza al **enviar a revisión**
+  (`repuestosTrasInspeccion`): una inspección completa guarda hasta el último
+  repuesto medido —si uno ya no está, el técnico no lo mide, se le avisa y
+  deja de aparecer—; un **correctivo no olvida** los que no revisó.
+- **App**: debajo de los ejes, "Repuestos" con R1, R2… y un **"+"** para
+  agregar el siguiente (solo quien puede capturar). El editor abre el
+  repuesto siguiente aunque aún no exista (`buscarCasilla`); sin PSI objetivo
+  ni mínimo propio: rigen los límites de la empresa, y para el catálogo es
+  "multiuso". Al capturar de corrido, los repuestos van después de los ejes.
+  No cuentan en "17 de 22 posiciones"; un repuesto para cambio inmediato sí
+  sale en las alertas.
+- **Textos**: "Repuesto 1" / "R1" en todas partes (`nombrePosicion`,
+  `etiquetaPosicion`, `posicionEnFrase`): CSV, PDF, tablero, causas de
+  retiro, alertas, cambios sin enviar, evidencia. Nunca "posición 101".
+
 ## Listas largas y piezas sin montar (revisión de la app, 2026-10-15)
 
 Pedido del usuario al probar: en el informe los clientes salían como un
@@ -4384,7 +4417,7 @@ identificador **`com.asistectire.app`**, rojo de la marca **como acento**.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 1123/1123, mobile 1033 + recorrido 669.
+**Verificado:** `npm run verify` con base: raíz 1133/1133, mobile 1045 + recorrido 669.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

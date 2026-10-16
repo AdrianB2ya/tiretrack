@@ -2,6 +2,7 @@ import { CODIGOS_SERVICIO_LLANTA, definicionDeServicio } from "../tipos";
 import { ETIQUETA_MOTIVO_RETIRO, type MotivoRetiro } from "../llanta/retiro";
 import { diferenciaDeLados, diferenciaPresion, recomendacionPorLados } from "../llanta/hallazgos";
 import { leerDOT } from "../llanta/dot";
+import { etiquetaPosicion } from "../llanta/repuestos";
 
 /**
  * Informe de órdenes de servicio.
@@ -159,7 +160,7 @@ export function aCeldas(f: FilaCruda): string[] {
     identificador,
     f.estado.toUpperCase(),
     texto(f.kilometraje),
-    String(f.posicion),
+    etiquetaPosicion(f.posicion),
 
     ...CODIGOS_SERVICIO_LLANTA.map((c) => (f.servicios.includes(c) ? MARCA_SERVICIO : "")),
 

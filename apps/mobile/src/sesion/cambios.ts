@@ -1,4 +1,5 @@
 import type { TipoOperacion } from "../datos/repositorio";
+import { posicionEnFrase } from "@tiretrack/domain";
 
 /**
  * Cambios sin enviar, contados uno por uno.
@@ -49,7 +50,7 @@ const NOMBRE: Record<TipoOperacion, string> = {
 export function describirCambio(c: CambioSinEnviar): string {
   const d = (c.datos ?? {}) as Record<string, unknown>;
   let base = NOMBRE[c.tipo] ?? c.tipo;
-  if (c.tipo === "guardar_medicion" && typeof d["posicion"] === "number") base = `Medición de la posición ${d["posicion"]}`;
+  if (c.tipo === "guardar_medicion" && typeof d["posicion"] === "number") base = `Medición de ${posicionEnFrase(d["posicion"])}`;
   if (c.tipo === "cambiar_estado" && typeof d["estado"] === "string") base = `Cambio de estado a ${ESTADO[d["estado"]] ?? d["estado"]}`;
   if (c.tipo === "crear_marca" && typeof d["nombre"] === "string") base = `Marca nueva: ${d["nombre"]}`;
   if (c.tipo === "crear_diseno" && typeof d["nombre"] === "string") base = `Diseño nuevo: ${d["nombre"]}`;

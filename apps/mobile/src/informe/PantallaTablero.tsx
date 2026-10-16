@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import type { Compras, Rendimiento, VidaUtil } from "@tiretrack/domain";
 import { Aviso, Boton, Opcion, Tarjeta, Vacio } from "../diseno/componentes";
 import { colores, espacio, texto } from "../diseno/tokens";
+import { nombreDeEtiqueta } from "@tiretrack/domain";
 
 /**
  * Tablero de la flota (R11): qué comprar y cuándo, y qué marca rinde.
@@ -94,7 +95,7 @@ export function PantallaTablero({ fuentes }: { fuentes: FuentesTablero }) {
       <Text style={estilos.detalle}>Del menor costo por kilómetro al mayor.</Text>
       {filas.map((g) => (
         <Tarjeta key={g.grupo} testID={`rendimiento-${g.grupo}`}>
-          <Text style={estilos.nombre}>{vista === "posicion" ? `Posición ${g.grupo}` : g.grupo}</Text>
+          <Text style={estilos.nombre}>{vista === "posicion" ? nombreDeEtiqueta(g.grupo) : g.grupo}</Text>
           <Text style={estilos.linea}>
             Costo por km {pesos(g.cpk)} · {g.kmPorMm === null ? "—" : `${g.kmPorMm.toLocaleString("es-CO")} km/mm`} · proyección {km(g.proyeccionKm)}
           </Text>

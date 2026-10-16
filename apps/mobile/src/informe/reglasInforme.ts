@@ -1,5 +1,5 @@
 import { zFiltroInforme } from "@tiretrack/contracts";
-import { CATALOGO_SERVICIOS, ESTADOS_LLANTA, MAX_ORDENES_PDF } from "@tiretrack/domain";
+import { etiquetaPosicion, CATALOGO_SERVICIOS, ESTADOS_LLANTA, MAX_ORDENES_PDF } from "@tiretrack/domain";
 
 /**
  * Informe en la app: filtros, vista previa y exportación.
@@ -174,7 +174,7 @@ export function avisoSinCerrar(v: VistaPrevia): string | null {
 export function describirFila(f: FilaVista): string {
   const llanta = f.noIdentificada ? "SIN IDENTIFICAR" : [f.marca, f.serial].filter(Boolean).join(" ") || "Sin datos";
   const prof = f.profundidad === null ? "" : ` · ${String(f.profundidad).replace(".", ",")} mm`;
-  return `Pos. ${f.posicion} · ${llanta}${prof}`;
+  return `Pos. ${etiquetaPosicion(f.posicion)} · ${llanta}${prof}`;
 }
 
 export interface PasoTrazabilidad {

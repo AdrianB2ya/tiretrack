@@ -254,6 +254,8 @@ export interface VehiculoLocal {
   readonly placa: string | null;
   readonly nombre: string;
   readonly kmActual: number;
+  /** Llantas de repuesto que lleva (dominio llanta/repuestos). Sin dato, ninguna. */
+  readonly repuestos?: number;
 }
 
 /** El vehículo con su cliente, sede y plantilla: la ficha que abre el QR (R15). */
@@ -726,7 +728,7 @@ export class RepositorioLocal {
 
   async buscarVehiculo(id: string): Promise<VehiculoLocal | null> {
     const filas = await this.db.consultar<Record<string, unknown>>(
-      `SELECT id, sede_cliente_id, configuracion_eje_id, codigo, placa, nombre, km_actual
+      `SELECT id, sede_cliente_id, configuracion_eje_id, codigo, placa, nombre, km_actual, repuestos
          FROM vehiculo WHERE id = ?`,
       [id],
     );
@@ -740,6 +742,7 @@ export class RepositorioLocal {
       placa: (f["placa"] as string) ?? null,
       nombre: String(f["nombre"]),
       kmActual: Number(f["km_actual"]),
+      repuestos: Number(f["repuestos"] ?? 0),
     };
   }
 
@@ -774,9 +777,9 @@ export class RepositorioLocal {
         for (const v of datos.vehiculos) {
           await this.db.ejecutar(
             `INSERT OR REPLACE INTO vehiculo
-               (id, sede_cliente_id, configuracion_eje_id, codigo, placa, nombre, km_actual, activo, creada_local)
-             VALUES (?,?,?,?,?,?,?,?,0)`,
-            [v.id, v.sedeClienteId, v.configuracionEjeId, v.codigo, v.placa, v.nombre, v.kmActual, activo(v)],
+               (id, sede_cliente_id, configuracion_eje_id, codigo, placa, nombre, km_actual, activo, creada_local, repuestos)
+             VALUES (?,?,?,?,?,?,?,?,0,?)`,
+            [v.id, v.sedeClienteId, v.configuracionEjeId, v.codigo, v.placa, v.nombre, v.kmActual, activo(v), v.repuestos ?? 0],
           );
         }
       }

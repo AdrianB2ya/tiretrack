@@ -511,6 +511,14 @@ export const MIGRACIONES: readonly Migracion[] = [
       ALTER TABLE medicion ADD COLUMN des_motivo_retiro TEXT;
     `,
   },
+  {
+    version: 19,
+    nombre: "repuestos del vehiculo",
+    sql: `
+      -- Cuántas llantas de repuesto lleva: la orden las muestra para medirlas.
+      ALTER TABLE vehiculo ADD COLUMN repuestos INTEGER NOT NULL DEFAULT 0;
+    `,
+  },
 ];
 
 export const VERSION_ESQUEMA = MIGRACIONES[MIGRACIONES.length - 1]?.version ?? 0;

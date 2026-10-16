@@ -1,5 +1,5 @@
 import type pg from "pg";
-import type { EstadoOrden } from "@tiretrack/domain";
+import { repuestosTrasInspeccion, type EstadoOrden } from "@tiretrack/domain";
 
 /**
  * Acceso a datos de órdenes de servicio.
@@ -110,6 +110,8 @@ export interface RepositorioOrdenes {
   >;
   datosParaCongelar(ordenId: string): Promise<DatosCongelado | null>;
   contarPosiciones(ordenId: string): Promise<number>;
+  /** El vehículo recuerda sus repuestos tras la inspección (dominio llanta/repuestos). */
+  recordarRepuestos(ordenId: string): Promise<void>;
   ordenesAbiertasDeVehiculo(vehiculoId: string, exceptoId?: string): Promise<Orden[]>;
   codigoDeSede(sedeId: string): Promise<string | null>;
   tecnicoPerteneceASede(tecnicoId: string, sedeId: string): Promise<boolean>;
@@ -342,6 +344,22 @@ export class RepositorioOrdenesPg implements RepositorioOrdenes {
       [ordenId],
     );
     return r.rows[0] ?? null;
+  }
+
+  async recordarRepuestos(ordenId: string): Promise<void> {
+    const r = await this.db.query<{ tipo: string; vehiculoId: string; repuestos: number; posiciones: number[] }>(
+      `SELECT o.tipo, o."vehiculoId", v.repuestos,
+              COALESCE((SELECT array_agg(lr.posicion) FROM "LlantaRegistro" lr WHERE lr."ordenId" = o.id), '{}') AS posiciones
+         FROM "OrdenServicio" o JOIN "Vehiculo" v ON v.id = o."vehiculoId"
+        WHERE o.id = $1`,
+      [ordenId],
+    );
+    const f = r.rows[0];
+    if (!f) return;
+    const nuevos = repuestosTrasInspeccion(String(f.tipo), Number(f.repuestos), f.posiciones.map(Number));
+    if (nuevos !== Number(f.repuestos)) {
+      await this.db.query(`UPDATE "Vehiculo" SET repuestos = $2 WHERE id = $1`, [f.vehiculoId, nuevos]);
+    }
   }
 
   async contarPosiciones(ordenId: string): Promise<number> {

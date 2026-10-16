@@ -3,6 +3,7 @@ import { diferenciaDeLados, recomendacionPorLados } from "../llanta/hallazgos";
 import { ETIQUETA_NIVEL_CAMBIO, LIMITES_POR_DEFECTO, nivelDeCambio, umbralesDeCambio, type LimitesEmpresa } from "../llanta/limites";
 import { leerDOT, ANIOS_VIDA_DOT } from "../llanta/dot";
 import { ocurrencia, proximaEjecucion, siguienteHabil, type Frecuencia } from "../tiempo/habiles";
+import { nombrePosicion } from "../llanta/repuestos";
 
 /**
  * Trabajos programados: cierre por vencimiento, órdenes recurrentes y alertas.
@@ -175,7 +176,7 @@ export interface Alerta {
  */
 export function evaluarAlertas(l: LlantaParaRevisar, hoy: Date, limites: LimitesEmpresa = LIMITES_POR_DEFECTO): Alerta[] {
   const alertas: Alerta[] = [];
-  const identificacion = l.serial ? `serial ${l.serial}` : `posición ${l.posicion}`;
+  const identificacion = l.serial ? `serial ${l.serial}` : nombrePosicion(l.posicion).toLowerCase();
 
   const dot = leerDOT(l.dot, hoy);
   if (dot?.vencida) {

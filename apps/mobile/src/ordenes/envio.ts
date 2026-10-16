@@ -1,4 +1,4 @@
-import { evaluarTransicion, firmaVigente, type Rol, type Veredicto } from "@tiretrack/domain";
+import { etiquetaPosicion, evaluarTransicion, firmaVigente, nombrePosicion, type Rol, type Veredicto } from "@tiretrack/domain";
 import type { OrdenLocal } from "../datos/repositorio";
 import type { Diagrama } from "./diagrama";
 
@@ -88,7 +88,7 @@ export function revisarEnvio(e: EstadoEnvio): PuntoRevision[] {
       clave: "fallas_sin_foto",
       cumplido: false,
       clase: "impide",
-      texto: `Llanta retirada por falla sin foto: posición ${sinFoto.join(", ")}`,
+      texto: `Llanta retirada por falla sin foto: ${sinFoto.map((p) => nombrePosicion(p).toLowerCase()).join(", ")}`,
       comoResolver: "Abre la posición y toma la foto de la llanta que sale",
     });
   }
@@ -106,12 +106,25 @@ export function revisarEnvio(e: EstadoEnvio): PuntoRevision[] {
     });
   }
 
+  if (diagrama.repuestosFaltantes.length > 0) {
+    const n = diagrama.repuestosFaltantes.length;
+    puntos.push({
+      clave: "repuestos_sin_medir",
+      cumplido: false,
+      clase: "advierte",
+      texto: `${n === 1 ? "Un repuesto sin medir" : `${n} repuestos sin medir`}: ${diagrama.repuestosFaltantes.map((p) => nombrePosicion(p).toLowerCase()).join(", ")}`,
+      // El vehículo recuerda hasta el último repuesto medido: si ya no lo
+      // lleva, enviar así lo saca de la próxima visita.
+      comoResolver: "Si el vehículo ya no lo lleva, envía así: no aparecerá en la próxima visita",
+    });
+  }
+
   if (diagrama.conAlerta.length > 0) {
     puntos.push({
       clave: "alertas",
       cumplido: false,
       clase: "advierte",
-      texto: `${diagrama.conAlerta.length} llanta(s) bajo el mínimo: ${diagrama.conAlerta.join(", ")}`,
+      texto: `${diagrama.conAlerta.length} llanta(s) bajo el mínimo: ${diagrama.conAlerta.map(etiquetaPosicion).join(", ")}`,
       comoResolver: "Verifica que quedó registrado en los hallazgos",
     });
   }

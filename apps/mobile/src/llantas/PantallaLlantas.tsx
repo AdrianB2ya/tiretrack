@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { ESTADOS_ACTIVO, ETIQUETA_ESTADO_ACTIVO, type EstadoActivo } from "@tiretrack/domain";
+import { nombrePosicion, ESTADOS_ACTIVO, ETIQUETA_ESTADO_ACTIVO, type EstadoActivo } from "@tiretrack/domain";
 import { Aviso, Boton, Campo, Insignia, Opcion, Tarjeta, Vacio } from "../diseno/componentes";
 import { PieBusqueda, useBusqueda } from "../diseno/BusquedaLista";
 import { colores, espacio, texto } from "../diseno/tokens";
@@ -48,7 +48,7 @@ export function nombreLlanta(l: { numeroInterno: string | null; serial: string |
 
 /** Dónde está, en palabras: "CA-12, posición 3", "Bodega de Fundación". */
 export function dondeEsta(l: LlantaVista): string {
-  if (l.estado === "montada" && l.vehiculoCodigo) return `${l.vehiculoCodigo}, posición ${l.posicion ?? "?"}`;
+  if (l.estado === "montada" && l.vehiculoCodigo) return `${l.vehiculoCodigo}, ${l.posicion === null ? "posición ?" : nombrePosicion(l.posicion).toLowerCase()}`;
   if (l.estado === "bodega") return l.sedeNombre ? `Bodega de ${l.sedeNombre}` : "En bodega";
   return ETIQUETA_ESTADO_ACTIVO[l.estado];
 }

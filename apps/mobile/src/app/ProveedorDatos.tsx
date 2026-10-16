@@ -298,10 +298,11 @@ export function ProveedorDatos({
       const orden = await repo.buscarOrden(ordenId);
       if (!orden) return null;
 
-      const [mediciones, posiciones, contexto] = await Promise.all([
+      const [mediciones, posiciones, contexto, vehiculo] = await Promise.all([
         repo.medicionesDe(ordenId),
         repo.posicionesDe(orden.configuracionEjeId),
         repo.contextoDeOrden(ordenId),
+        repo.buscarVehiculo(orden.vehiculoId),
       ]);
 
       return {
@@ -309,7 +310,8 @@ export function ProveedorDatos({
         mediciones,
         posiciones,
         contexto,
-        diagrama: construirDiagrama(posiciones, mediciones, await repo.limites()),
+        // Los repuestos que el vehículo recuerda aparecen para medirlos.
+        diagrama: construirDiagrama(posiciones, mediciones, await repo.limites(), vehiculo?.repuestos ?? 0),
       };
     },
     [repo],
@@ -443,9 +445,10 @@ export function ProveedorDatos({
 
     return Promise.all(
       ordenes.map(async (orden) => {
-        const [mediciones, posiciones] = await Promise.all([
+        const [mediciones, posiciones, vehiculo] = await Promise.all([
           repo.medicionesDe(orden.id),
           repo.posicionesDe(orden.configuracionEjeId),
+          repo.buscarVehiculo(orden.vehiculoId),
         ]);
         const ctx = contextos.get(orden.id);
 
@@ -456,7 +459,7 @@ export function ProveedorDatos({
           // El nombre congelado en la orden manda: si se reasignó, la bandeja
           // debe seguir mostrando quién la ejecutó.
           tecnicoNombre: orden.tecnicoNombre ?? orden.tecnicoId,
-          diagrama: construirDiagrama(posiciones, mediciones, await repo.limites()),
+          diagrama: construirDiagrama(posiciones, mediciones, await repo.limites(), vehiculo?.repuestos ?? 0),
           diasEsperando: diasDesde(orden.enviadaRevisionEn),
         } satisfies OrdenEnBandeja;
       }),

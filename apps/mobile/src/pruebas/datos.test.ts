@@ -641,6 +641,12 @@ describe("flota descargada", () => {
     expect((await repo.contextoDeOrden("ord-1"))?.vehiculoCodigo).toBe("CA-12");
   });
 
+  it("guarda cuántos repuestos lleva cada vehículo; sin el dato, ninguno", async () => {
+    await repo.guardarFlota({ ...flota, vehiculos: [{ ...flota.vehiculos[0]!, repuestos: 2 }, flota.vehiculos[1]!] });
+    expect((await repo.buscarVehiculo("veh-1"))?.repuestos).toBe(2);
+    expect((await repo.buscarVehiculo("veh-2"))?.repuestos).toBe(0);
+  });
+
   it("sin la marca de activo (servidor anterior) todo se toma como activo", async () => {
     await repo.guardarFlota(flota);
     expect(await repo.clientes()).toHaveLength(2);

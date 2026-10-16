@@ -1,4 +1,5 @@
 import { type Veredicto, PERMITIDO, negar } from "../tipos";
+import { posicionEnFrase } from "../llanta/repuestos";
 
 /**
  * Registro fotográfico.
@@ -53,7 +54,7 @@ export function validarFoto(s: SolicitudFoto): Veredicto {
 
   const tope = s.posicion === null ? MAXIMO_POR_ORDEN : MAXIMO_POR_POSICION;
   if (s.existentes >= tope) {
-    const donde = s.posicion === null ? "esta orden" : `la posición ${s.posicion}`;
+    const donde = s.posicion === null ? "esta orden" : posicionEnFrase(s.posicion);
     return negar("DEMASIADAS_FOTOS", `Ya hay ${tope} fotos en ${donde}`);
   }
 

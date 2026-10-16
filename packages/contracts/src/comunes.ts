@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  esRepuesto,
   ESTADOS_ORDEN,
   ESTADOS_LLANTA,
   DESTINOS_LLANTA,
@@ -114,6 +115,16 @@ export const zProfundidad = z.number().min(0).max(60);
 
 /** Posición dentro del diagrama. El máximo real lo valida la configuración. */
 export const zPosicion = z.number().int().min(1).max(60);
+
+/**
+ * Posición de una llanta medida: la de un eje (1 a 60) o un repuesto (101 en
+ * adelante, dominio llanta/repuestos). Las plantillas siguen usando zPosicion:
+ * un repuesto no es parte del diagrama de ejes.
+ */
+export const zPosicionLlanta = z
+  .number()
+  .int()
+  .refine((n) => (n >= 1 && n <= 60) || esRepuesto(n), "Posición inválida");
 
 export const zKilometraje = z.number().int().min(0).max(9_999_999);
 

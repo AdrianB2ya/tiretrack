@@ -154,6 +154,14 @@ describe("medición de una posición", () => {
     expect(r.success).toBe(true);
   });
 
+  it("acepta un repuesto (101 en adelante) y nada entre los ejes y los repuestos", () => {
+    expect(zMedicionLlanta.safeParse({ ...base, posicion: 101 }).success).toBe(true);
+    expect(zMedicionLlanta.safeParse({ ...base, posicion: 110 }).success).toBe(true);
+    expect(zMedicionLlanta.safeParse({ ...base, posicion: 61 }).success).toBe(false);
+    expect(zMedicionLlanta.safeParse({ ...base, posicion: 100 }).success).toBe(false);
+    expect(zMedicionLlanta.safeParse({ ...base, posicion: 111 }).success).toBe(false);
+  });
+
   it("exige el motivo cuando no se pudo identificar", () => {
     const r = zMedicionLlanta.safeParse({ ...base, noIdentificada: true });
     expect(r.success).toBe(false);

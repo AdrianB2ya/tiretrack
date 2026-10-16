@@ -1,5 +1,7 @@
 import { zMedicionLlanta, type MedicionLlanta } from "@tiretrack/contracts";
 import {
+  nombrePosicion,
+  esRepuesto,
   definicionDeServicio,
   profundidadDeReferencia,
   puedeEditarMediciones,
@@ -163,7 +165,7 @@ export class RepositorioMedicionesPg implements RepositorioMediciones {
     const desProf = des?.profundidades ? profundidadDeReferencia(des.profundidades) : des?.profundidad ?? null;
     await this.db.query(
       `INSERT INTO "LlantaRegistro" (
-         id, "ordenId", "configuracionEjeId", posicion,
+         id, "ordenId", "configuracionEjeId", posicion, "posicionEnEje",
          "marcaId", "disenoId", medida, "numCalor", serial, dot, "estadoLlanta",
          "psiEncontrada", "psiCalibrado", profundidad, observaciones,
          "noIdentificada", "motivoNoIdentificada",
@@ -172,7 +174,7 @@ export class RepositorioMedicionesPg implements RepositorioMediciones {
          "desSerial", "desDot", "desProfundidad", "desDestino", "desDetalle",
          "profExterior", "profCentro", "profInterior",
          "desProfExterior", "desProfCentro", "desProfInterior", costo, "desMotivoRetiro")
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$19,
+       VALUES ($1,$2,$3,$4,$38,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$19,
                $20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37)
        ON CONFLICT (id) DO UPDATE SET
          "marcaId" = EXCLUDED."marcaId", "disenoId" = EXCLUDED."disenoId",
@@ -215,6 +217,8 @@ export class RepositorioMedicionesPg implements RepositorioMediciones {
         // R9: el costo de la llanta, que se captura en el levantamiento.
         d.costo ?? null,
         d.desmontada?.motivoRetiro ?? null,
+        // La llave hacia la plantilla: nula en un repuesto, que no está en ella.
+        esRepuesto(d.posicion) ? null : d.posicion,
       ],
     );
   }
@@ -276,7 +280,8 @@ export class ServicioMediciones {
     });
     if (!permiso.permitido) return { ok: false, veredicto: permiso };
 
-    if (!(await this.repo.posicionExiste(orden.configuracionEjeId, datos.posicion))) {
+    // Un repuesto no está en la plantilla: lo agrega el técnico en la orden.
+    if (!esRepuesto(datos.posicion) && !(await this.repo.posicionExiste(orden.configuracionEjeId, datos.posicion))) {
       return fallo(
         "POSICION_INEXISTENTE",
         `El vehículo no tiene posición ${datos.posicion} en su configuración de ejes`,
@@ -301,7 +306,7 @@ export class ServicioMediciones {
     if (ocupante && ocupante !== datos.id) {
       return fallo(
         "POSICION_OCUPADA",
-        `La posición ${datos.posicion} ya tiene una medición registrada desde otro dispositivo`,
+        `${nombrePosicion(datos.posicion)} ya tiene una medición registrada desde otro dispositivo`,
         "posicion",
       );
     }
@@ -343,7 +348,7 @@ export class ServicioMediciones {
       // detiene; aquí se traduce a algo que la persona entienda.
       const codigo = (e as { code?: string }).code;
       if (codigo === UNICO_VIOLADO) {
-        return fallo("POSICION_OCUPADA", `La posición ${datos.posicion} acaba de registrarse desde otro dispositivo`, "posicion");
+        return fallo("POSICION_OCUPADA", `${nombrePosicion(datos.posicion)} acaba de registrarse desde otro dispositivo`, "posicion");
       }
       if (codigo === FORANEA_VIOLADA) {
         return fallo("REFERENCIA_INVALIDA", "La marca, el diseño o la posición no existen");

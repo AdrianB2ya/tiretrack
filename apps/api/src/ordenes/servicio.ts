@@ -419,6 +419,9 @@ export class ServicioOrdenes {
 
     const actualizada = await this.repo.cambiarEstado(ordenId, version, destino, campos);
     if (!actualizada) return "carrera";
+    // Al terminar la captura, el vehículo recuerda cuántos repuestos lleva:
+    // la próxima orden los muestra para medirlos.
+    if (destino === "en_revision") await this.repo.recordarRepuestos(ordenId);
 
     await this.repo.registrarHistorial({
       id: nuevoId(),

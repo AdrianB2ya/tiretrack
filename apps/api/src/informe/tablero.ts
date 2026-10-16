@@ -1,4 +1,5 @@
 import {
+  etiquetaPosicion,
   fechaEnColombia,
   kmRecorridos,
   proyeccionDeCompras,
@@ -110,7 +111,7 @@ export async function tableroDeFlota(
     llantas: ultimas.length,
     porMarca: rendimientoPor(ultimas, (f) => f.marca),
     porDiseno: rendimientoPor(ultimas, (f) => (f.diseno ? `${f.marca ?? ""} ${f.diseno}`.trim() : null)),
-    porPosicion: rendimientoPor(ultimas, (f) => String(f.posicion)),
+    porPosicion: rendimientoPor(ultimas, (f) => etiquetaPosicion(f.posicion)),
     compras: proyeccionDeCompras(ultimas, fechaEnColombia(hoy)),
     // Brecha C: lo que rindieron de verdad las que ya salieron.
     ...(db

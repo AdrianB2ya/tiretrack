@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { ETIQUETA_MOTIVO_RETIRO, esFalla, fechaEnColombia, type MotivoRetiro } from "@tiretrack/domain";
+import { nombreDeEtiqueta, ETIQUETA_MOTIVO_RETIRO, esFalla, fechaEnColombia, type MotivoRetiro } from "@tiretrack/domain";
 import { Aviso, Boton, Opcion, Tarjeta, Vacio } from "../diseno/componentes";
 import { colores, espacio, texto } from "../diseno/tokens";
 
@@ -115,7 +115,7 @@ export function PantallaCausas({ fuentes, hoy = new Date() }: { fuentes: Fuentes
               <Text style={estilos.subtitulo}>{titulo}</Text>
               {resumirGrupos(grupos).slice(0, 15).map((g) => (
                 <Text key={g.grupo} style={estilos.linea}>
-                  {id === "por-posicion" ? `Posición ${g.grupo}` : g.grupo}: {g.total} · más por {g.principal.toLowerCase()}
+                  {id === "por-posicion" ? nombreDeEtiqueta(g.grupo) : g.grupo}: {g.total} · más por {g.principal.toLowerCase()}
                   {g.fallas > 0 ? ` · ${g.fallas} por falla` : ""}
                 </Text>
               ))}

@@ -188,3 +188,22 @@ describe("resumen", () => {
     expect(screen.queryByText(/bajo el mínimo/)).toBeNull();
   });
 });
+
+describe("repuestos en el diagrama", () => {
+  it("se ven aparte como R1, R2, y el + agrega el siguiente", () => {
+    const onAgregar = vi.fn();
+    const onTocar = vi.fn();
+    render(<DiagramaLlantas diagrama={construirDiagrama(configuracion, [], undefined, 1)} onTocarPosicion={onTocar} onAgregarRepuesto={onAgregar} />);
+    expect(screen.getByText("Repuestos")).toBeTruthy();
+    fireEvent.click(screen.getByLabelText("Repuesto 1, sin capturar"));
+    expect(onTocar).toHaveBeenCalledWith(101);
+    fireEvent.click(screen.getByTestId("agregar-repuesto"));
+    expect(onAgregar).toHaveBeenCalled();
+  });
+
+  it("sin permiso para capturar y sin repuestos, no aparece la sección", () => {
+    render(<DiagramaLlantas diagrama={construirDiagrama(configuracion, [])} onTocarPosicion={vi.fn()} />);
+    expect(screen.queryByTestId("repuestos")).toBeNull();
+    expect(screen.queryByTestId("agregar-repuesto")).toBeNull();
+  });
+});

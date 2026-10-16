@@ -4,6 +4,7 @@ import {
   zFechaISO,
   zId,
   zPosicion,
+  zPosicionLlanta,
   zPresion,
   zProfundidad,
   zTextoCorto,
@@ -251,7 +252,7 @@ export type RespuestaSincronizacion = z.infer<typeof zRespuestaSincronizacion>;
 export const zSolicitarSubida = z.object({
   id: zId,
   ordenId: zId,
-  posicion: zPosicion.optional(),
+  posicion: zPosicionLlanta.optional(),
   nombreArchivo: zTextoCorto,
   tipoMime: z.enum(["image/jpeg", "image/png", "image/webp"]),
   /** Se comprime en el dispositivo antes de subir: tope de 2 MB. */

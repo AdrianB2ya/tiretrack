@@ -54,7 +54,10 @@ describe.skipIf(!disponible)("mediciones", () => {
         LlantaRegistro: [
           `FOREIGN KEY ("ordenId") REFERENCES "OrdenServicio"(id)`,
           // Las dos restricciones reales que estas pruebas ejercitan:
-          `FOREIGN KEY ("configuracionEjeId", posicion) REFERENCES "PosicionEje" ("configuracionEjeId", numero)`,
+          // Como en producción (migración 20261016120000): la llave a la plantilla
+          // va por posicionEnEje, nula en un repuesto.
+          `FOREIGN KEY ("configuracionEjeId", "posicionEnEje") REFERENCES "PosicionEje" ("configuracionEjeId", numero)`,
+          `CHECK ((posicion BETWEEN 1 AND 60 AND "posicionEnEje" = posicion) OR (posicion BETWEEN 101 AND 110 AND "posicionEnEje" IS NULL))`,
         ],
         LlantaServicio: [
           `FOREIGN KEY ("llantaRegistroId") REFERENCES "LlantaRegistro"(id) ON DELETE CASCADE`,
@@ -114,6 +117,29 @@ describe.skipIf(!disponible)("mediciones", () => {
       expect([x.profundidad, x.profExterior, x.profCentro, x.profInterior].map(Number)).toEqual([8.5, 9.5, 9, 8.5]);
       expect(Number(x.desProfundidad)).toBe(2.5);
       expect(x.desProfCentro).toBeNull();
+    });
+
+    it("un repuesto se guarda aunque no esté en la plantilla de ejes", async () => {
+      const r = await servicio.guardar(TEC1, ORDEN, medicion(101, { serial: "REP1", profundidad: 12 }));
+      expect(r.ok).toBe(true);
+      const f = await db.query(`SELECT posicion, "posicionEnEje", serial FROM "LlantaRegistro"`);
+      expect(f.rows[0]).toMatchObject({ posicion: 101, posicionEnEje: null, serial: "REP1" });
+    });
+
+    it("una posición de eje sigue pasando por la llave a la plantilla", async () => {
+      const r = await servicio.guardar(TEC1, ORDEN, medicion(1));
+      expect(r.ok).toBe(true);
+      const f = await db.query(`SELECT "posicionEnEje" FROM "LlantaRegistro"`);
+      expect(f.rows[0].posicionEnEje).toBe(1);
+      // Y la base no deja colar una posición que la plantilla no tiene.
+      await expect(db.query(
+        `INSERT INTO "LlantaRegistro" (id,"ordenId","configuracionEjeId",posicion,"posicionEnEje","capturadoPorId","capturadoEn","actualizadoEn")
+         VALUES (x,$1,$2,5,5,u-tec1,now(),now())`, [ORDEN, CFG],
+      )).rejects.toThrow();
+      await expect(db.query(
+        `INSERT INTO "LlantaRegistro" (id,"ordenId","configuracionEjeId",posicion,"posicionEnEje","capturadoPorId","capturadoEn","actualizadoEn")
+         VALUES (y,$1,$2,5,NULL,u-tec1,now(),now())`, [ORDEN, CFG],
+      )).rejects.toThrow();
     });
 
     it("una versión anterior de la app, con una sola profundidad, sigue funcionando", async () => {

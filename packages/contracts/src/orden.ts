@@ -11,7 +11,7 @@ import {
   zId,
   zKilometraje,
   zMotivo,
-  zPosicion,
+  zPosicionLlanta,
   zPresion,
   zPrioridad,
   zProfundidad,
@@ -54,7 +54,7 @@ export type TresProfundidadesContrato = z.infer<typeof zTresProfundidades>;
 
 /** Datos de la llanta que SALE de la posición. */
 export const zLlantaDesmontada = z.object({
-  posicionOrigen: zPosicion.optional(),
+  posicionOrigen: zPosicionLlanta.optional(),
   marcaId: zId.optional(),
   disenoId: zId.optional(),
   medida: zTextoCorto.optional(),
@@ -73,7 +73,7 @@ export type LlantaDesmontada = z.infer<typeof zLlantaDesmontada>;
 
 const camposMedicion = {
   id: zId,
-  posicion: zPosicion,
+  posicion: zPosicionLlanta,
 
   marcaId: zId.optional(),
   disenoId: zId.optional(),
@@ -284,7 +284,7 @@ export type FiltroOrdenes = z.infer<typeof zFiltroOrdenes>;
 export const zCrearRecomendacion = z.object({
   id: zId,
   vehiculoId: zId,
-  posicion: zPosicion.optional(),
+  posicion: zPosicionLlanta.optional(),
   texto: z.string().trim().min(5).max(1000),
   prioridad: z.enum(PRIORIDADES_RECOMENDACION).default("proxima"),
 });

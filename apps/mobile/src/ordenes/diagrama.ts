@@ -1,4 +1,14 @@
-import { LIMITES_POR_DEFECTO, nivelDeCambio, umbralesDeCambio, type LimitesEmpresa, type NivelCambio, type Umbrales } from "@tiretrack/domain";
+import {
+  LIMITES_POR_DEFECTO,
+  esRepuesto,
+  nivelDeCambio,
+  posicionRepuesto,
+  repuestosDeLaOrden,
+  umbralesDeCambio,
+  type LimitesEmpresa,
+  type NivelCambio,
+  type Umbrales,
+} from "@tiretrack/domain";
 import type { PosicionEjeLocal } from "../datos/repositorio";
 import type { MedicionLocal } from "../datos/repositorio";
 
@@ -50,6 +60,32 @@ export interface Diagrama {
   readonly capturadas: number;
   readonly faltantes: readonly number[];
   readonly conAlerta: readonly number[];
+  /**
+   * Llantas de repuesto, fuera de los ejes: las que el vehículo recuerda y
+   * las que se agregaron en esta orden. No cuentan en `totalPosiciones` ni
+   * en `faltantes` (no son parte de la plantilla); van aparte.
+   */
+  readonly repuestos: readonly Casilla[];
+  readonly repuestosFaltantes: readonly number[];
+  /** Los límites con que se armó: los usa un repuesto recién agregado. */
+  readonly limites?: LimitesEmpresa;
+}
+
+/**
+ * La casilla de un repuesto (posición 101 en adelante). Sin PSI objetivo ni
+ * mínimo propio: rigen los límites de la empresa. Para el catálogo es
+ * "multiuso" (un diseño creado aquí no es de ningún eje).
+ */
+export function casillaRepuesto(
+  posicion: number,
+  medicion: MedicionLocal | undefined,
+  limites: LimitesEmpresa = LIMITES_POR_DEFECTO,
+): Casilla {
+  return armarCasilla(
+    { configuracionEjeId: "", numero: posicion, eje: 0, lado: "izquierdo", esInterna: false, tipoEje: "multiuso", psiObjetivo: null, profundidadMinima: null },
+    medicion,
+    limites,
+  );
 }
 
 /**
@@ -62,6 +98,8 @@ export function construirDiagrama(
   posiciones: readonly PosicionEjeLocal[],
   mediciones: readonly MedicionLocal[],
   limites: LimitesEmpresa = LIMITES_POR_DEFECTO,
+  /** Repuestos que el vehículo recuerda de la última inspección. */
+  repuestosVehiculo = 0,
 ): Diagrama {
   const porNumero = new Map(mediciones.map((m) => [m.posicion, m]));
   const porEje = new Map<number, PosicionEjeLocal[]>();
@@ -98,13 +136,23 @@ export function construirDiagrama(
     });
 
   const todas = ejes.flatMap((e) => [...e.izquierda, ...e.derecha]);
+  const cuantos = repuestosDeLaOrden(repuestosVehiculo, mediciones.map((m) => m.posicion));
+  const repuestos = Array.from({ length: cuantos }, (_, i) => {
+    const p = posicionRepuesto(i + 1);
+    return casillaRepuesto(p, porNumero.get(p), limites);
+  });
 
   return {
+    limites,
+    repuestos,
+    repuestosFaltantes: repuestos.filter((c) => c.estado === "vacia").map((c) => c.numero),
     ejes,
     totalPosiciones: todas.length,
     capturadas: todas.filter((c) => c.estado !== "vacia").length,
     faltantes: todas.filter((c) => c.estado === "vacia").map((c) => c.numero),
-    conAlerta: todas.filter((c) => c.estado === "alerta_profundidad").map((c) => c.numero),
+    // Un repuesto para cambio inmediato también se avisa: es la llanta que
+    // salvaría el viaje si otra se revienta.
+    conAlerta: [...todas, ...repuestos].filter((c) => c.estado === "alerta_profundidad").map((c) => c.numero),
   };
 }
 
@@ -146,10 +194,12 @@ export function siguienteSinCapturar(
   diagrama: Diagrama,
   desde: number,
 ): number | null {
-  const posteriores = diagrama.faltantes.filter((n) => n > desde);
+  // Los repuestos van al final, después de los ejes.
+  const todos = [...diagrama.faltantes, ...diagrama.repuestosFaltantes];
+  const posteriores = todos.filter((n) => n > desde);
   if (posteriores.length > 0) return posteriores[0] ?? null;
   // Al llegar al final, se vuelve al principio por si dejó huecos atrás.
-  return diagrama.faltantes[0] ?? null;
+  return todos[0] ?? null;
 }
 
 /** Posiciones del mismo eje, para copiar lo capturado en una hermana. */
@@ -178,6 +228,21 @@ export function hermanaCapturada(diagrama: Diagrama, numero: number): number | n
     .sort((a, b) => Math.abs(a.numero - numero) - Math.abs(b.numero - numero))[0];
 
   return candidata?.numero ?? null;
+}
+
+/**
+ * La casilla de una posición: de un eje, un repuesto ya en la orden, o el
+ * repuesto siguiente que el técnico está agregando. Otro número no existe.
+ */
+export function buscarCasilla(diagrama: Diagrama, posicion: number): Casilla | null {
+  const deEje = diagrama.ejes.flatMap((e) => [...e.izquierda, ...e.derecha]).find((c) => c.numero === posicion);
+  if (deEje) return deEje;
+  const repuesto = diagrama.repuestos.find((c) => c.numero === posicion);
+  if (repuesto) return repuesto;
+  if (posicion === posicionRepuesto(diagrama.repuestos.length + 1) && esRepuesto(posicion)) {
+    return casillaRepuesto(posicion, undefined, diagrama.limites);
+  }
+  return null;
 }
 
 export function estaCompleto(diagrama: Diagrama): boolean {

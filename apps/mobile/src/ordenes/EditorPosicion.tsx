@@ -8,6 +8,9 @@ import {
   MOTIVOS_RETIRO,
   PUNTOS_PROFUNDIDAD,
   esFalla,
+  esRepuesto,
+  etiquetaPosicion,
+  nombrePosicion,
 } from "@tiretrack/domain";
 import { colores, conOpacidad, espacio, radio, tactil, texto, tiposEje } from "../diseno/tokens";
 import type { Casilla } from "./diagrama";
@@ -132,7 +135,7 @@ export function EditorPosicion({
 
       {hermanaCapturada && onCopiarHermana ? (
         <Boton tipo="secundario" ancho onPress={onCopiarHermana} testID="copiar-hermana">
-          Copiar llanta de la posición {hermanaCapturada}
+          Copiar llanta de la {nombrePosicion(hermanaCapturada).toLowerCase()}
         </Boton>
       ) : null}
 
@@ -440,13 +443,13 @@ function Cabecera({ casilla }: { casilla: Casilla }) {
   return (
     <View style={estilos.cabecera}>
       <View style={estilos.numeroGrande}>
-        <Text style={estilos.textoNumero}>{casilla.numero}</Text>
+        <Text style={estilos.textoNumero}>{etiquetaPosicion(casilla.numero)}</Text>
       </View>
       <View style={{ flex: 1, gap: espacio.xs }}>
-        <Text style={estilos.tituloCabecera}>Posición {casilla.numero}</Text>
+        <Text style={estilos.tituloCabecera}>{nombrePosicion(casilla.numero)}</Text>
         <View style={estilos.filaInsignias}>
           <Insignia color={colores.secundario} compacta>
-            {casilla.tipoEje}
+            {esRepuesto(casilla.numero) ? "Fuera de los ejes" : casilla.tipoEje}
           </Insignia>
           {/* Saber si es interna evita medir la de al lado */}
           {casilla.esInterna ? (

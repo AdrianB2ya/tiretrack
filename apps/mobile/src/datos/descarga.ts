@@ -39,6 +39,8 @@ export interface PaqueteDescargado {
     vehiculos: {
       id: string; sedeClienteId: string; configuracionEjeId: string;
       codigo: string; placa: string | null; nombre: string; kmActual: number; activo?: boolean;
+      /** Opcional: un servidor anterior no lo manda. */
+      repuestos?: number;
     }[];
   };
   readonly configuraciones: {

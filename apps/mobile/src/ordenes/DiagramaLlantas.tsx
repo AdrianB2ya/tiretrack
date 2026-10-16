@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { colores, conOpacidad, espacio, radio, tactil, texto, tiposEje } from "../diseno/tokens";
+import { MAX_REPUESTOS, etiquetaPosicion, nombrePosicion } from "@tiretrack/domain";
 import type { Casilla, Diagrama, FilaEje } from "./diagrama";
 
 /**
@@ -17,12 +18,18 @@ export interface DiagramaLlantasProps {
   onTocarPosicion: (numero: number) => void;
   /** Resalta la posición que se está capturando. */
   posicionActiva?: number;
+  /**
+   * Agregar una llanta de repuesto (quien puede capturar). Cada vehículo
+   * lleva las que lleva: no salen de la plantilla.
+   */
+  onAgregarRepuesto?: () => void;
 }
 
 export function DiagramaLlantas({
   diagrama,
   onTocarPosicion,
   posicionActiva,
+  onAgregarRepuesto,
 }: DiagramaLlantasProps) {
   if (diagrama.totalPosiciones === 0) {
     return (
@@ -44,6 +51,35 @@ export function DiagramaLlantas({
           {...(posicionActiva !== undefined ? { posicionActiva } : {})}
         />
       ))}
+      {diagrama.repuestos.length > 0 || onAgregarRepuesto ? (
+        <View style={estilos.repuestos} testID="repuestos">
+          <Text style={estilos.tituloRepuestos}>Repuestos</Text>
+          <View style={estilos.filaRepuestos}>
+            {diagrama.repuestos.map((c) => (
+              <CasillaLlanta
+                key={c.numero}
+                casilla={c}
+                activa={c.numero === posicionActiva}
+                onPress={() => onTocarPosicion(c.numero)}
+              />
+            ))}
+            {onAgregarRepuesto && diagrama.repuestos.length < MAX_REPUESTOS ? (
+              <Pressable
+                onPress={onAgregarRepuesto}
+                testID="agregar-repuesto"
+                accessibilityRole="button"
+                accessibilityLabel="Agregar llanta de repuesto"
+                style={({ pressed }) => [estilos.casilla, estilos.agregar, pressed && { opacity: 0.7 }]}
+              >
+                <Text style={estilos.mas}>+</Text>
+              </Pressable>
+            ) : null}
+          </View>
+          {onAgregarRepuesto && diagrama.repuestos.length === 0 ? (
+            <Text style={estilos.ayudaRepuestos}>¿Lleva repuesto? Tócalo en "+" para medirlo.</Text>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -125,7 +161,7 @@ export function CasillaLlanta({
       testID={`posicion-${casilla.numero}`}
       accessibilityRole="button"
       // El lector de pantalla dice el estado completo: el color solo no basta
-      accessibilityLabel={`Posición ${casilla.numero}, ${etiquetasEstado[casilla.estado]}`}
+      accessibilityLabel={`${nombrePosicion(casilla.numero)}, ${etiquetasEstado[casilla.estado]}`}
       style={({ pressed }) => [
         estilos.casilla,
         {
@@ -137,7 +173,7 @@ export function CasillaLlanta({
       ]}
     >
       <Text style={[estilos.numeroCasilla, { color: vacia ? colores.textoTenue : color }]}>
-        {casilla.numero}
+        {etiquetaPosicion(casilla.numero)}
       </Text>
 
       {/* La profundidad se muestra en la casilla: es el dato que el técnico
@@ -166,9 +202,16 @@ export function ResumenDiagrama({ diagrama }: { diagrama: Diagrama }) {
           Faltan: {diagrama.faltantes.join(", ")}
         </Text>
       ) : null}
+      {diagrama.repuestos.length > 0 ? (
+        <Text style={diagrama.repuestosFaltantes.length > 0 ? estilos.textoFaltan : estilos.textoResumen} testID="resumen-repuestos">
+          {diagrama.repuestosFaltantes.length > 0
+            ? `Repuestos sin medir: ${diagrama.repuestosFaltantes.map(etiquetaPosicion).join(", ")}`
+            : `${diagrama.repuestos.length === 1 ? "Repuesto medido" : `Los ${diagrama.repuestos.length} repuestos medidos`}`}
+        </Text>
+      ) : null}
       {alertas > 0 ? (
         <Text style={estilos.textoAlerta}>
-          {alertas} bajo el mínimo: {diagrama.conAlerta.join(", ")}
+          {alertas} bajo el mínimo: {diagrama.conAlerta.map(etiquetaPosicion).join(", ")}
         </Text>
       ) : null}
     </View>
@@ -177,6 +220,18 @@ export function ResumenDiagrama({ diagrama }: { diagrama: Diagrama }) {
 
 const estilos = StyleSheet.create({
   diagrama: { gap: espacio.md, paddingVertical: espacio.md },
+  repuestos: {
+    gap: espacio.sm,
+    alignItems: "center",
+    paddingTop: espacio.md,
+    borderTopWidth: 1,
+    borderTopColor: colores.borde,
+  },
+  tituloRepuestos: { ...texto.etiqueta, color: colores.textoTenue },
+  filaRepuestos: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: tactil.separacion },
+  agregar: { borderStyle: "dashed", borderWidth: 2, borderColor: colores.textoTenue, backgroundColor: colores.tarjeta },
+  mas: { ...texto.subtitulo, color: colores.texto },
+  ayudaRepuestos: { ...texto.ayuda, color: colores.textoTenue, textAlign: "center" },
   eje: { flexDirection: "row", alignItems: "center", justifyContent: "center" },
   ladoIzquierdo: {
     flexDirection: "row",
