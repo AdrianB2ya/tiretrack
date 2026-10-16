@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { zCrearSede, zUsuarioBase } from "@tiretrack/contracts";
 import { DURACION_SOPORTE, OPCIONES_DURACION_SOPORTE, validarSoporte } from "@tiretrack/domain";
-import { Aviso, Boton, Campo, Insignia, Opcion, Tarjeta, Vacio } from "../diseno/componentes";
+import { Aviso, Boton, Campo, Insignia, Tarjeta, Vacio } from "../diseno/componentes";
+import { ElegirUno } from "../diseno/ListaBuscable";
 import type { SesionSoporte } from "./soporte";
 import { colores, espacio, texto } from "../diseno/tokens";
 import { mensajeActivacion } from "../admin/reglasAdmin";
@@ -226,12 +227,14 @@ function AbrirSoporte({ empresa, fuentes, onCancelar }: { empresa: EmpresaListad
       </Text>
       <Campo etiqueta="Motivo" value={motivo} onChangeText={setMotivo} multiline testID="soporte-motivo" />
       <Campo etiqueta="Número de ticket" value={ticket} onChangeText={setTicket} autoCapitalize="characters" testID="soporte-ticket" />
-      <Text style={estilos.etiqueta}>Duración</Text>
-      <View style={estilos.fila}>
-        {OPCIONES_DURACION_SOPORTE.map((n) => (
-          <Opcion key={n} etiqueta={n < 60 ? `${n} min` : `${n / 60} h`} activa={minutos === n} onPress={() => setMinutos(n)} testID={`duracion-${n}`} />
-        ))}
-      </View>
+      <ElegirUno
+        enLinea
+        etiqueta="Duración"
+        testID="duracion"
+        opciones={OPCIONES_DURACION_SOPORTE.map((n) => ({ id: String(n), texto: n < 60 ? `${n} min` : `${n / 60} h`, testID: `duracion-${n}` }))}
+        seleccionado={String(minutos)}
+        onElegir={(id) => setMinutos(Number(id) as typeof minutos)}
+      />
       {intento && !v.permitido ? <Aviso tono="advertencia" titulo="Falta información" detalle={v.mensaje ?? ""} /> : null}
       {error ? <Aviso tono="advertencia" titulo="No se abrió" detalle={error} /> : null}
       <Boton ancho testID="abrir-soporte" cargando={abriendo} onPress={() => void abrir()}>

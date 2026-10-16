@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Aviso, Boton, Campo, Opcion, Tarjeta, Vacio } from "../diseno/componentes";
+import { ElegirUno } from "../diseno/ListaBuscable";
 import { colores, espacio, radio, texto } from "../diseno/tokens";
 import { DiagramaLlantas } from "../ordenes/DiagramaLlantas";
 import { construirDiagrama } from "../ordenes/diagrama";
@@ -161,11 +162,13 @@ function Editor({ base, ejesIniciales, fuentes, onListo }: {
               </Boton>
             ) : null}
           </View>
-          <View style={estilos.enLinea}>
-            {TIPOS.map((t) => (
-              <Opcion key={t.valor} activa={e.tipoEje === t.valor} etiqueta={t.etiqueta} onPress={() => cambiarEje(i, { tipoEje: t.valor })} />
-            ))}
-          </View>
+          <ElegirUno
+            enLinea
+            testID={`tipo-eje-${i}`}
+            opciones={TIPOS.map((t) => ({ id: t.valor, texto: t.etiqueta }))}
+            seleccionado={e.tipoEje}
+            onElegir={(id) => cambiarEje(i, { tipoEje: id as typeof e.tipoEje })}
+          />
           <View style={estilos.enLinea}>
             <Opcion activa={!e.dual} etiqueta="Sencilla (2 llantas)" onPress={() => cambiarEje(i, { dual: false })} />
             <Opcion activa={e.dual} etiqueta="Dual (4 llantas)" onPress={() => cambiarEje(i, { dual: true })} />

@@ -207,8 +207,6 @@ export function FormularioNuevaOrden({
                 elegida={f.tecnicoId}
                 onElegir={(id) => poner("tecnicoId", id)}
                 testID="paso-tecnico"
-                // No es el paso siguiente mientras falte el vehículo: cerrado, no alarga la pantalla.
-                abrirSola={f.vehiculoId !== null}
               />
             )}
           </Paso>

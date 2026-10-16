@@ -3798,6 +3798,29 @@ el informe tenía dos bloques de fichas (servicio y estado). Regla de diseño:
   solo si uno tiene error). Servicio y estado pasaron a desplegable.
 - La sede de destino al trasladar una llanta, también desplegable.
 
+### Tercera pasada: todas las listas iguales (2026-10-16)
+
+El usuario vio la marca desplegable en el informe y abierta en la orden: era
+el mismo componente, pero sin nada elegido se abría solo. Ahora:
+
+- **Toda lista se ve cerrada hasta que se toca**, tenga algo elegido o no
+  (`abrirSola` pasa a `false` por defecto; queda solo para pruebas).
+- **Regla única: más de 3 opciones, desplegable** (`MAX_FICHAS = 3`), aunque
+  sea un vocabulario fijo. Solo un interruptor de 2 o 3 (sencilla/dual,
+  prioridad, vista del tablero, tipo de orden) va como botones en fila.
+  Pasaron a desplegable: en el editor "Por qué sale" (con "Sin anotar" para
+  quitarlo), "A dónde va", "Estado de la llanta" y el motivo de no
+  identificada; estado de las llantas, mover y motivo del reclamo; rol del
+  usuario; acción y período de la auditoría; tipo y frecuencia de las visitas;
+  tipo de eje (plantillas y catálogo); duración del soporte; rangos de fecha
+  del informe.
+- **Las sedes del usuario** (elegir varias, y crecen) usan `ElegirVarios`:
+  cerrado con lo elegido, abierto con casillas y "Listo".
+- **Los servicios de la posición siguen a la vista**: se marcan varios a la
+  vez y un desplegable costaría un toque por servicio.
+- En pruebas, `src/pruebas/listas.ts` (`elegirOpcion`, `abrirLista`) abre la
+  lista antes de tocar la opción, como haría la persona.
+
 ### Listas de datos: búsqueda y "Mostrar más"
 
 `src/diseno/BusquedaLista.tsx`: `useBusqueda` + `CampoBusqueda` +
@@ -4417,7 +4440,7 @@ identificador **`com.asistectire.app`**, rojo de la marca **como acento**.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 1133/1133, mobile 1045 + recorrido 669.
+**Verificado:** `npm run verify` con base: raíz 1133/1133, mobile 1047 + recorrido 669.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

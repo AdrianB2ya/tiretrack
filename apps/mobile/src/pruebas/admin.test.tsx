@@ -4,6 +4,7 @@ import { mensajeActivacion, revisarSedeEmpresa, revisarUsuario } from "../admin/
 import { PantallaUsuarios, type FuentesUsuarios } from "../admin/PantallaUsuarios";
 import { PantallaSedes } from "../admin/PantallaSedes";
 import { ClienteHttp } from "../datos/clienteHttp";
+import { elegirOpcion } from "./listas";
 
 const SEDE = "00000000-0000-4000-8000-0000000000b1";
 
@@ -90,7 +91,7 @@ describe("pantalla de usuarios", () => {
     escribir("Nombre completo", "Pedro Ruiz");
     escribir("Cédula", "1082999111");
     escribir("Correo", "pedro@asistectire.com");
-    fireEvent.click(await screen.findByLabelText("Fundación (FUN)"));
+    await elegirOpcion({ label: "Fundación (FUN)" });
     fireEvent.click(screen.getByTestId("crear-usuario"));
     expect((await screen.findByTestId("codigo-activacion")).textContent).toBe("K7M2-X9QP");
     fireEvent.click(screen.getByTestId("compartir"));
@@ -107,9 +108,9 @@ describe("pantalla de usuarios", () => {
     escribir("Nombre completo", "Luis Reyna");
     escribir("Cédula", "77221004");
     escribir("Correo", "luis@transportesreyna.com");
-    fireEvent.click(screen.getByLabelText("Cliente (portal)"));
+    await elegirOpcion({ label: "Cliente (portal)" });
     expect(screen.queryByLabelText("Fundación (FUN)")).toBeNull();
-    fireEvent.click(await screen.findByLabelText("Transportes Reyna"));
+    await elegirOpcion({ label: "Transportes Reyna" });
     expect(await screen.findByText("Sedes: Planta Fundación, Patio Valledupar.")).toBeTruthy();
     fireEvent.click(screen.getByTestId("crear-usuario"));
     expect(await screen.findByTestId("codigo-activacion")).toBeTruthy();
@@ -142,7 +143,7 @@ describe("pantalla de usuarios", () => {
     escribir("Nombre completo", "Pedro Ruiz");
     escribir("Cédula", "1082999111");
     escribir("Correo", "pedro@asistectire.com");
-    fireEvent.click(await screen.findByLabelText("Fundación (FUN)"));
+    await elegirOpcion({ label: "Fundación (FUN)" });
     fireEvent.click(screen.getByTestId("crear-usuario"));
     expect(await screen.findByText(/Ya hay un usuario con ese correo/)).toBeTruthy();
   });

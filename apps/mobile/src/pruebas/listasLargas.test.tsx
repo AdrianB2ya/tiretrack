@@ -3,7 +3,7 @@ import { useState } from "react";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { coincide, POR_PAGINA } from "../diseno/BusquedaLista";
 import { PantallaFlota, type FuentesFlota } from "../flota/PantallaFlota";
-import { ElegirUno } from "../diseno/ListaBuscable";
+import { ElegirUno, MAX_FICHAS } from "../diseno/ListaBuscable";
 
 /**
  * Listas con datos reales (pedido del usuario: "si tengo 1000 clientes ya te
@@ -66,6 +66,9 @@ describe("búsqueda en listas", () => {
       return <ElegirUno testID="sede" opciones={pocas} seleccionado={elegida} onElegir={setElegida} />;
     };
     const { container } = render(<Envoltura />);
+    // Sin nada elegido también cerrada: toda lista se ve igual.
+    expect(container.querySelectorAll('[role="radio"]')).toHaveLength(0);
+    await act(async () => { fireEvent.click(screen.getByTestId("sede-abrir")); });
     expect(container.querySelectorAll('[role="radio"]')).toHaveLength(3);
     await act(async () => { fireEvent.click(screen.getByText("Sede Sur")); });
     expect(container.querySelectorAll('[role="radio"]')).toHaveLength(0);
@@ -77,5 +80,13 @@ describe("búsqueda en listas", () => {
       <ElegirUno enLinea opciones={[{ id: "baja", texto: "Baja" }, { id: "alta", texto: "Alta" }]} seleccionado="baja" onElegir={vi.fn()} />,
     );
     expect(container.querySelectorAll('[role="radio"]')).toHaveLength(2);
+  });
+
+  it("con más de 3 opciones, aunque sea un vocabulario fijo, es desplegable", () => {
+    const cuatro = ["a", "b", "c", "d"].map((x) => ({ id: x, texto: `Opción ${x}` }));
+    expect(MAX_FICHAS).toBe(3);
+    const { container } = render(<ElegirUno enLinea testID="fijo" opciones={cuatro} seleccionado="a" onElegir={vi.fn()} />);
+    expect(container.querySelectorAll('[role="radio"]')).toHaveLength(0);
+    expect(screen.getByTestId("fijo-abrir").textContent).toContain("Opción a");
   });
 });

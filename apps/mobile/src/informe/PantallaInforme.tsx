@@ -178,19 +178,17 @@ export function PantallaInforme({ fuentes }: { fuentes: FuentesInforme }) {
   return (
     <ScrollView style={estilos.pantalla} contentContainerStyle={estilos.contenido} keyboardShouldPersistTaps="handled">
       <Text style={estilos.etiqueta}>Fechas</Text>
-      <View style={estilos.enLinea}>
-        {RANGOS.map((r) => {
+      <ElegirUno
+        enLinea
+        testID="filtro-rango"
+        placeholder="Rango rápido, o escribe las fechas"
+        opciones={RANGOS.map((r) => ({ id: r.cual, texto: r.etiqueta, testID: `rango-${r.cual}` }))}
+        seleccionado={RANGOS.find((r) => {
           const rango = rangoRapido(r.cual, fuentes.hoy());
-          return (
-            <Opcion
-              key={r.cual}
-              etiqueta={r.etiqueta}
-              activa={f.desde === rango.desde && f.hasta === rango.hasta}
-              onPress={() => cambiar(rango)}
-            />
-          );
-        })}
-      </View>
+          return f.desde === rango.desde && f.hasta === rango.hasta;
+        })?.cual ?? null}
+        onElegir={(id) => cambiar(rangoRapido(id as (typeof RANGOS)[number]["cual"], fuentes.hoy()))}
+      />
       <View style={estilos.enLinea}>
         <View style={estilos.mitad}>
           <Campo etiqueta="Desde" value={f.desde} onChangeText={(v) => cambiar({ desde: v })} placeholder="AAAA-MM-DD" error={error("desde")} />

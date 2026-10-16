@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { PantallaCotizacion, type FuentesCotizacion, type VistaCotizacion } from "../informe/PantallaCotizacion";
+import { elegirOpcion } from "./listas";
 
 /** Cotización (R14) en el teléfono. */
 
@@ -26,8 +27,7 @@ describe("cotización", () => {
   it("se elige el cliente, se ve con la urgencia en texto y se avisa que no lleva precios", async () => {
     const f = fuentes();
     render(<PantallaCotizacion fuentes={f} />);
-    const cliente = await screen.findByTestId("cliente-c1");
-    await act(async () => { fireEvent.click(cliente); });
+    await elegirOpcion({ testID: "cliente-c1" });
     await act(async () => { fireEvent.click(screen.getByTestId("ver-cotizacion")); });
     expect(f.ver).toHaveBeenCalledWith("?clienteId=c1");
     expect(screen.getByText("2 × Llanta 295/80R22.5")).toBeTruthy();
@@ -47,8 +47,7 @@ describe("cotización", () => {
   it("sin nada que cotizar lo dice", async () => {
     const f = fuentes({ ver: vi.fn().mockResolvedValue({ ok: true, datos: { ...VISTA, llantas: [], servicios: [], totalLlantas: 0 } }) });
     render(<PantallaCotizacion fuentes={f} />);
-    const cliente = await screen.findByTestId("cliente-c1");
-    await act(async () => { fireEvent.click(cliente); });
+    await elegirOpcion({ testID: "cliente-c1" });
     await act(async () => { fireEvent.click(screen.getByTestId("ver-cotizacion")); });
     expect(screen.getByText(/Nada que cotizar/)).toBeTruthy();
   });

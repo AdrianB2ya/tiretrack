@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
-import { Aviso, Boton, Campo, CampoDecimal, Insignia, Opcion as OpcionElegible } from "../diseno/componentes";
+import { Aviso, Boton, Campo, CampoDecimal, Insignia } from "../diseno/componentes";
 import {
   DESTINOS_LLANTA,
   ETIQUETA_MOTIVO_RETIRO,
@@ -166,6 +166,7 @@ export function EditorPosicion({
             seleccionado={borrador.motivoNoId}
             onElegir={(id) => cambiar("motivoNoId", id)}
             error={mensajeDe(avisos, "motivoNoId")}
+            testID="lista-motivo-no-id"
           />
         ) : (
           <Campo
@@ -284,6 +285,7 @@ export function EditorPosicion({
           opciones={ESTADOS_LLANTA.map((e) => ({ id: e, texto: e }))}
           seleccionado={borrador.estadoLlanta}
           onElegir={(id) => cambiar("estadoLlanta", id)}
+          testID="lista-estado-llanta"
         />
       </Bloque>
 
@@ -512,28 +514,29 @@ function BloqueDesmontada({ d, avisos, traida, onCambiar }: {
         ayuda={avisoProps(avisos, "desProfundidad").ayuda ?? ""}
       />
       {/* R10: por qué sale. Es lo que dice qué marca rinde y cuál falla. */}
-      <Text style={estilos.etiquetaGrupo}>Por qué sale</Text>
-      <View style={estilos.chips}>
-        {MOTIVOS_RETIRO.map((m) => (
-          <OpcionElegible
-            key={m}
-            etiqueta={ETIQUETA_MOTIVO_RETIRO[m]}
-            activa={d.motivoRetiro === m}
-            onPress={() => poner("motivoRetiro", d.motivoRetiro === m ? null : m)}
-          />
-        ))}
-      </View>
+      <Opciones
+        etiqueta="Por qué sale"
+        testID="lista-motivo-retiro"
+        // "Sin anotar" deja quitar un motivo elegido por error.
+        opciones={[
+          ...MOTIVOS_RETIRO.map((m) => ({ id: m, texto: ETIQUETA_MOTIVO_RETIRO[m] })),
+          ...(d.motivoRetiro ? [{ id: SIN_MOTIVO, texto: "Sin anotar" }] : []),
+        ]}
+        seleccionado={d.motivoRetiro}
+        onElegir={(id) => poner("motivoRetiro", id === SIN_MOTIVO ? null : (id as typeof d.motivoRetiro))}
+      />
       {esFalla(d.motivoRetiro) ? (
         <Text style={estilos.ayudaSwitch} testID="falla-pide-foto">
           Es una falla: toma una foto de la llanta que sale antes de enviar la orden. Sin ella no se puede enviar.
         </Text>
       ) : null}
-      <Text style={estilos.etiquetaGrupo}>A dónde va</Text>
-      <View style={estilos.chips}>
-        {DESTINOS_LLANTA.map((destino) => (
-          <OpcionElegible key={destino} etiqueta={destino} activa={d.destino === destino} onPress={() => poner("destino", destino)} />
-        ))}
-      </View>
+      <Opciones
+        etiqueta="A dónde va"
+        testID="lista-destino"
+        opciones={DESTINOS_LLANTA.map((destino) => ({ id: destino, texto: destino }))}
+        seleccionado={d.destino}
+        onElegir={(id) => poner("destino", id as typeof d.destino)}
+      />
       <Campo
         etiqueta="Detalle de la que sale"
         value={d.detalle ?? ""}
@@ -543,6 +546,8 @@ function BloqueDesmontada({ d, avisos, traida, onCambiar }: {
     </View>
   );
 }
+
+const SIN_MOTIVO = "__sin_motivo";
 
 function Bloque({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
@@ -559,7 +564,7 @@ interface Opcion {
   marca?: "nueva";
 }
 
-/** Lista corta: se muestran todas como botones, sin desplegable. */
+/** Vocabulario fijo: el mismo desplegable que el resto de la app, con su etiqueta. */
 function Opciones({
   etiqueta,
   opciones,
@@ -567,6 +572,7 @@ function Opciones({
   onElegir,
   requerido,
   error,
+  testID,
 }: {
   etiqueta: string;
   opciones: readonly Opcion[];
@@ -574,6 +580,7 @@ function Opciones({
   onElegir: (id: string) => void;
   requerido?: boolean;
   error?: string;
+  testID: string;
 }) {
   return (
     <View style={estilos.grupoOpciones}>
@@ -581,52 +588,14 @@ function Opciones({
         {etiqueta}
         {requerido ? <Text style={{ color: colores.peligro }}> *</Text> : null}
       </Text>
-      <View style={estilos.filaOpciones}>
-        {opciones.map((o) => (
-          <Ficha
-            key={o.id}
-            opcion={o}
-            activa={seleccionado === o.id}
-            onPress={() => onElegir(o.id)}
-          />
-        ))}
-      </View>
+      <ListaBuscable
+        testID={testID}
+        opciones={opciones.map((o) => ({ id: o.id, texto: o.texto, ...(o.marca === "nueva" ? { nueva: true } : {}) }))}
+        seleccionado={seleccionado}
+        onElegir={onElegir}
+      />
       {error ? <Text style={estilos.textoError}>{error}</Text> : null}
     </View>
-  );
-}
-
-function Ficha({
-  opcion,
-  activa,
-  onPress,
-}: {
-  opcion: Opcion;
-  activa: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      testID={`opcion-${opcion.id}`}
-      // La forma moderna (`role` + `aria-*`) es la que la capa nativa y el
-      // adaptador web propagan; `accessibilityState` sola se pierde.
-      role="radio"
-      aria-checked={activa}
-      style={({ pressed }) => [
-        estilos.ficha,
-        activa && {
-          backgroundColor: conOpacidad(colores.primario, 0.18),
-          borderColor: colores.primario,
-        },
-        pressed && { opacity: 0.7 },
-      ]}
-    >
-      <Text style={[estilos.textoFicha, activa && { color: colores.primario }]}>
-        {opcion.texto}
-      </Text>
-      {opcion.marca === "nueva" ? <Text style={estilos.marcaNueva}>nueva</Text> : null}
-    </Pressable>
   );
 }
 

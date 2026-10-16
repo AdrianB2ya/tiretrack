@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { TIPOS_EJE } from "@tiretrack/domain";
-import { Aviso, Boton, CampoDecimal, Opcion, Tarjeta } from "../diseno/componentes";
-import { ListaBuscable } from "../diseno/ListaBuscable";
+import { Aviso, Boton, CampoDecimal, Tarjeta } from "../diseno/componentes";
+import { ListaBuscable, ElegirUno } from "../diseno/ListaBuscable";
 import { colores, espacio, texto, tiposEje } from "../diseno/tokens";
 import { evaluarAltaMedida, evaluarAltaNombre } from "./alta";
 import type { AccionesCatalogo } from "../app/ProveedorDatos";
@@ -110,12 +110,14 @@ export function PantallaCatalogo({ fuentes }: { fuentes: FuentesCatalogo }) {
                 }),
             }}
           />
-          <Text style={estilos.etiqueta}>Tipo de eje del diseño nuevo</Text>
-          <View style={estilos.fila}>
-            {TIPOS_EJE.map((t) => (
-              <Opcion key={t} activa={tipoEjeNuevo === t} etiqueta={etiquetaEje(t)} testID={`cat-eje-${t}`} onPress={() => setTipoEjeNuevo(t)} />
-            ))}
-          </View>
+          <ElegirUno
+            enLinea
+            etiqueta="Tipo de eje del diseño nuevo"
+            testID="cat-eje"
+            opciones={TIPOS_EJE.map((t) => ({ id: t, texto: etiquetaEje(t), testID: `cat-eje-${t}` }))}
+            seleccionado={tipoEjeNuevo}
+            onElegir={(id) => setTipoEjeNuevo(id as typeof tipoEjeNuevo)}
+          />
         </>
       ) : null}
 

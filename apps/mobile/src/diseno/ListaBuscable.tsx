@@ -59,7 +59,7 @@ export function ListaBuscable({
   alta,
   vacio = "Sin opciones descargadas. Sincroniza cuando tengas señal",
   testID = "lista",
-  abrirSola = true,
+  abrirSola = false,
   placeholder = "Toca para elegir",
 }: {
   /** Sin etiqueta, cuando la pantalla ya pone su propio título encima. */
@@ -71,9 +71,10 @@ export function ListaBuscable({
   vacio?: string;
   testID?: string;
   /**
-   * Sin nada elegido, abierta de entrada (en una cascada, lo siguiente es
-   * elegir). Con false se ve cerrada con `placeholder`: para un campo que
-   * no es el paso siguiente y no debe alargar la pantalla.
+   * Por defecto se ve CERRADA aunque no haya nada elegido ("Toca para elegir
+   * · Elegir ▾"): toda lista se ve igual en toda la app (pedido del usuario:
+   * la marca salía desplegable en el informe y abierta en la orden). Con
+   * true, sin nada elegido se abre sola.
    */
   abrirSola?: boolean;
   placeholder?: string;
@@ -86,8 +87,7 @@ export function ListaBuscable({
 
   const conBusqueda = opciones.length > MAX_SIN_BUSQUEDA || alta !== undefined;
   const elegida = opciones.find((o) => o.id === seleccionado);
-  // Desplegable: con algo elegido se muestra cerrado, en una sola línea; sin
-  // nada elegido se abre solo (en una cascada, lo siguiente es elegir).
+  // Desplegable: cerrado en una sola línea hasta que se toca.
   const [abierta, setAbierta] = useState(!elegida && abrirSola);
   // Si la elección cambia desde fuera (se eligió sola, o la cascada la
   // limpió), la lista se cierra o se vuelve a abrir como al montarse.
@@ -278,11 +278,13 @@ const estilos = StyleSheet.create({
 
 /**
  * Elegir uno: siempre el desplegable (clientes, sedes, vehículos, técnicos
- * crecen con el tiempo y no deben alargar la pantalla). Solo un vocabulario
- * fijo y corto (`enLinea`, hasta `MAX_FICHAS`) se ve como fichas en fila,
- * porque elegirlo de un toque es más rápido que abrir una lista.
+ * crecen con el tiempo y no deben alargar la pantalla). La única excepción es
+ * un interruptor fijo de hasta `MAX_FICHAS` opciones (`enLinea`: sencilla o
+ * dual, prioridad), que se ve como botones en fila: abrir una lista para
+ * elegir entre dos sería un toque de más. Con más opciones, aunque sea un
+ * vocabulario fijo, desplegable: la regla es la misma en toda la app.
  */
-export const MAX_FICHAS = 5;
+export const MAX_FICHAS = 3;
 
 export function ElegirUno({
   opciones,
@@ -292,15 +294,18 @@ export function ElegirUno({
   testID,
   abrirSola,
   placeholder,
+  etiqueta,
 }: {
   opciones: readonly OpcionLista[];
   seleccionado: string | null;
   onElegir: (id: string) => void;
-  /** Vocabulario fijo y corto: fichas en fila en vez de desplegable. */
+  /** Interruptor fijo y corto: botones en fila en vez de desplegable. */
   enLinea?: boolean;
   testID?: string;
   abrirSola?: boolean;
   placeholder?: string;
+  /** Título encima del desplegable. */
+  etiqueta?: string;
 }) {
   if (!enLinea || opciones.length > MAX_FICHAS) {
     return (
@@ -311,11 +316,14 @@ export function ElegirUno({
         {...(testID ? { testID } : {})}
         {...(abrirSola !== undefined ? { abrirSola } : {})}
         {...(placeholder ? { placeholder } : {})}
+        {...(etiqueta ? { etiqueta } : {})}
       />
     );
   }
   return (
-    <View style={estilos.fichas}>
+    <View style={estilos.grupo}>
+      {etiqueta ? <Text style={estilos.etiqueta}>{etiqueta}</Text> : null}
+      <View style={estilos.fichas}>
       {opciones.map((o) => (
         <Opcion
           key={o.id}
@@ -326,6 +334,86 @@ export function ElegirUno({
           onPress={() => onElegir(o.id)}
         />
       ))}
+      </View>
+    </View>
+  );
+}
+
+/**
+ * Elegir varios (las sedes de un usuario): el mismo desplegable, cerrado en
+ * una línea con lo elegido; abierto, casillas para marcar varias y "Listo".
+ * Las sedes crecen como los clientes: una lista de casillas siempre abierta
+ * alargaba la pantalla igual.
+ */
+export function ElegirVarios({
+  etiqueta,
+  opciones,
+  seleccionados,
+  onAlternar,
+  testID = "varios",
+  placeholder = "Toca para elegir",
+}: {
+  etiqueta?: string;
+  opciones: readonly OpcionLista[];
+  seleccionados: readonly string[];
+  onAlternar: (id: string) => void;
+  testID?: string;
+  placeholder?: string;
+}) {
+  const [abierta, setAbierta] = useState(false);
+  const [termino, setTermino] = useState("");
+  const elegidas = opciones.filter((o) => seleccionados.includes(o.id));
+  const filtradas = useMemo(() => filtrarPorTexto(opciones, termino), [opciones, termino]);
+  const tope = termino.trim() === "" ? MAX_SIN_TEXTO : MAX_A_LA_VISTA;
+
+  if (!abierta) {
+    const resumen = elegidas.map((o) => o.texto).join(", ");
+    return (
+      <View style={estilos.grupo} testID={testID}>
+        {etiqueta ? <Text style={estilos.etiqueta}>{etiqueta}</Text> : null}
+        <Pressable
+          onPress={() => setAbierta(true)}
+          accessibilityRole="button"
+          accessibilityLabel={`${etiqueta ?? "Elegidas"}: ${resumen || "ninguna"}. Tocar para cambiar`}
+          testID={`${testID}-abrir`}
+          style={({ pressed }) => [estilos.cerrada, pressed && estilos.presionada]}
+        >
+          <View style={estilos.cerradaTexto}>
+            <Text style={elegidas.length > 0 ? estilos.valor : estilos.tenue} numberOfLines={2}>
+              {elegidas.length > 0 ? resumen : placeholder}
+            </Text>
+          </View>
+          <Text style={estilos.cambiar}>{elegidas.length > 0 ? "Cambiar ▾" : "Elegir ▾"}</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  return (
+    <View style={estilos.grupo} testID={testID}>
+      {etiqueta ? <Text style={estilos.etiqueta}>{etiqueta}</Text> : null}
+      {opciones.length > MAX_SIN_BUSQUEDA ? (
+        <Campo etiqueta="Buscar" value={termino} onChangeText={setTermino} autoCorrect={false} testID={`${testID}-buscar`} />
+      ) : null}
+      <View style={estilos.columna}>
+        {filtradas.slice(0, tope).map((o) => (
+          <Opcion
+            key={o.id}
+            multiple
+            activa={seleccionados.includes(o.id)}
+            etiqueta={o.texto}
+            {...(o.detalle ? { detalle: o.detalle } : {})}
+            testID={o.testID ?? `opcion-${o.id}`}
+            onPress={() => onAlternar(o.id)}
+          />
+        ))}
+      </View>
+      {filtradas.length > tope ? (
+        <Text style={estilos.tenue}>Hay {filtradas.length - tope} más: escribe para encontrarlas.</Text>
+      ) : null}
+      <Boton tipo="secundario" testID={`${testID}-listo`} onPress={() => { setTermino(""); setAbierta(false); }}>
+        Listo{elegidas.length > 0 ? ` (${elegidas.length})` : ""}
+      </Boton>
     </View>
   );
 }

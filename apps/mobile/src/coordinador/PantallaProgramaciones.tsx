@@ -3,7 +3,7 @@ import { ElegirUno } from "../diseno/ListaBuscable";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { nuevoId, type Frecuencia, type TipoServicio, TIPOS_SERVICIO, ETIQUETA_TIPO_SERVICIO } from "@tiretrack/domain";
 import type { CrearProgramacion } from "@tiretrack/contracts";
-import { Aviso, Boton, Campo, Opcion, Tarjeta, Vacio } from "../diseno/componentes";
+import { Aviso, Boton, Campo, Tarjeta, Vacio } from "../diseno/componentes";
 import { colores, espacio, texto } from "../diseno/tokens";
 import { CampoBusqueda, PieBusqueda, useBusqueda } from "../diseno/BusquedaLista";
 import {
@@ -297,24 +297,23 @@ function FormularioProgramacionNueva({ fuentes, hoy, sedesDelUsuario, onListo }:
       ) : null}
 
       <Paso titulo="Tipo de servicio">
-        <View style={estilos.enLinea}>
-          {TIPOS.map((t) => (
-            <Opcion key={t.valor} etiqueta={t.etiqueta} activa={f.tipo === t.valor} onPress={() => poner("tipo", t.valor)} />
-          ))}
-        </View>
+        <ElegirUno
+          enLinea
+          testID="programacion-tipo"
+          opciones={TIPOS.map((t) => ({ id: t.valor, texto: t.etiqueta }))}
+          seleccionado={f.tipo}
+          onElegir={(id) => poner("tipo", id as TipoServicio)}
+        />
       </Paso>
 
       <Paso titulo="Frecuencia" error={problemaDe("cada")}>
-        <View style={estilos.enLinea}>
-          {OPCIONES_FRECUENCIA.map((o) => (
-            <Opcion
-              key={o.valor}
-              etiqueta={o.etiqueta}
-              activa={f.frecuencia === o.valor}
-              onPress={() => poner("frecuencia", o.valor as Frecuencia)}
-            />
-          ))}
-        </View>
+        <ElegirUno
+          enLinea
+          testID="programacion-frecuencia"
+          opciones={OPCIONES_FRECUENCIA.map((o) => ({ id: o.valor, texto: o.etiqueta }))}
+          seleccionado={f.frecuencia}
+          onElegir={(id) => poner("frecuencia", id as Frecuencia)}
+        />
         <Campo etiqueta={`Cada cuántos ${unidad}`} value={f.cada} onChangeText={(v) => poner("cada", v)} keyboardType="number-pad" />
       </Paso>
 

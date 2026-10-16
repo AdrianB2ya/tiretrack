@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
 import { PantallaAuditoria, consultaAuditoria, type RegistroAuditoria } from "../admin/PantallaAuditoria";
+import { elegirOpcion } from "./listas";
 
 /** Auditoría (5.4): quién sacó datos y quién cambió qué. */
 
@@ -38,7 +39,7 @@ describe("pantalla de auditoría", () => {
     expect(cargar.mock.calls[1]?.[0]).toContain("antes=");
     expect(screen.getByTestId("registro-a")).toBeTruthy();
     expect(screen.getByTestId("registro-b")).toBeTruthy();
-    await act(async () => { fireEvent.click(screen.getByTestId("accion-login_fallido")); });
+    await elegirOpcion({ testID: "accion-login_fallido" });
     await waitFor(() => expect(cargar.mock.calls.at(-1)?.[0]).toContain("accion=login_fallido"));
     expect(await screen.findByText("Nada registrado en ese período.")).toBeTruthy();
   });

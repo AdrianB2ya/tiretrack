@@ -7,6 +7,7 @@ import { fijarPermiso, mostrarCodigo } from "./dobles/expo-camera";
 import { unaOrden } from "./fabrica";
 import type { FichaVehiculoLocal } from "../datos/repositorio";
 import type { OrdenParaLista } from "../ordenes/lista";
+import { elegirOpcion } from "./listas";
 
 /** Código QR del vehículo (R15) en el teléfono. */
 
@@ -87,8 +88,7 @@ describe("etiquetas QR", () => {
   it("baja el PDF del cliente elegido", async () => {
     const descargar = vi.fn().mockResolvedValue({ ok: true });
     render(<PantallaEtiquetasQR fuentes={{ clientes: vi.fn().mockResolvedValue([{ id: "c1", nombre: "Reyna" }]), descargar }} />);
-    const cliente = await screen.findByTestId("cliente-c1");
-    await act(async () => { fireEvent.click(cliente); });
+    await elegirOpcion({ testID: "cliente-c1" });
     await act(async () => { fireEvent.click(screen.getByTestId("bajar-etiquetas")); });
     expect(descargar).toHaveBeenCalledWith("c1");
     expect(screen.getByText("Etiquetas listas")).toBeTruthy();

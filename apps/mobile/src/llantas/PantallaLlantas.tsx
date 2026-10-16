@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { nombrePosicion, ESTADOS_ACTIVO, ETIQUETA_ESTADO_ACTIVO, type EstadoActivo } from "@tiretrack/domain";
-import { Aviso, Boton, Campo, Insignia, Opcion, Tarjeta, Vacio } from "../diseno/componentes";
+import { Aviso, Boton, Campo, Insignia, Tarjeta, Vacio } from "../diseno/componentes";
+import { ElegirUno } from "../diseno/ListaBuscable";
 import { PieBusqueda, useBusqueda } from "../diseno/BusquedaLista";
 import { colores, espacio, texto } from "../diseno/tokens";
 
@@ -93,12 +94,17 @@ export function PantallaLlantas({
         </Boton>
       ) : null}
       <Campo etiqueta="Buscar por serial, número interno o calor" value={buscar} onChangeText={setBuscar} autoCorrect={false} testID="buscar-llanta" />
-      <View style={estilos.fila}>
-        <Opcion etiqueta="Todas" activa={estado === null} onPress={() => setEstado(null)} testID="estado-todas" />
-        {ESTADOS_ACTIVO.map((e) => (
-          <Opcion key={e} etiqueta={ETIQUETA_ESTADO_ACTIVO[e]} activa={estado === e} onPress={() => setEstado(e)} testID={`estado-${e}`} />
-        ))}
-      </View>
+      <ElegirUno
+        enLinea
+        etiqueta="Estado"
+        testID="filtro-estado-llanta"
+        opciones={[
+          { id: "todas", texto: "Todas", testID: "estado-todas" },
+          ...ESTADOS_ACTIVO.map((e) => ({ id: e, texto: ETIQUETA_ESTADO_ACTIVO[e], testID: `estado-${e}` })),
+        ]}
+        seleccionado={estado ?? "todas"}
+        onElegir={(id) => setEstado(id === "todas" ? null : (id as typeof estado))}
+      />
 
       {error ? (
         <>

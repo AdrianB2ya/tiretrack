@@ -11,7 +11,7 @@ import {
   type TipoMovimiento,
   etiquetaPosicion,
 } from "@tiretrack/domain";
-import { Aviso, Boton, Campo, CampoDecimal, Insignia, Opcion, Tarjeta, Vacio } from "../diseno/componentes";
+import { Aviso, Boton, Campo, CampoDecimal, Insignia, Tarjeta, Vacio } from "../diseno/componentes";
 import { colores, espacio, texto } from "../diseno/tokens";
 import { ElegirUno } from "../diseno/ListaBuscable";
 import { COLOR_ESTADO, dondeEsta, nombreLlanta, type LlantaVista } from "./PantallaLlantas";
@@ -150,11 +150,19 @@ export function FichaLlanta({ fuentes }: { fuentes: FuentesFicha }) {
       {posibles.length > 0 && fuentes.mover ? (
         <Tarjeta>
           <Text style={estilos.subtitulo}>Mover</Text>
-          <View style={estilos.fila}>
-            {posibles.map((t) => (
-              <Opcion key={t} etiqueta={ETIQUETA_MOVIMIENTO[t]} activa={accion === t} onPress={() => setAccion(accion === t ? null : t)} testID={`mover-${t}`} />
-            ))}
-          </View>
+          <ElegirUno
+            enLinea
+            testID="lista-mover"
+            placeholder="Qué hacer con la llanta"
+            opciones={posibles.map((t) => ({ id: t, texto: ETIQUETA_MOVIMIENTO[t], testID: `mover-${t}` }))}
+            seleccionado={accion}
+            onElegir={(id) => setAccion(accion === id ? null : (id as typeof accion))}
+          />
+          {accion ? (
+            <Boton tipo="fantasma" testID="mover-cancelar" onPress={() => setAccion(null)}>
+              No mover
+            </Boton>
+          ) : null}
           {accion ? (
             <FormularioMovimiento
               tipo={accion}
@@ -217,12 +225,14 @@ function AbrirReclamo({ marca, onAbrir }: {
     <Tarjeta>
       <Text style={estilos.subtitulo}>Reclamo de garantía</Text>
       <Campo etiqueta="Proveedor o marca" value={proveedor} onChangeText={setProveedor} testID="reclamo-proveedor" />
-      <Text style={estilos.etiqueta}>Por qué falló</Text>
-      <View style={estilos.fila}>
-        {MOTIVOS_FALLA.map((m) => (
-          <Opcion key={m} etiqueta={ETIQUETA_MOTIVO_RETIRO[m]} activa={motivo === m} onPress={() => setMotivo(m)} testID={`reclamo-motivo-${m}`} />
-        ))}
-      </View>
+      <ElegirUno
+        enLinea
+        etiqueta="Por qué falló"
+        testID="lista-reclamo-motivo"
+        opciones={MOTIVOS_FALLA.map((m) => ({ id: m, texto: ETIQUETA_MOTIVO_RETIRO[m], testID: `reclamo-motivo-${m}` }))}
+        seleccionado={motivo}
+        onElegir={(id) => setMotivo(id as typeof motivo)}
+      />
       <Campo etiqueta="Notas (opcional)" value={notas} onChangeText={setNotas} testID="reclamo-notas" />
       {mensaje ? <Aviso tono={mensaje.ok ? "exito" : "advertencia"} titulo={mensaje.texto} /> : null}
       <Boton

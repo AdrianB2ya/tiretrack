@@ -137,6 +137,7 @@ describe("en el editor", () => {
   it("dice de dónde salieron los datos, y ofrece los destinos", () => {
     montar({ desmontada: desmontadaDesde(anterior, 3) });
     expect(screen.getByTestId("origen-desmontada").textContent).toMatch(/última orden de esta posición/);
+    fireEvent.click(screen.getByTestId("lista-destino-abrir"));
     expect(screen.getByLabelText("Reencauche")).toBeTruthy();
     expect(screen.getByLabelText("Desecho")).toBeTruthy();
   });

@@ -4,6 +4,7 @@ import { PantallaLlantas, dondeEsta, nombreLlanta, type LlantaVista } from "../l
 import { FichaLlanta, type FichaVista } from "../llantas/FichaLlanta";
 import { AltaLlanta } from "../llantas/AltaLlanta";
 import { PantallaStock, faltante } from "../llantas/PantallaStock";
+import { abrirLista, elegirOpcion } from "./listas";
 
 /** La llanta como activo (R8) en el teléfono. */
 
@@ -26,7 +27,7 @@ describe("inventario", () => {
     const onAlta = vi.fn();
     render(<PantallaLlantas fuentes={{ listar }} onAbrir={vi.fn()} onAlta={onAlta} />);
     expect(await screen.findByText("A-17 · MX10023")).toBeTruthy();
-    await act(async () => { fireEvent.click(screen.getByTestId("estado-bodega")); });
+    await elegirOpcion({ testID: "estado-bodega" });
     expect(listar).toHaveBeenLastCalledWith({ estado: "bodega" });
     await act(async () => { fireEvent.click(screen.getByTestId("alta-llanta")); });
     expect(onAlta).toHaveBeenCalled();
@@ -49,6 +50,8 @@ describe("ficha", () => {
 
   it("solo ofrece los pasos posibles desde su estado", async () => {
     render(<FichaLlanta fuentes={{ cargar: vi.fn().mockResolvedValue({ ok: true, datos: ficha() }), mover: vi.fn(), sedes: [] }} />);
+    await screen.findByTestId("lista-mover");
+    abrirLista("lista-mover");
     expect(await screen.findByTestId("mover-envio_reencauche")).toBeTruthy();
     expect(screen.queryByTestId("mover-retorno_reencauche")).toBeNull();
   });
@@ -67,8 +70,7 @@ describe("ficha", () => {
   it("desechar pide un segundo toque", async () => {
     const mover = vi.fn().mockResolvedValue({ ok: true, datos: {} });
     render(<FichaLlanta fuentes={{ cargar: vi.fn().mockResolvedValue({ ok: true, datos: ficha() }), mover, sedes: [] }} />);
-    const boton = await screen.findByTestId("mover-desecho");
-    await act(async () => { fireEvent.click(boton); });
+    await elegirOpcion({ testID: "mover-desecho" });
     await act(async () => { fireEvent.click(screen.getByTestId("enviar-movimiento")); });
     expect(mover).not.toHaveBeenCalled();
     await act(async () => { fireEvent.click(screen.getByTestId("enviar-movimiento")); });
@@ -104,8 +106,7 @@ describe("alta en bodega", () => {
         onCreada={onCreada}
       />,
     );
-    const cliente = await screen.findByText("Reyna");
-    await act(async () => { fireEvent.click(cliente); });
+    await elegirOpcion("Reyna");
     expect(screen.getByText(/Falta el serial o el número interno/)).toBeTruthy();
     await act(async () => { fireEvent.change(screen.getByTestId("alta-interno"), { target: { value: "A-17" } }); });
     await act(async () => { fireEvent.click(screen.getByTestId("guardar-alta")); });

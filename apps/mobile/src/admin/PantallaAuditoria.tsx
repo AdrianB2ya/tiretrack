@@ -7,7 +7,8 @@ import {
   resumirDetalleAuditoria,
   type AccionAuditoria,
 } from "@tiretrack/domain";
-import { Aviso, Boton, Insignia, Opcion, Tarjeta, Vacio } from "../diseno/componentes";
+import { Aviso, Boton, Insignia, Tarjeta, Vacio } from "../diseno/componentes";
+import { ElegirUno } from "../diseno/ListaBuscable";
 import { colores, espacio, texto } from "../diseno/tokens";
 import { rangoRapido } from "../informe/reglasInforme";
 
@@ -100,17 +101,21 @@ export function PantallaAuditoria({ cargar, hoy = fechaEnColombia() }: {
   return (
     <ScrollView style={estilos.pantalla} contentContainerStyle={estilos.contenido}>
       <Text style={estilos.subtitulo}>Período</Text>
-      <View style={estilos.opciones}>
-        {RANGOS.map((r) => (
-          <Opcion key={r.clave} activa={rango === r.clave} etiqueta={r.etiqueta} testID={`rango-${r.clave}`} onPress={() => setRango(r.clave)} />
-        ))}
-      </View>
+      <ElegirUno
+        enLinea
+        testID="auditoria-rango"
+        opciones={RANGOS.map((r) => ({ id: r.clave, texto: r.etiqueta, testID: `rango-${r.clave}` }))}
+        seleccionado={rango}
+        onElegir={(id) => setRango(id as Rango)}
+      />
       <Text style={estilos.subtitulo}>Qué</Text>
-      <View style={estilos.opciones}>
-        {ACCIONES.map((a) => (
-          <Opcion key={a.clave ?? "todas"} activa={accion === a.clave} etiqueta={a.etiqueta} testID={`accion-${a.clave ?? "todas"}`} onPress={() => setAccion(a.clave)} />
-        ))}
-      </View>
+      <ElegirUno
+        enLinea
+        testID="auditoria-accion"
+        opciones={ACCIONES.map((a) => ({ id: a.clave ?? "todas", texto: a.etiqueta, testID: `accion-${a.clave ?? "todas"}` }))}
+        seleccionado={accion ?? "todas"}
+        onElegir={(id) => setAccion(id === "todas" ? null : (id as AccionAuditoria))}
+      />
 
       {error ? (
         <View style={{ gap: espacio.sm }}>

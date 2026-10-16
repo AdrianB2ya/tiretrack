@@ -8,6 +8,7 @@ import { evaluarAltaMedida, evaluarAltaNombre, filtrarPorTexto } from "../catalo
 import { ElegirUno, ListaBuscable, MAX_A_LA_VISTA, MAX_SIN_TEXTO } from "../diseno/ListaBuscable";
 import { PantallaCatalogo, type FuentesCatalogo } from "../catalogo/PantallaCatalogo";
 import { describirCambio } from "../sesion/cambios";
+import { abrirLista, elegirOpcion } from "./listas";
 import type { AccionesCatalogo } from "../app/ProveedorDatos";
 
 /**
@@ -54,13 +55,13 @@ describe("lista con búsqueda", () => {
   const muchas = Array.from({ length: 45 }, (_, i) => ({ id: `o-${i}`, texto: `Marca ${String(i).padStart(2, "0")}` }));
 
   it("con pocas opciones se ven todas, sin campo de búsqueda", () => {
-    render(<ListaBuscable etiqueta="Marca" opciones={muchas.slice(0, 3)} seleccionado={null} onElegir={() => {}} />);
+    render(<ListaBuscable abrirSola etiqueta="Marca" opciones={muchas.slice(0, 3)} seleccionado={null} onElegir={() => {}} />);
     expect(screen.queryByTestId("lista-buscar")).toBeNull();
     expect(screen.getAllByRole("radio")).toHaveLength(3);
   });
 
   it("con muchas, sin escribir se ven pocas (no un bloque que llena la pantalla) y la búsqueda hace el resto", async () => {
-    render(<ListaBuscable etiqueta="Marca" opciones={muchas} seleccionado={null} onElegir={() => {}} />);
+    render(<ListaBuscable abrirSola etiqueta="Marca" opciones={muchas} seleccionado={null} onElegir={() => {}} />);
     expect(screen.getAllByRole("radio")).toHaveLength(MAX_SIN_TEXTO);
     expect(screen.getByText(`Hay ${muchas.length - MAX_SIN_TEXTO} más: escribe para encontrarlas.`)).toBeTruthy();
     await act(async () => { fireEvent.change(screen.getByTestId("lista-buscar"), { target: { value: "44" } }); });
@@ -68,6 +69,14 @@ describe("lista con búsqueda", () => {
     // Al buscar, el tope es mayor: lo que coincide se ve.
     await act(async () => { fireEvent.change(screen.getByTestId("lista-buscar"), { target: { value: "Marca" } }); });
     expect(screen.getAllByRole("radio")).toHaveLength(MAX_A_LA_VISTA);
+  });
+
+  it("sin nada elegido también se ve cerrada, igual en toda la app; tocarla la abre", async () => {
+    render(<ListaBuscable etiqueta="Marca" opciones={muchas.slice(0, 3)} seleccionado={null} onElegir={() => {}} />);
+    expect(screen.queryAllByRole("radio")).toHaveLength(0);
+    expect(screen.getByTestId("lista-abrir").textContent).toContain("Toca para elegir");
+    await act(async () => { fireEvent.click(screen.getByTestId("lista-abrir")); });
+    expect(screen.getAllByRole("radio")).toHaveLength(3);
   });
 
   it("con algo elegido se muestra cerrada, en una línea; tocarla la abre y elegir la cierra", async () => {
@@ -86,6 +95,7 @@ describe("lista con búsqueda", () => {
     const onCrear = vi.fn().mockResolvedValue(null);
     render(
       <ListaBuscable
+        abrirSola
         etiqueta="Marca"
         opciones={MARCAS.map((m) => ({ id: m.id, texto: m.nombre }))}
         seleccionado={null}
@@ -107,6 +117,7 @@ describe("lista con búsqueda", () => {
     const onCrear = vi.fn();
     render(
       <ListaBuscable
+        abrirSola
         etiqueta="Marca"
         opciones={MARCAS.map((m) => ({ id: m.id, texto: m.nombre }))}
         seleccionado={null}
@@ -126,14 +137,14 @@ describe("elegir uno (R3): la búsqueda aparece solo cuando hace falta", () => {
   const clientes = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `c-${i}`, texto: `Transportes ${i}` }));
 
   it("con pocas opciones, la lista de siempre", () => {
-    render(<ElegirUno opciones={clientes(4)} seleccionado={null} onElegir={() => {}} />);
+    render(<ElegirUno abrirSola opciones={clientes(4)} seleccionado={null} onElegir={() => {}} />);
     expect(screen.queryByTestId("lista-buscar")).toBeNull();
     expect(screen.getAllByRole("radio")).toHaveLength(4);
   });
 
   it("con muchas, se busca y se elige", async () => {
     const onElegir = vi.fn();
-    render(<ElegirUno opciones={clientes(60)} seleccionado={null} onElegir={onElegir} />);
+    render(<ElegirUno abrirSola opciones={clientes(60)} seleccionado={null} onElegir={onElegir} />);
     await act(async () => { fireEvent.change(screen.getByTestId("lista-buscar"), { target: { value: "transportes 57" } }); });
     const r = screen.getAllByRole("radio");
     expect(r).toHaveLength(1);
@@ -232,11 +243,13 @@ describe("pantalla del catálogo de llantas", () => {
   it("marca → diseño con su tipo de eje → medida con profundidad de fábrica", async () => {
     const catalogo = catalogoFalso();
     render(<PantallaCatalogo fuentes={{ catalogo }} />);
-    { const el = await screen.findByTestId("opcion-m-1"); await act(async () => { fireEvent.click(el); }); }
+    await elegirOpcion({ testID: "opcion-m-1" });
+    abrirLista("cat-diseno");
     await act(async () => { fireEvent.change(screen.getByTestId("cat-diseno-buscar"), { target: { value: "Pilote" } }); });
-    await act(async () => { fireEvent.click(screen.getByTestId("cat-eje-traccion")); });
+    await elegirOpcion({ testID: "cat-eje-traccion" });
     await act(async () => { fireEvent.click(screen.getByTestId("cat-diseno-agregar")); });
     expect(catalogo.creadas).toEqual(["diseno:Pilote:traccion"]);
+    abrirLista("cat-medida");
     await act(async () => { fireEvent.change(screen.getByTestId("cat-medida-buscar"), { target: { value: "315/80r22.5" } }); });
     await act(async () => { fireEvent.change(screen.getByTestId("cat-medida-numero"), { target: { value: "18,5" } }); });
     await act(async () => { fireEvent.click(screen.getByTestId("cat-medida-agregar")); });
@@ -248,8 +261,8 @@ describe("pantalla del catálogo de llantas", () => {
     const catalogo = catalogoFalso();
     const fijarProfundidad = vi.fn<NonNullable<FuentesCatalogo["fijarProfundidad"]>>().mockResolvedValue({ ok: true });
     render(<PantallaCatalogo fuentes={{ catalogo, fijarProfundidad }} />);
-    { const el = await screen.findByTestId("opcion-m-1"); await act(async () => { fireEvent.click(el); }); }
-    { const el = await screen.findByTestId("opcion-d-1"); await act(async () => { fireEvent.click(el); }); }
+    await elegirOpcion({ testID: "opcion-m-1" });
+    await elegirOpcion({ testID: "opcion-d-1" });
     expect(await screen.findByText(/Sin profundidad de fábrica/)).toBeTruthy();
     await act(async () => { fireEvent.click(screen.getByTestId("cat-corregir-me-2")); });
     await act(async () => { fireEvent.change(screen.getByTestId("cat-prof-me-2"), { target: { value: "14,5" } }); });
@@ -262,8 +275,8 @@ describe("pantalla del catálogo de llantas", () => {
     const catalogo = catalogoFalso();
     const fijarProfundidad = vi.fn<NonNullable<FuentesCatalogo["fijarProfundidad"]>>().mockResolvedValue({ ok: false, status: 0, mensaje: "red" });
     render(<PantallaCatalogo fuentes={{ catalogo, fijarProfundidad }} />);
-    { const el = await screen.findByTestId("opcion-m-1"); await act(async () => { fireEvent.click(el); }); }
-    { const el = await screen.findByTestId("opcion-d-1"); await act(async () => { fireEvent.click(el); }); }
+    await elegirOpcion({ testID: "opcion-m-1" });
+    await elegirOpcion({ testID: "opcion-d-1" });
     { const el = await screen.findByTestId("cat-corregir-me-2"); await act(async () => { fireEvent.click(el); }); }
     await act(async () => { fireEvent.change(screen.getByTestId("cat-prof-me-2"), { target: { value: "14" } }); });
     await act(async () => { fireEvent.click(screen.getByTestId("cat-guardar-prof-me-2")); });

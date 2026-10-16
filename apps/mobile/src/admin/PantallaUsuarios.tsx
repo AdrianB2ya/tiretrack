@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { ElegirUno } from "../diseno/ListaBuscable";
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ElegirUno, ElegirVarios } from "../diseno/ListaBuscable";
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { Rol } from "@tiretrack/domain";
 import { Aviso, Boton, Campo, Insignia, Opcion as OpcionComun, Tarjeta, Vacio } from "../diseno/componentes";
 import { CampoBusqueda, PieBusqueda, useBusqueda } from "../diseno/BusquedaLista";
-import { colores, conOpacidad, espacio, radio, tactil, texto } from "../diseno/tokens";
+import { colores, espacio, texto } from "../diseno/tokens";
 import { ETIQUETA_ROL } from "../sesion/PantallaCuenta";
 import { ETIQUETA_ROL_ASIGNABLE, mensajeActivacion, revisarUsuario, type FormUsuario } from "./reglasAdmin";
 
@@ -309,17 +309,20 @@ function FormNuevo({ fuentes, onCancelar, onCreado }: {
         <Campo etiqueta="Teléfono" value={f.telefono} onChangeText={(v) => setF({ ...f, telefono: v })} keyboardType="phone-pad" />
 
         <Text style={estilos.etiqueta}>Rol</Text>
-        <View style={estilos.enLinea}>
-          {(Object.keys(ETIQUETA_ROL_ASIGNABLE) as (keyof typeof ETIQUETA_ROL_ASIGNABLE)[]).map((r) => (
-            <Opcion
-              key={r}
-              activa={f.rol === r}
-              etiqueta={ETIQUETA_ROL_ASIGNABLE[r]}
-              // Cambiar entre cliente y personal de la empresa limpia lo que ya no aplica.
-              onPress={() => setF({ ...f, rol: r, ...(r === "cliente" ? { sedes: [] } : { clienteId: null }) })}
-            />
-          ))}
-        </View>
+        <ElegirUno
+          testID="usuario-rol"
+          opciones={(Object.keys(ETIQUETA_ROL_ASIGNABLE) as (keyof typeof ETIQUETA_ROL_ASIGNABLE)[]).map((r) => ({
+            id: r,
+            texto: ETIQUETA_ROL_ASIGNABLE[r],
+            testID: `rol-${r}`,
+          }))}
+          seleccionado={f.rol}
+          // Cambiar entre cliente y personal de la empresa limpia lo que ya no aplica.
+          onElegir={(id) => {
+            const r = id as keyof typeof ETIQUETA_ROL_ASIGNABLE;
+            setF({ ...f, rol: r, ...(r === "cliente" ? { sedes: [] } : { clienteId: null }) });
+          }}
+        />
 
         {f.rol === "cliente" ? (
           <>
@@ -337,10 +340,13 @@ function FormNuevo({ fuentes, onCancelar, onCreado }: {
           </>
         ) : (
           <>
-            <Text style={estilos.etiqueta}>Sedes en las que trabaja</Text>
-            {sedes.map((s) => (
-              <Opcion key={s.id} activa={f.sedes.includes(s.id)} etiqueta={`${s.nombre} (${s.codigo})`} onPress={() => alternar(s.id)} casilla />
-            ))}
+            <ElegirVarios
+              etiqueta="Sedes en las que trabaja"
+              testID="usuario-sedes"
+              opciones={sedes.map((s) => ({ id: s.id, texto: `${s.nombre} (${s.codigo})`, testID: `sede-${s.id}` }))}
+              seleccionados={f.sedes}
+              onAlternar={alternar}
+            />
             {intentado && p.find((x) => x.campo === "sedes") ? <Text style={estilos.error}>Elige al menos una sede</Text> : null}
           </>
         )}
@@ -371,23 +377,6 @@ function FormNuevo({ fuentes, onCancelar, onCreado }: {
   );
 }
 
-function Opcion({ activa, etiqueta, onPress, casilla = false }: { activa: boolean; etiqueta: string; onPress: () => void; casilla?: boolean }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      role={casilla ? "checkbox" : "radio"}
-      aria-checked={activa}
-      accessibilityLabel={etiqueta}
-      style={[estilos.opcion, activa && estilos.opcionActiva]}
-    >
-      <Text style={[estilos.textoOpcion, activa && estilos.textoActivo]}>
-        {activa ? "✓ " : ""}
-        {etiqueta}
-      </Text>
-    </Pressable>
-  );
-}
-
 const estilos = StyleSheet.create({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: espacio.lg, gap: espacio.md },
@@ -399,12 +388,4 @@ const estilos = StyleSheet.create({
   codigo: { ...texto.codigo, fontSize: 34, letterSpacing: 4, color: colores.primario, textAlign: "center" },
   codigoLote: { fontSize: 24, textAlign: "left" },
   fila: { flexDirection: "row", alignItems: "center", gap: espacio.sm, flexWrap: "wrap" },
-  enLinea: { flexDirection: "row", flexWrap: "wrap", gap: espacio.sm },
-  opcion: {
-    minHeight: tactil.comodo, justifyContent: "center", paddingHorizontal: espacio.md,
-    borderRadius: radio.md, borderWidth: 1, borderColor: colores.borde, backgroundColor: colores.superficie,
-  },
-  opcionActiva: { borderColor: colores.primario, backgroundColor: conOpacidad(colores.primario, 0.12) },
-  textoOpcion: { ...texto.cuerpo, color: colores.texto },
-  textoActivo: { fontWeight: "700", color: colores.primario },
 });

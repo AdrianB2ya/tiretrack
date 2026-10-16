@@ -3,6 +3,7 @@ import { render, screen, fireEvent, act } from "@testing-library/react";
 import { VistaSoporte } from "../plataforma/VistaSoporte";
 import { EmpresasPlataforma, type FuentesEmpresas } from "../plataforma/EmpresasPlataforma";
 import { enLineaConToken, sesionSoporte, type SesionSoporte } from "../plataforma/soporte";
+import { elegirOpcion } from "./listas";
 
 /** Sesión de soporte del superadmin (R16) en la app. */
 
@@ -66,7 +67,7 @@ describe("sesión de soporte", () => {
       fireEvent.change(screen.getByTestId("soporte-motivo"), { target: { value: "El administrador no ve sus órdenes de ayer" } });
       fireEvent.change(screen.getByTestId("soporte-ticket"), { target: { value: "SOP-1042" } });
     });
-    await act(async () => { fireEvent.click(screen.getByTestId("duracion-30")); });
+    await elegirOpcion({ testID: "duracion-30" });
     await act(async () => { fireEvent.click(screen.getByTestId("abrir-soporte")); });
     expect(abrirSoporte).toHaveBeenCalledWith("e1", { motivo: "El administrador no ve sus órdenes de ayer", ticket: "SOP-1042", minutos: 30 });
     expect(onSoporteAbierto).toHaveBeenCalledWith(SESION);

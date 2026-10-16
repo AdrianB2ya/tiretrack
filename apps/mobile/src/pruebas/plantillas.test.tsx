@@ -9,6 +9,7 @@ import {
   type EjeEditable,
 } from "../flota/editorPlantilla";
 import { PantallaPlantillas, type FuentesPlantillas } from "../flota/PantallaPlantillas";
+import { elegirOpcion } from "./listas";
 
 const DIRECCIONAL: EjeEditable = { tipoEje: "direccional", dual: false, psi: "110", profMin: "3" };
 const TRACCION: EjeEditable = { tipoEje: "traccion", dual: true, psi: "105", profMin: "2,5" };
@@ -119,7 +120,7 @@ describe("pantalla de plantillas", () => {
     fireEvent.click(await screen.findByTestId("version-c-1"));
     fireEvent.click(await screen.findByTestId("guardar-plantilla"));
     expect(await screen.findByText("Confirmar y mover los vehículos")).toBeTruthy();
-    fireEvent.click(screen.getAllByLabelText("Arrastre")[0]!);
+    await elegirOpcion({ label: "Arrastre" });
     expect(screen.queryByText("Confirmar y mover los vehículos")).toBeNull();
   });
 });

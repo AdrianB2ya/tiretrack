@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { FormularioNuevaOrden, type FuentesNuevaOrden } from "../ordenes/FormularioNuevaOrden";
 import type { QuienCrea } from "../ordenes/nuevaOrden";
+import { elegirOpcion } from "./listas";
 
 const fuentes = (extra: Partial<FuentesNuevaOrden> = {}): FuentesNuevaOrden => ({
   sedes: async () => [
@@ -26,7 +27,7 @@ function montar(quien: QuienCrea, f = fuentes()) {
   render(<FormularioNuevaOrden quien={quien} hoy="2026-10-05" fuentes={f} onCrear={onCrear} />);
   return onCrear;
 }
-const elegir = async (texto: string | RegExp) => fireEvent.click(await screen.findByText(texto));
+const elegir = elegirOpcion;
 
 describe("orden nueva en cascada", () => {
   it("el coordinador elige sede, cliente, sede del cliente, vehículo y técnico", async () => {
@@ -39,7 +40,7 @@ describe("orden nueva en cascada", () => {
     expect(screen.getByTestId("paso-tecnico-abrir")).toBeTruthy();
     expect(screen.queryByText("Carlos Méndez")).toBeNull();
     await elegir(/CA-12/);
-    // Elegido el vehículo, el técnico es el paso siguiente: se abre solo.
+    // Elegido el vehículo, el técnico se elige igual: se abre al tocarlo.
     await elegir("Carlos Méndez");
     expect(screen.getByTestId("paso-tecnico-abrir")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Quién entrega el vehículo"), { target: { value: "Pedro Gómez" } });
@@ -53,7 +54,7 @@ describe("orden nueva en cascada", () => {
 
   it("cada nivel aparece cuando el anterior está elegido", async () => {
     montar(coord);
-    await screen.findByText("Transportes Reyna");
+    await screen.findByTestId("paso-cliente");
     expect(screen.queryByText("Planta Fundación")).toBeNull();
     await elegir("Transportes Reyna");
     expect(await screen.findByText("Planta Fundación")).toBeTruthy();
@@ -73,7 +74,7 @@ describe("orden nueva en cascada", () => {
 
   it("no crea con datos faltantes y dice qué falta", async () => {
     const onCrear = montar(coord);
-    await screen.findByText("Transportes Reyna");
+    await screen.findByTestId("paso-cliente");
     fireEvent.click(screen.getByTestId("crear-orden"));
     expect(onCrear).not.toHaveBeenCalled();
     expect(screen.getByText("Falta para crear la orden")).toBeTruthy();
@@ -90,7 +91,7 @@ describe("orden nueva en cascada", () => {
 
   it("solo ofrece las sedes de quien crea", async () => {
     montar({ ...coord, sedes: ["s-fun"] });
-    await screen.findByText("Transportes Reyna");
+    await screen.findByTestId("paso-cliente");
     // Con una sola sede propia no hay nada que elegir.
     expect(screen.queryByText("Carro Taller 01")).toBeNull();
   });

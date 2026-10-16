@@ -18,6 +18,7 @@ import {
 } from "../informe/reglasInforme";
 import { PantallaInforme, type FuentesInforme } from "../informe/PantallaInforme";
 import { ClienteHttp } from "../datos/clienteHttp";
+import { elegirOpcion } from "./listas";
 
 const CLIENTE = "00000000-0000-4000-8000-0000000000c1";
 
@@ -123,7 +124,7 @@ describe("pantalla del informe", () => {
     fireEvent.click(await screen.findByTestId("filtro-cliente-abrir"));
     fireEvent.click(await screen.findByLabelText("Transportes Reyna"));
     expect(screen.queryByLabelText("Transportes Reyna")).toBeNull();
-    fireEvent.click(screen.getByLabelText("Este mes"));
+    await elegirOpcion({ label: "Este mes" });
     fireEvent.click(screen.getByTestId("ver-informe"));
     expect((await screen.findByTestId("resumen-informe")).textContent).toBe("2 llantas de 1 orden");
     expect(screen.getByText(/La orden va sin cerrar/)).toBeTruthy();

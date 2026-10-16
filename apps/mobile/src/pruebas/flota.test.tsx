@@ -9,6 +9,7 @@ import {
 } from "../flota/reglasFlota";
 import { PantallaFlota, type AccionesFlota, type FuentesFlota } from "../flota/PantallaFlota";
 import { FormularioNuevaOrden, type FuentesNuevaOrden } from "../ordenes/FormularioNuevaOrden";
+import { abrirLista } from "./listas";
 
 /**
  * Flota en el celular.
@@ -134,6 +135,8 @@ describe("volver de registrar un cliente a la orden nueva", () => {
     };
     const quien = { usuarioId: "t", rol: "tecnico" as const, sedes: ["s-1"] };
     const { rerender } = render(<FormularioNuevaOrden quien={quien} hoy="2026-10-05" fuentes={f} onCrear={vi.fn()} recarga={1} />);
+    await screen.findByTestId("paso-cliente");
+    abrirLista("paso-cliente");
     await screen.findByText("Transportes Reyna");
     lista = [...lista, { id: "c-2", nombre: "Transportes Ciénaga" }];
     rerender(<FormularioNuevaOrden quien={quien} hoy="2026-10-05" fuentes={f} onCrear={vi.fn()} recarga={2} />);

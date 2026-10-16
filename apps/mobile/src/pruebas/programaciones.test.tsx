@@ -12,6 +12,7 @@ import {
   type ProgramacionListada,
 } from "../coordinador/programacion";
 import { PantallaProgramaciones, type FuentesProgramaciones } from "../coordinador/PantallaProgramaciones";
+import { elegirOpcion } from "./listas";
 
 const U = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 const SEDE = U(1);
@@ -111,7 +112,7 @@ describe("pantalla de visitas recurrentes", () => {
     pantalla(f);
     expect(await screen.findByText("No se generó: El técnico está inactivo: elige otro")).toBeTruthy();
     fireEvent.click(screen.getByTestId("cambiar-tecnico-p-1"));
-    fireEvent.click(await screen.findByLabelText("Ana Torres"));
+    await elegirOpcion({ label: "Ana Torres" });
     await waitFor(() => expect(f.cambiarTecnico).toHaveBeenCalledWith("p-1", U(6)));
     expect(screen.queryByLabelText("Carlos Méndez")).toBeNull();
     expect(f.listar).toHaveBeenCalledTimes(2);
@@ -130,10 +131,10 @@ describe("pantalla de visitas recurrentes", () => {
     const f = fuentes();
     pantalla(f);
     fireEvent.click(await screen.findByTestId("nueva-programacion"));
-    fireEvent.click(await screen.findByLabelText("Transportes Reyna"));
-    fireEvent.click(await screen.findByLabelText("Planta"));
-    fireEvent.click(await screen.findByLabelText("CA-12 · SXK482, Tractocamión"));
-    fireEvent.click(await screen.findByLabelText("Carlos Méndez"));
+    await elegirOpcion({ label: "Transportes Reyna" });
+    await elegirOpcion({ label: "Planta" });
+    await elegirOpcion({ label: "CA-12 · SXK482, Tractocamión" });
+    await elegirOpcion({ label: "Carlos Méndez" });
     fireEvent.change(screen.getByLabelText("Primera visita"), { target: { value: "2026-10-15" } });
     expect(screen.getByText("lun 16 nov 2026")).toBeTruthy();
     fireEvent.click(screen.getByTestId("guardar-programacion"));
@@ -157,10 +158,10 @@ describe("pantalla de visitas recurrentes", () => {
     const f = fuentes({ crear: vi.fn().mockResolvedValue({ ok: false, status: 409, mensaje: "Ese vehículo ya tiene una programación activa de ese tipo" }) });
     pantalla(f);
     fireEvent.click(await screen.findByTestId("nueva-programacion"));
-    fireEvent.click(await screen.findByLabelText("Transportes Reyna"));
-    fireEvent.click(await screen.findByLabelText("Planta"));
-    fireEvent.click(await screen.findByLabelText("CA-12 · SXK482, Tractocamión"));
-    fireEvent.click(await screen.findByLabelText("Carlos Méndez"));
+    await elegirOpcion({ label: "Transportes Reyna" });
+    await elegirOpcion({ label: "Planta" });
+    await elegirOpcion({ label: "CA-12 · SXK482, Tractocamión" });
+    await elegirOpcion({ label: "Carlos Méndez" });
     fireEvent.click(screen.getByTestId("guardar-programacion"));
     expect(await screen.findByText(/ya tiene una programación activa/)).toBeTruthy();
   });
