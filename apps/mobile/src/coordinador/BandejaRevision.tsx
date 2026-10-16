@@ -81,7 +81,10 @@ export function TarjetaRevision({
       </View>
 
       <View>
-        <Text style={estilos.vehiculo}>{item.vehiculoCodigo}</Text>
+        <Text style={estilos.vehiculo}>
+          {item.vehiculoCodigo}
+          {item.vehiculoPlaca ? ` · ${item.vehiculoPlaca}` : ""}
+        </Text>
         <Text style={estilos.secundario}>
           {item.clienteNombre} · {item.tecnicoNombre}
         </Text>

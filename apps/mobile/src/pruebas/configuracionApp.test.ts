@@ -85,7 +85,8 @@ describe("pantallas construidas y conectadas", () => {
     const destinos = [...codigo.matchAll(/router\.(?:push|replace)\(\s*[`"]([^`"]+)[`"]/g)].map((m) => m[1] as string);
     expect(destinos.length).toBeGreaterThan(5);
     const faltantes = destinos.filter((d) => {
-      const ruta = d.replace(/\$\{[^}]+\}/g, "[x]").replace(/^\//, "");
+      // Lo que va después de "?" son parámetros, no parte de la ruta.
+      const ruta = d.replace(/\?.*$/, "").replace(/\$\{[^}]+\}/g, "[x]").replace(/^\//, "");
       const partes = ruta.split("/").map((s) => (s === "[x]" ? null : s));
       // /orden/[x]/datos → app/orden/[id]/datos.tsx o .../datos/index.tsx
       const candidatas = raicesDeRutas().flatMap((base) => [partes, [...partes, "index"]].map((ps) => {

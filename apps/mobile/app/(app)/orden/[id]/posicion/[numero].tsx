@@ -29,7 +29,7 @@ import { OrdenNoDisponible } from "../../../../../src/ordenes/OrdenNoDisponible"
  * técnico captura de corrido como trabaja.
  */
 export default function PantallaPosicion() {
-  const { id, numero } = useLocalSearchParams<{ id: string; numero: string }>();
+  const { id, numero, guardada } = useLocalSearchParams<{ id: string; numero: string; guardada?: string }>();
   const router = useRouter();
   const { cargarOrden, guardarMedicion, catalogoPara, fotosDe, adjuntarFoto, medicionAnterior, accionesCatalogo } = useDatos();
   // La llanta que estaba según la última orden: es la que sale si se cambia.
@@ -42,6 +42,8 @@ export default function PantallaPosicion() {
   const [catalogo, setCatalogo] = useState<CatalogoEditor | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [noExistePosicion, setNoExistePosicion] = useState(false);
+  // Cómo estaba la posición al abrirla: para saber si hay cambios sin guardar.
+  const [inicial, setInicial] = useState<string | null>(null);
 
   // Carga inicial: la orden y el borrador de esta posición.
   useEffect(() => {
@@ -60,7 +62,9 @@ export default function PantallaPosicion() {
       setDatos(d);
       // Si ya se capturó, se reanuda con lo que había en vez de empezar de
       // cero: el técnico entra a corregir un dato, no a rehacer la posición.
-      setBorrador(previa ? borradorDesde(previa) : borradorNuevo(casilla));
+      const b = previa ? borradorDesde(previa) : borradorNuevo(casilla);
+      setBorrador(b);
+      setInicial(JSON.stringify(b));
       const anterior = await medicionAnterior(d.orden.vehiculoId, posicion, d.orden.id);
       if (vigente) setDesmontadaSugerida(anterior ? desmontadaDesde(anterior, posicion) : null);
     })();
@@ -126,7 +130,8 @@ export default function PantallaPosicion() {
       const siguiente = faltantes.find((n) => n > posicion) ?? faltantes[0];
 
       if (siguiente !== undefined) {
-        router.replace(`/orden/${id}/posicion/${siguiente}` as never);
+        // La siguiente dice que ésta quedó guardada: antes saltaba sin decir nada.
+        router.replace(`/orden/${id}/posicion/${siguiente}?guardada=${posicion}` as never);
       } else {
         // No queda ninguna: se vuelve al diagrama, que es donde se cierra.
         router.back();
@@ -174,9 +179,29 @@ export default function PantallaPosicion() {
     <Text style={estilos.notaFotos}>Guarda la posición para poder agregarle fotos.</Text>
   );
 
+  // Todas las posiciones del vehículo, en orden; los repuestos al final.
+  const todas = [
+    ...datos.diagrama.ejes.flatMap((e) => [...e.izquierda, ...e.derecha].map((c) => c.numero)),
+    ...datos.diagrama.repuestos.map((c) => c.numero),
+  ].sort((a, b) => a - b);
+  const indice = todas.indexOf(posicion);
+
   return (
     <EditorPosicion
       casilla={casilla}
+      guardada={guardada ? Number(guardada) : null}
+      {...(indice >= 0
+        ? {
+            navegacion: {
+              actual: indice + 1,
+              total: todas.length,
+              anterior: todas[indice - 1] ?? null,
+              siguiente: todas[indice + 1] ?? null,
+              onIr: (n: number) => router.replace(`/orden/${id}/posicion/${n}` as never),
+              sinGuardar: inicial !== null && JSON.stringify(borrador) !== inicial,
+            },
+          }
+        : {})}
       borrador={borrador}
       catalogo={catalogo}
       onCambiar={setBorrador}

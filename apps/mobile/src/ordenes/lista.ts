@@ -12,6 +12,8 @@ import type { OrdenLocal } from "../datos/repositorio";
 export interface OrdenParaLista {
   readonly orden: OrdenLocal;
   readonly vehiculoCodigo: string;
+  /** En el patio el camión se reconoce por la placa. */
+  readonly vehiculoPlaca?: string | null;
   readonly clienteNombre: string;
   readonly posicionesCapturadas: number;
   readonly posicionesTotales: number;
@@ -166,6 +168,7 @@ export function filtrar(
       return (
         id.includes(texto) ||
         o.vehiculoCodigo.toLowerCase().includes(texto) ||
+        (o.vehiculoPlaca ?? "").toLowerCase().includes(texto) ||
         o.clienteNombre.toLowerCase().includes(texto)
       );
     });

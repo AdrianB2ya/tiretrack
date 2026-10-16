@@ -2,6 +2,7 @@ import type { ReactElement } from "react";
 import { SectionList, StyleSheet, Text, View, type RefreshControlProps } from "react-native";
 import { Insignia, Tarjeta, Vacio } from "../diseno/componentes";
 import { colores, conOpacidad, espacio, estadosOrden, radio, texto } from "../diseno/tokens";
+import { fechaCorta } from "../diseno/formato";
 import {
   construirSecciones,
   identificadorVisible,
@@ -127,8 +128,13 @@ export function TarjetaOrden({
 
       {/* Vehículo y cliente juntos: la tarjeta ya separa sus bloques. */}
       <View>
-        <Text style={estilos.vehiculo}>{item.vehiculoCodigo}</Text>
-        <Text style={estilos.cliente}>{item.clienteNombre}</Text>
+        <Text style={estilos.vehiculo}>
+          {item.vehiculoCodigo}
+          {item.vehiculoPlaca ? ` · ${item.vehiculoPlaca}` : ""}
+        </Text>
+        <Text style={estilos.cliente}>
+          {item.clienteNombre} · {fechaCorta(orden.fecha)}
+        </Text>
       </View>
 
       {devuelta ? (

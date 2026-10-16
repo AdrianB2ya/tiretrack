@@ -1,5 +1,5 @@
-import { useMemo, useState, type ReactNode } from "react";
-import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { Aviso, Boton, Campo, CampoDecimal, Insignia } from "../diseno/componentes";
 import {
   DESTINOS_LLANTA,
@@ -79,6 +79,18 @@ export interface EditorPosicionProps {
    */
   /** Orden de levantamiento (R4/R9): pide además el costo de la llanta. */
   levantamiento?: boolean;
+  /** "Posición 3 de 10" y flechas a la anterior y la siguiente. */
+  navegacion?: {
+    actual: number;
+    total: number;
+    anterior: number | null;
+    siguiente: number | null;
+    onIr: (numero: number) => void;
+    /** Con cambios sin guardar, la flecha pide un segundo toque. */
+    sinGuardar: boolean;
+  };
+  /** La posición que se acaba de guardar, para confirmarlo al llegar a esta. */
+  guardada?: number | null;
   onAgregar?: {
     marca: (nombre: string) => Promise<string | null>;
     diseno: (nombre: string) => Promise<string | null>;
@@ -100,8 +112,18 @@ export function EditorPosicion({
   desmontadaSugerida = null,
   onAgregar,
   levantamiento = false,
+  navegacion,
+  guardada = null,
 }: EditorPosicionProps) {
   const [confirmando, setConfirmando] = useState(false);
+  // Teclado: "Siguiente" pasa de un campo de medición al otro sin cerrarlo.
+  const refPsiEnc = useRef<TextInput>(null);
+  const refPsiCal = useRef<TextInput>(null);
+  const refsProf = { exterior: useRef<TextInput>(null), centro: useRef<TextInput>(null), interior: useRef<TextInput>(null) };
+  // Si la llanta ya viene identificada (visita repetida, o se reabre la
+  // posición), la identificación se resume en una línea y arriba queda la
+  // medición, que es lo que se hace en cada visita.
+  const [verIdentificacion, setVerIdentificacion] = useState(() => !identificada(borrador));
 
   const avisos = useMemo(() => revisar(borrador, casilla), [borrador, casilla]);
   const veredicto = puedeGuardar(avisos);
@@ -130,15 +152,24 @@ export function EditorPosicion({
   );
 
   return (
-    <ScrollView style={estilos.pantalla} contentContainerStyle={estilos.contenido}>
-      <Cabecera casilla={casilla} />
+    <View style={estilos.pantalla}>
+    <ScrollView style={estilos.pantalla} contentContainerStyle={estilos.contenido} keyboardShouldPersistTaps="handled">
+      {guardada !== null ? (
+        <View style={estilos.guardada} testID="posicion-guardada">
+          <Text style={estilos.textoGuardada}>✓ {nombrePosicion(guardada)} guardada</Text>
+        </View>
+      ) : null}
+      <Cabecera casilla={casilla} navegacion={navegacion} />
 
-      {hermanaCapturada && onCopiarHermana ? (
+      {/* Copiar sirve para identificar; con la llanta ya identificada sobra. */}
+      {hermanaCapturada && onCopiarHermana && verIdentificacion ? (
         <Boton tipo="secundario" ancho onPress={onCopiarHermana} testID="copiar-hermana">
           Copiar llanta de la {nombrePosicion(hermanaCapturada).toLowerCase()}
         </Boton>
       ) : null}
 
+      {verIdentificacion || avisos.some((a) => a.severidad === "error" && CAMPOS_IDENTIFICACION.has(a.campo)) ? (
+      <>
       {/* ── Identificación ── */}
       <Bloque titulo="Identificación">
         <View style={estilos.filaSwitch}>
@@ -289,12 +320,25 @@ export function EditorPosicion({
         />
       </Bloque>
 
+      </>
+      ) : (
+        <ResumenIdentificacion
+          borrador={borrador}
+          catalogo={catalogo}
+          onCambiar={() => setVerIdentificacion(true)}
+        />
+      )}
+
       {/* ── Medición ── */}
       <Bloque titulo="Medición">
         <View style={estilos.filaDoble}>
           <View style={{ flex: 1 }}>
             <CampoDecimal
+              ref={refPsiEnc}
               etiqueta="PSI encontrada"
+              returnKeyType="next"
+              blurOnSubmit={false}
+              onSubmitEditing={() => refPsiCal.current?.focus()}
               valor={borrador.psiEncontrada}
               onCambio={(n) => cambiar("psiEncontrada", n)}
               placeholder="Ej.: 105"
@@ -303,7 +347,11 @@ export function EditorPosicion({
           </View>
           <View style={{ flex: 1 }}>
             <CampoDecimal
+              ref={refPsiCal}
               etiqueta="PSI calibrada"
+              returnKeyType="next"
+              blurOnSubmit={false}
+              onSubmitEditing={() => refsProf.exterior.current?.focus()}
               valor={borrador.psiCalibrado}
               onCambio={(n) => cambiar("psiCalibrado", n)}
               {...avisoProps(avisos, "psiCalibrado")}
@@ -313,6 +361,7 @@ export function EditorPosicion({
 
         <TresProfundidades
           titulo="Profundidad (mm)"
+          refs={refsProf}
           medidas={borrador.profundidades}
           onCambio={(p) => cambiar("profundidades", p)}
           avisos={avisos}
@@ -408,6 +457,12 @@ export function EditorPosicion({
 
       {fotos}
 
+    </ScrollView>
+
+    {/* Guardar siempre a la vista: con guantes, bajar hasta el final de un
+        formulario largo en cada una de las 22 llantas costaba (revisión de
+        diseño). Los avisos de guardar van aquí, junto al botón. */}
+    <View style={estilos.barraGuardar}>
       {/* Las advertencias se muestran juntas al intentar guardar, no una por
           campo mientras escribe: interrumpir la captura es peor. */}
       {confirmando ? (
@@ -422,10 +477,13 @@ export function EditorPosicion({
         <Aviso tono="peligro" titulo="Falta corregir" detalle={veredicto.mensaje ?? ""} />
       ) : null}
 
-      <View style={estilos.acciones}>
-        <Boton tipo="fantasma" ancho onPress={onCancelar}>
+      <View style={estilos.botonesBarra}>
+        <View style={{ flex: 1 }}>
+          <Boton tipo="fantasma" ancho onPress={onCancelar}>
           Cancelar
-        </Boton>
+          </Boton>
+        </View>
+        <View style={{ flex: 2 }}>
         <Boton
           ancho
           testID="guardar"
@@ -433,17 +491,59 @@ export function EditorPosicion({
           cargando={guardando}
           deshabilitado={!veredicto.permitido || !hayContenido}
         >
-          {confirmando ? "Guardar de todos modos" : "Guardar posición"}
+          {confirmando ? "Guardar de todos modos" : "Guardar y seguir"}
         </Boton>
+        </View>
       </View>
-    </ScrollView>
+    </View>
+    </View>
   );
 }
 
 // ── Piezas ──────────────────────────────────────────────────────────────────
 
-function Cabecera({ casilla }: { casilla: Casilla }) {
+function Cabecera({ casilla, navegacion }: { casilla: Casilla; navegacion: EditorPosicionProps["navegacion"] }) {
+  // Con cambios sin guardar, la flecha avisa primero y salta al segundo toque.
+  const [avisar, setAvisar] = useState<number | null>(null);
+  const ir = (n: number | null) => {
+    if (n === null || !navegacion) return;
+    if (navegacion.sinGuardar && avisar !== n) return setAvisar(n);
+    navegacion.onIr(n);
+  };
   return (
+    <View style={{ gap: espacio.sm }}>
+    {navegacion ? (
+      <View style={estilos.navegacion}>
+        <Pressable
+          onPress={() => ir(navegacion.anterior)}
+          disabled={navegacion.anterior === null}
+          accessibilityRole="button"
+          accessibilityLabel="Posición anterior"
+          testID="posicion-anterior"
+          style={[estilos.flecha, navegacion.anterior === null && { opacity: 0.3 }]}
+        >
+          <Text style={estilos.textoFlecha}>◀ {navegacion.anterior !== null ? etiquetaPosicion(navegacion.anterior) : ""}</Text>
+        </Pressable>
+        <Text style={estilos.indice} testID="indice-posicion">
+          {navegacion.actual} de {navegacion.total}
+        </Text>
+        <Pressable
+          onPress={() => ir(navegacion.siguiente)}
+          disabled={navegacion.siguiente === null}
+          accessibilityRole="button"
+          accessibilityLabel="Posición siguiente"
+          testID="posicion-siguiente"
+          style={[estilos.flecha, { alignItems: "flex-end" }, navegacion.siguiente === null && { opacity: 0.3 }]}
+        >
+          <Text style={estilos.textoFlecha}>{navegacion.siguiente !== null ? etiquetaPosicion(navegacion.siguiente) : ""} ▶</Text>
+        </Pressable>
+      </View>
+    ) : null}
+    {avisar !== null ? (
+      <Text style={estilos.avisoSinGuardar} testID="aviso-sin-guardar">
+        Hay cambios sin guardar en esta posición. Toca la flecha otra vez para salir sin guardarlos.
+      </Text>
+    ) : null}
     <View style={estilos.cabecera}>
       <View style={estilos.numeroGrande}>
         <Text style={estilos.textoNumero}>{etiquetaPosicion(casilla.numero)}</Text>
@@ -463,6 +563,48 @@ function Cabecera({ casilla }: { casilla: Casilla }) {
           ) : null}
         </View>
       </View>
+    </View>
+    </View>
+  );
+}
+
+/** Campos de la identificación: si alguno tiene un error, el bloque se abre. */
+const CAMPOS_IDENTIFICACION = new Set(["serial", "dot", "numCalor", "marcaId", "disenoId", "medida", "motivoNoId", "estadoLlanta"]);
+
+/** La llanta ya está identificada: no hay que volver a escribir nada de esto. */
+function identificada(b: BorradorMedicion): boolean {
+  if (b.noIdentificada) return b.motivoNoId !== null;
+  return b.marcaId !== null && b.disenoId !== null && b.medida !== null && (b.serial ?? "").trim() !== "";
+}
+
+/** La identificación en una línea, con su botón para corregirla. */
+function ResumenIdentificacion({ borrador, catalogo, onCambiar }: {
+  borrador: BorradorMedicion;
+  catalogo: CatalogoEditor;
+  onCambiar: () => void;
+}) {
+  const marca = catalogo.marcas.find((m) => m.id === borrador.marcaId)?.nombre;
+  const diseno = catalogo.disenos.find((d) => d.id === borrador.disenoId)?.nombre;
+  return (
+    <View style={estilos.resumenIdent} testID="resumen-identificacion">
+      <Text style={estilos.tituloBloque}>Llanta</Text>
+      {borrador.noIdentificada ? (
+        <Text style={estilos.lineaIdent}>No identificada · {ETIQUETA_MOTIVO[borrador.motivoNoId as keyof typeof ETIQUETA_MOTIVO] ?? borrador.motivoNoId}</Text>
+      ) : (
+        <>
+          <Text style={estilos.lineaIdent}>{[marca, diseno, borrador.medida].filter(Boolean).join(" ")}</Text>
+          <Text style={estilos.detalleIdent}>
+            {[
+              borrador.serial ? `Serial ${borrador.serial}` : null,
+              borrador.dot ? `DOT ${borrador.dot}` : null,
+              borrador.estadoLlanta,
+            ].filter(Boolean).join(" · ")}
+          </Text>
+        </>
+      )}
+      <Boton tipo="fantasma" ancho testID="cambiar-identificacion" onPress={onCambiar}>
+        Cambiar la identificación
+      </Boton>
     </View>
   );
 }
@@ -670,8 +812,10 @@ function avisoProps(avisos: readonly AvisoCampo[], campo: string) {
  * Las tres medidas lado a lado, en el orden en que se recorre la banda con el
  * profundímetro: exterior, centro, interior.
  */
-function TresProfundidades({ titulo, medidas, onCambio, avisos, desmontada, ayuda }: {
+function TresProfundidades({ titulo, medidas, onCambio, avisos, desmontada, ayuda, refs }: {
   titulo: string;
+  /** Para que "Siguiente" pase exterior → centro → interior. */
+  refs?: Record<(typeof PUNTOS_PROFUNDIDAD)[number], RefObject<TextInput>>;
   medidas: TresMedidas;
   onCambio: (m: TresMedidas) => void;
   avisos: readonly AvisoCampo[];
@@ -682,9 +826,16 @@ function TresProfundidades({ titulo, medidas, onCambio, avisos, desmontada, ayud
     <View style={estilos.tresProfundidades}>
       <Text style={estilos.etiquetaGrupo}>{titulo}</Text>
       <View style={estilos.filaDoble}>
-        {PUNTOS_PROFUNDIDAD.map((punto) => (
+        {PUNTOS_PROFUNDIDAD.map((punto, i) => (
           <View key={punto} style={{ flex: 1 }}>
             <CampoDecimal
+              {...(refs ? { ref: refs[punto] } : {})}
+              returnKeyType={i < PUNTOS_PROFUNDIDAD.length - 1 ? "next" : "done"}
+              blurOnSubmit={i === PUNTOS_PROFUNDIDAD.length - 1}
+              onSubmitEditing={() => {
+                const sig = PUNTOS_PROFUNDIDAD[i + 1];
+                if (sig && refs) refs[sig].current?.focus();
+              }}
               etiqueta={ETIQUETA_PUNTO_PROFUNDIDAD[punto]}
               valor={medidas[punto]}
               onCambio={(n) => onCambio({ ...medidas, [punto]: n })}
@@ -770,4 +921,37 @@ const estilos = StyleSheet.create({
   },
   textoDesgaste: { ...texto.ayuda, color: colores.secundario, fontWeight: "600" },
   acciones: { gap: espacio.md },
+  barraGuardar: {
+    gap: espacio.sm,
+    paddingHorizontal: espacio.lg,
+    paddingTop: espacio.md,
+    paddingBottom: espacio.lg,
+    backgroundColor: colores.superficie,
+    borderTopWidth: 1,
+    borderTopColor: colores.borde,
+  },
+  botonesBarra: { flexDirection: "row", gap: espacio.sm },
+  guardada: {
+    padding: espacio.md,
+    borderRadius: radio.md,
+    backgroundColor: conOpacidad(colores.exito, 0.16),
+    borderWidth: 1,
+    borderColor: colores.exito,
+  },
+  textoGuardada: { ...texto.cuerpoFuerte, color: colores.exito },
+  navegacion: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  flecha: { minHeight: tactil.minimo, minWidth: 72, justifyContent: "center" },
+  textoFlecha: { ...texto.cuerpoFuerte, color: colores.texto },
+  indice: { ...texto.etiqueta, color: colores.textoTenue },
+  avisoSinGuardar: { ...texto.ayuda, color: colores.advertencia },
+  resumenIdent: {
+    gap: espacio.xs,
+    padding: espacio.lg,
+    borderRadius: radio.lg,
+    backgroundColor: colores.tarjeta,
+    borderWidth: 1,
+    borderColor: colores.borde,
+  },
+  lineaIdent: { ...texto.cuerpoFuerte, color: colores.texto },
+  detalleIdent: { ...texto.ayuda, color: colores.textoTenue, marginBottom: espacio.sm },
 });

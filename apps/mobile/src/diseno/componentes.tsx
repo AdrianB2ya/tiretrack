@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from "react";
+import { forwardRef, type ReactNode, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -135,7 +135,8 @@ export interface CampoProps extends TextInputProps {
   requerido?: boolean;
 }
 
-export function Campo({ etiqueta, ayuda, error, requerido, style, onFocus, onBlur, ...props }: CampoProps) {
+// Con ref: la tecla "Siguiente" del teclado pasa al campo que sigue.
+export const Campo = forwardRef<TextInput, CampoProps>(function Campo({ etiqueta, ayuda, error, requerido, style, onFocus, onBlur, ...props }, ref) {
   // Borde blanco mientras se escribe: antes no había señal de dónde estaba el cursor.
   const [enFoco, setEnFoco] = useState(false);
   // Varias líneas: alto para dos o tres renglones y el texto arriba, no centrado.
@@ -146,6 +147,7 @@ export function Campo({ etiqueta, ayuda, error, requerido, style, onFocus, onBlu
         {requerido ? <Text style={{ color: colores.peligro }}> *</Text> : null}
       </Text>
       <TextInput
+        ref={ref}
         accessibilityLabel={etiqueta}
         placeholderTextColor={colores.textoTenue}
         style={[estilos.entrada, props.multiline ? estilos.entradaVariasLineas : null, enFoco ? estilos.entradaEnFoco : null, error ? { borderColor: colores.peligro } : null, style]}
@@ -167,7 +169,7 @@ export function Campo({ etiqueta, ayuda, error, requerido, style, onFocus, onBlu
       ) : null}
     </View>
   );
-}
+});
 
 /**
  * Campo numérico. Abre el teclado numérico directamente: el técnico captura
@@ -194,10 +196,7 @@ export function leerDecimal(texto: string): number | null {
  * el número cambia desde afuera (copiar de una hermana, abrir otra posición),
  * el texto se actualiza.
  */
-export function CampoDecimal({ valor, onCambio, ...props }: Omit<CampoProps, "value" | "onChangeText"> & {
-  valor: number | null;
-  onCambio: (n: number | null) => void;
-}) {
+export const CampoDecimal = forwardRef<TextInput, Omit<CampoProps, "value" | "onChangeText"> & { valor: number | null; onCambio: (n: number | null) => void }>(function CampoDecimal({ valor, onCambio, ...props }, ref) {
   // == null: si el valor llega vacío (undefined) el campo no puede decir "undefined".
   const [texto, setTexto] = useState(valor == null ? "" : String(valor).replace(".", ","));
   useEffect(() => {
@@ -206,6 +205,7 @@ export function CampoDecimal({ valor, onCambio, ...props }: Omit<CampoProps, "va
   }, [valor]);
   return (
     <Campo
+      ref={ref}
       keyboardType="decimal-pad"
       {...props}
       value={texto}
@@ -217,7 +217,7 @@ export function CampoDecimal({ valor, onCambio, ...props }: Omit<CampoProps, "va
       }}
     />
   );
-}
+});
 
 // ── Tarjeta ─────────────────────────────────────────────────────────────────
 

@@ -107,7 +107,13 @@ describe("tarjeta de orden", () => {
     render(<TarjetaOrden item={item({})} onPress={vi.fn()} />);
     expect(screen.getByText("OS-FUN-000001")).toBeTruthy();
     expect(screen.getByText("CA-12")).toBeTruthy();
-    expect(screen.getByText("Transportes Reyna")).toBeTruthy();
+    // Con la fecha al lado: "Transportes Reyna · 6 oct 2026".
+    expect(screen.getByText(/^Transportes Reyna · \d+ [a-z]{3} \d{4}$/)).toBeTruthy();
+  });
+
+  it("muestra la placa junto al código: en el patio el camión se reconoce por ella", () => {
+    render(<TarjetaOrden item={{ ...item({}), vehiculoPlaca: "SXK482" }} onPress={vi.fn()} />);
+    expect(screen.getByText("CA-12 · SXK482")).toBeTruthy();
   });
 
   it("muestra el estado en texto, no solo por color", () => {

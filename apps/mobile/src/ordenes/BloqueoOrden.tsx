@@ -51,14 +51,16 @@ export function BloqueoOrden({
   return (
     <View style={estilos.bloque} testID="bloqueo-orden">
       {situacion.tipo === "tomable" ? (
-        <>
-          <Text style={estilos.detalle}>
-            ¿Vas a trabajar sin señal? Llévatela antes de salir: mientras la tengas, nadie la reasigna ni la anula.
+        // Una sola línea con el botón al lado: antes era un párrafo y un botón
+        // ancho que empujaban el diagrama hacia abajo en cada orden.
+        <View style={estilos.fila}>
+          <Text style={[estilos.detalle, { flex: 1 }]}>
+            ¿Vas sin señal? Llévatela antes de salir: nadie la reasigna ni la anula mientras la tengas.
           </Text>
           <Boton tipo="secundario" testID="tomar-bloqueo" cargando={trabajando} onPress={() => void correr(onTomar)}>
-            Llevármela para trabajar sin señal
+            Llevármela
           </Boton>
-        </>
+        </View>
       ) : null}
 
       {situacion.tipo === "mia" ? (
@@ -111,5 +113,6 @@ export function BloqueoOrden({
 
 const estilos = StyleSheet.create({
   bloque: { gap: espacio.sm },
+  fila: { flexDirection: "row", alignItems: "center", gap: espacio.md },
   detalle: { ...texto.ayuda, color: colores.textoTenue },
 });

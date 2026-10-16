@@ -211,6 +211,7 @@ export function ProveedorDatos({
           // Si la flota aún no se descargó se muestra el identificador: un
           // código feo es más útil que una línea en blanco.
           vehiculoCodigo: ctx?.vehiculoCodigo ?? orden.vehiculoId,
+          vehiculoPlaca: ctx?.vehiculoPlaca ?? null,
           clienteNombre: ctx?.clienteNombre ?? orden.clienteId,
           posicionesCapturadas: capturadas,
           posicionesTotales: posiciones.length,
@@ -455,6 +456,7 @@ export function ProveedorDatos({
         return {
           orden,
           vehiculoCodigo: ctx?.vehiculoCodigo ?? orden.vehiculoId,
+          vehiculoPlaca: ctx?.vehiculoPlaca ?? null,
           clienteNombre: ctx?.clienteNombre ?? orden.clienteId,
           // El nombre congelado en la orden manda: si se reasignó, la bandeja
           // debe seguir mostrando quién la ejecutó.

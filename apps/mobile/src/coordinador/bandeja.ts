@@ -27,6 +27,7 @@ import type { Diagrama } from "../ordenes/diagrama";
 export interface OrdenEnBandeja {
   readonly orden: OrdenLocal;
   readonly vehiculoCodigo: string;
+  readonly vehiculoPlaca?: string | null;
   readonly clienteNombre: string;
   readonly tecnicoNombre: string;
   readonly diagrama: Diagrama;

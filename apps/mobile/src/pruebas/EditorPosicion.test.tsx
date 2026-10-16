@@ -340,3 +340,64 @@ describe("copiar de una hermana", () => {
     expect(screen.queryByTestId("copiar-hermana")).toBeNull();
   });
 });
+
+describe("captura de corrido (revisión de diseño)", () => {
+  const identificada = { marcaId: "mar-1", disenoId: "dis-1", medida: "295/80R22.5", serial: "MX10323", dot: "3624" };
+
+  it("una llanta ya identificada se resume en una línea y deja arriba la medición", () => {
+    montar(identificada);
+    expect(screen.getByTestId("resumen-identificacion").textContent).toContain("Michelin XDN-2 295/80R22.5");
+    expect(screen.getByTestId("resumen-identificacion").textContent).toContain("Serial MX10323");
+    expect(screen.queryByLabelText("Serial")).toBeNull();
+    fireEvent.click(screen.getByTestId("cambiar-identificacion"));
+    expect(screen.getByLabelText("Serial")).toBeTruthy();
+  });
+
+  it("una llanta sin identificar muestra la identificación completa", () => {
+    montar();
+    expect(screen.queryByTestId("resumen-identificacion")).toBeNull();
+    expect(screen.getByLabelText("Serial")).toBeTruthy();
+  });
+
+  it("con un error en la identificación, el bloque se abre aunque esté completa", () => {
+    montar({ ...identificada, dot: "12" });
+    expect(screen.queryByTestId("resumen-identificacion")).toBeNull();
+    expect(screen.getByLabelText("DOT")).toBeTruthy();
+  });
+
+  it("confirma que la posición anterior quedó guardada", () => {
+    montar({}, { guardada: 3 });
+    expect(screen.getByTestId("posicion-guardada").textContent).toBe("✓ Posición 3 guardada");
+  });
+
+  it("dice en qué posición va y pasa a la siguiente; con cambios sin guardar pide un segundo toque", () => {
+    const onIr = vi.fn();
+    montar({}, { navegacion: { actual: 7, total: 10, anterior: 6, siguiente: 8, onIr, sinGuardar: true } });
+    expect(screen.getByTestId("indice-posicion").textContent).toBe("7 de 10");
+    fireEvent.click(screen.getByTestId("posicion-siguiente"));
+    expect(onIr).not.toHaveBeenCalled();
+    expect(screen.getByTestId("aviso-sin-guardar")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("posicion-siguiente"));
+    expect(onIr).toHaveBeenCalledWith(8);
+  });
+
+  it("sin cambios pasa de una vez", () => {
+    const onIr = vi.fn();
+    montar({}, { navegacion: { actual: 7, total: 10, anterior: 6, siguiente: 8, onIr, sinGuardar: false } });
+    fireEvent.click(screen.getByTestId("posicion-anterior"));
+    expect(onIr).toHaveBeenCalledWith(6);
+  });
+
+  it("el botón de guardar dice que sigue a la próxima", () => {
+    montar();
+    expect(screen.getByTestId("guardar").textContent).toBe("Guardar y seguir");
+  });
+
+  it("la tecla del teclado pasa de un campo de medición al siguiente", () => {
+    montar();
+    for (const etiqueta of ["PSI encontrada", "PSI calibrada", "Exterior", "Centro"]) {
+      expect(screen.getAllByLabelText(etiqueta)[0]).toHaveAttribute("enterkeyhint", "next");
+    }
+    expect(screen.getAllByLabelText("Interior")[0]).toHaveAttribute("enterkeyhint", "done");
+  });
+});

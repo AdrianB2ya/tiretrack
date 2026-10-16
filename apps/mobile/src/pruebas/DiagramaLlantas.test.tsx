@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { DiagramaLlantas, ResumenDiagrama } from "../ordenes/DiagramaLlantas";
+import { DiagramaLlantas, ResumenDiagrama, LeyendaDiagrama } from "../ordenes/DiagramaLlantas";
 import { construirDiagrama } from "../ordenes/diagrama";
 import type { MedicionLocal, PosicionEjeLocal } from "../datos/repositorio";
 
@@ -205,5 +205,13 @@ describe("repuestos en el diagrama", () => {
     render(<DiagramaLlantas diagrama={construirDiagrama(configuracion, [])} onTocarPosicion={vi.fn()} />);
     expect(screen.queryByTestId("repuestos")).toBeNull();
     expect(screen.queryByTestId("agregar-repuesto")).toBeNull();
+  });
+});
+
+describe("leyenda", () => {
+  it("explica cada color en palabras: borde verde, punteada, roja y la raya de la interna", () => {
+    render(<LeyendaDiagrama />);
+    const texto = screen.getByTestId("leyenda-diagrama").textContent ?? "";
+    for (const t of ["Medida", "Falta", "Sin identificar", "Bajo el mínimo", "Rueda interna"]) expect(texto).toContain(t);
   });
 });
