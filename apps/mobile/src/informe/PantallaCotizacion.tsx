@@ -100,7 +100,7 @@ export function PantallaCotizacion({ fuentes }: { fuentes: FuentesCotizacion }) 
         tu empresa, más las recomendaciones abiertas.
       </Text>
       <Text style={estilos.etiqueta}>Cliente</Text>
-      {clientes.length === 0 ? <Vacio mensaje="No hay clientes descargados en este teléfono." /> : null}
+      {clientes.length === 0 ? <Vacio mensaje="No hay clientes en este teléfono. Sincroniza con señal para traerlos." /> : null}
       <ElegirUno
         opciones={clientes.map((c) => ({ id: c.id, texto: c.nombre, testID: `cliente-${c.id}` }))}
         seleccionado={clienteId}

@@ -41,7 +41,7 @@ export function ListaOrdenes({ ordenes, onAbrir, mensajeVacio, refreshControl }:
       keyExtractor={(item) => item.orden.id}
       // Vacía también se puede tirar para actualizar: es justo cuando más
       // falta hace.
-      ListEmptyComponent={<Vacio mensaje={mensajeVacio ?? "No tienes órdenes asignadas"} />}
+      ListEmptyComponent={<Vacio mensaje={mensajeVacio ?? "No tienes órdenes asignadas. Tira la lista hacia abajo para buscar nuevas."} />}
       {...(refreshControl ? { refreshControl } : {})}
       contentContainerStyle={[estilos.contenido, secciones.length === 0 && { flexGrow: 1 }]}
       stickySectionHeadersEnabled={false}

@@ -100,3 +100,14 @@ describe("filtros desde el panel", () => {
     expect(filtrarOrdenes(lista, null)).toHaveLength(4);
   });
 });
+
+describe("íconos de la barra", () => {
+  it("cada pestaña de cada rol lleva su ícono, además del texto", () => {
+    for (const rol of ["tecnico", "coordinador", "administrador", "cliente", "superadmin"] as const) {
+      const pestanas = pestanasPara(rol);
+      const { container, unmount } = render(<BarraNavegacion pestanas={pestanas} activa={pestanas[0]!.clave} onIr={() => undefined} />);
+      expect(container.querySelectorAll('[role="tab"] svg path')).toHaveLength(pestanas.length);
+      unmount();
+    }
+  });
+});

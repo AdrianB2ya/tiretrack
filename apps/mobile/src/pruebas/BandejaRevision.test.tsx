@@ -56,7 +56,7 @@ describe("bandeja", () => {
 
   it("vacía lo dice en vez de quedar en blanco", () => {
     render(<BandejaRevision items={[]} ctx={COORD} onAbrir={vi.fn()} />);
-    expect(screen.getByText("No hay órdenes esperando revisión")).toBeTruthy();
+    expect(screen.getByText(/^No hay órdenes esperando revisión/)).toBeTruthy();
   });
 
   it("abre la orden al tocarla", () => {

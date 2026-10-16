@@ -59,7 +59,9 @@ export function PortalCliente({
       {porAprobar.map((o) => {
         const d = diasHasta(o.orden.limiteCliente, hoy);
         return (
-          <Tarjeta key={o.orden.id} onPress={() => onAbrir(o.orden.id)} acento={colores.advertencia}>
+          // La tarjeta no es tocable: la acción es su botón (un botón dentro de
+          // otro confunde al lector de pantalla y al dedo).
+          <Tarjeta key={o.orden.id} acento={colores.advertencia}>
             <View style={estilos.fila}>
               <Text style={estilos.folio}>{o.orden.folio ?? o.orden.codigoReferencia}</Text>
               {d !== null ? (

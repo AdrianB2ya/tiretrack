@@ -74,7 +74,7 @@ export function PantallaPlantillas({ fuentes }: { fuentes: FuentesPlantillas }) 
       >
         Nueva plantilla
       </Boton>
-      {lista && lista.length === 0 ? <Vacio mensaje="Sin plantillas descargadas. Sincroniza con señal." /> : null}
+      {lista && lista.length === 0 ? <Vacio mensaje="Todavía no hay plantillas. Toca «Nueva plantilla» para crear la primera, o sincroniza con señal." /> : null}
       {(lista ?? []).map((p) => (
         <Tarjeta key={p.id}>
           <Text style={estilos.nombre}>{p.nombre}</Text>

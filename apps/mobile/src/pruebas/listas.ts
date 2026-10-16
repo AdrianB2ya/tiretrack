@@ -36,7 +36,9 @@ export async function elegirOpcion(cual: Cual): Promise<void> {
       el = buscar(cual);
     }
     if (!el) throw new Error(`No aparece la opción ${JSON.stringify(cual instanceof RegExp ? String(cual) : cual)}`);
-  });
+    // Las listas en cascada se cargan solas; con la suite completa corriendo
+    // en paralelo, un segundo (el valor por defecto) a veces no alcanzaba.
+  }, { timeout: 5000 });
   fireEvent.click(el as unknown as HTMLElement);
 }
 

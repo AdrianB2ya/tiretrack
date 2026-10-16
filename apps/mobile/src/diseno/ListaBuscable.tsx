@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { Aviso, Boton, Campo, CampoDecimal, Opcion } from "./componentes";
 import { colores, espacio, radio, tactil, texto } from "./tokens";
 import { filtrarPorTexto, type EvaluacionAlta } from "../catalogo/alta";
@@ -316,11 +316,10 @@ const estilos = StyleSheet.create({
     borderColor: colores.bordeFuerte,
     backgroundColor: colores.elevado,
     // Sombra: el panel queda por encima de lo que hay detrás.
-    shadowColor: "#000",
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 8,
+    ...Platform.select({
+      web: { boxShadow: "0 6px 12px rgba(0, 0, 0, 0.35)" },
+      default: { shadowColor: "#000", shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 8 },
+    }),
   },
 });
 

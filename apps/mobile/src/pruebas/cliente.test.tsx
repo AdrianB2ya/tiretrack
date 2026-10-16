@@ -72,7 +72,8 @@ describe("portal", () => {
     const onAbrir = vi.fn();
     render(<PortalCliente ordenes={ordenes} hoy="2026-10-05" onAbrir={onAbrir} />);
     expect(screen.getByText("1 día")).toBeTruthy();
-    fireEvent.click(screen.getByText("OS-FUN-000004"));
+    // Se abre con su botón: la tarjeta ya no es tocable (botón dentro de botón).
+    fireEvent.click(screen.getByTestId("revisar-aprobar-b"));
     expect(onAbrir).toHaveBeenCalledWith("b");
   });
 });

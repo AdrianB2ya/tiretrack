@@ -217,7 +217,7 @@ export function PantallaUsuarios({ fuentes }: { fuentes: FuentesUsuarios }) {
         ) : null;
       })()}
       {error ? <Aviso tono="advertencia" titulo="No se pudo cargar" detalle={error} /> : null}
-      {lista && lista.length === 0 ? <Vacio mensaje="Sin usuarios." /> : null}
+      {lista && lista.length === 0 ? <Vacio mensaje="Todavía no hay usuarios. Toca «Nuevo usuario» para crear el primero." /> : null}
       <CampoBusqueda b={busqueda} placeholder="Buscar por nombre, correo o rol" testID="buscar-usuario" />
       {busqueda.visibles.map((u) => (
         <Tarjeta key={u.id}>

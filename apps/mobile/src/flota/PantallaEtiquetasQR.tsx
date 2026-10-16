@@ -49,7 +49,7 @@ export function PantallaEtiquetasQR({ fuentes }: { fuentes: FuentesEtiquetas }) 
         vehículo y su orden en curso. El código no lleva datos del cliente: sin sesión no abre nada.
       </Text>
       <Text style={estilos.etiqueta}>Cliente</Text>
-      {clientes.length === 0 ? <Vacio mensaje="No hay clientes descargados en este teléfono." /> : null}
+      {clientes.length === 0 ? <Vacio mensaje="No hay clientes en este teléfono. Sincroniza con señal para traerlos." /> : null}
       <ElegirUno
         opciones={clientes.map((c) => ({ id: c.id, texto: c.nombre, testID: `cliente-${c.id}` }))}
         seleccionado={clienteId}

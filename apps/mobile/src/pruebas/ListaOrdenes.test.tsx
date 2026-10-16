@@ -74,7 +74,7 @@ describe("listado", () => {
 
   it("explica por qué no hay nada en vez de dejar la pantalla vacía", () => {
     render(<ListaOrdenes ordenes={[]} onAbrir={vi.fn()} />);
-    expect(screen.getByText("No tienes órdenes asignadas")).toBeTruthy();
+    expect(screen.getByText(/^No tienes órdenes asignadas/)).toBeTruthy();
   });
 
   it("admite un mensaje propio cuando el vacío es por un filtro", () => {

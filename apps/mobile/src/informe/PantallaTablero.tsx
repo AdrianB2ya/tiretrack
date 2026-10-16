@@ -65,7 +65,7 @@ export function PantallaTablero({ fuentes }: { fuentes: FuentesTablero }) {
       <Vacio mensaje="Calculando el tablero…" />
     );
   }
-  if (tablero.llantas === 0) return <Vacio mensaje="Todavía no hay mediciones para el tablero." />;
+  if (tablero.llantas === 0) return <Vacio mensaje="Todavía no hay mediciones para el tablero: aparecen cuando se cierran las primeras órdenes." />;
 
   const c = tablero.compras;
   const filas = vista === "marca" ? tablero.porMarca : vista === "diseno" ? tablero.porDiseno : tablero.porPosicion;

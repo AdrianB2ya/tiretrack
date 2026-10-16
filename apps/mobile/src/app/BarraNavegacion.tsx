@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { colores, conOpacidad, espacio, tactil, texto } from "../diseno/tokens";
 import type { DestinoPestana, Pestana } from "./navegacion";
+import { Icono } from "../diseno/Iconos";
 
 /**
  * Barra de navegación de abajo (todos los roles, con lo que pueden hacer).
@@ -36,6 +37,7 @@ export function BarraNavegacion({ pestanas, activa, onIr, porRevisar = 0 }: Barr
             onPress={() => (es ? undefined : onIr(p))}
             style={({ pressed }) => [estilos.pestana, es && estilos.activa, pressed && { opacity: 0.7 }]}
           >
+            <Icono nombre={p.clave} color={es ? colores.primario : colores.textoTenue} />
             <Text style={[estilos.texto, es && estilos.textoActivo]} numberOfLines={1}>
               {etiqueta}
             </Text>
@@ -55,7 +57,7 @@ const estilos = StyleSheet.create({
     backgroundColor: colores.superficie,
     paddingBottom: espacio.xs,
   },
-  pestana: { flex: 1, minHeight: tactil.comodo, alignItems: "center", justifyContent: "center", paddingHorizontal: espacio.xs },
+  pestana: { flex: 1, minHeight: tactil.comodo + espacio.sm, alignItems: "center", justifyContent: "center", gap: 2, paddingHorizontal: espacio.xs, paddingTop: espacio.sm },
   activa: { backgroundColor: conOpacidad(colores.primario, 0.1) },
   texto: { ...texto.etiqueta, color: colores.textoTenue },
   textoActivo: { color: colores.primario, fontWeight: "700" },

@@ -3867,6 +3867,52 @@ Lo que se encontró y se corrigió:
   "1 llanta" en vez de "llanta(s)"; un campo decimal sin valor ya no dice
   "undefined"; Reasignar con desplegables (los técnicos crecen).
 
+### Grafito y revisión de cara al usuario (2026-10-16)
+
+Pedido del usuario: "muy negro todo"; que se distinga una lista desplegada;
+pensar en quien usa cada pantalla. Cuatro commits:
+
+**Paleta grafito** (`tokens.ts`). El fondo era casi negro puro (3 % de
+luminosidad), las capas no se distinguían (1,08 y 1,17 de contraste contra el
+fondo), los grises tiraban a café y el morado no llegaba a 4,5. Ahora:
+fondo `#15181C` → barras → tarjetas → campos (`campo`) → lo que flota
+(`elevado`), cada uno un escalón más claro; estados calibrados para fondo
+oscuro; **rojo coral `#FF6B5E` para peligro**, distinto del rojo de marca
+(que sigue solo como identidad). Pruebas: las capas suben de a una, el fondo
+no es negro puro, cada estado pasa 4,5 como texto y lleno con texto oscuro.
+
+**Regla del blanco:** blanco lleno = lo elegido y la acción principal (la
+opción elegida va invertida, con letra oscura); borde blanco de 2 px = lo
+que está en foco (campo mientras se escribe) o abierto (la lista
+desplegada, cuyas opciones van en un panel `elevado` con sombra). Avisos con
+franja de color sobre fondo de tarjeta; tarjetas tocables con brillo arriba.
+
+**Logo y splash** tenían el negro pintado (el JPG original no trae
+transparencia): se les quitó el fondo con pngjs (alfa por brillo, bordes
+despremultiplicados). El ícono conserva su fondo negro.
+
+**Técnico:** guardar en una barra fija abajo ("Guardar y seguir");
+"Siguiente" del teclado entre PSI y las tres profundidades (`Campo` y
+`CampoDecimal` aceptan `ref`); llanta ya identificada resumida en una línea
+(se abre sola si hay un error en la identificación) y la medición arriba;
+"3 de 11" con flechas (con cambios sin guardar, segundo toque);
+"✓ Posición 3 guardada" al llegar a la siguiente (`?guardada=`); leyenda del
+diagrama; casilla vacía punteada y la de cambio inmediato en rojo lleno;
+placa y fecha en las tarjetas de órdenes.
+
+**Coordinador y cliente:** el diagrama dentro de "Aprobar o devolver"; "la
+más antigua lleva N días" en el panel; el portal del cliente con "Revisar y
+aprobar" en cada orden (la tarjeta ya no es tocable: era un botón dentro de
+otro) y el plazo en palabras, vencido = "se cierra por vencimiento".
+
+**Íconos** de la barra de abajo dibujados con `react-native-svg`
+(`src/diseno/Iconos.tsx`, solo `Path`, que es lo que tiene el doble de
+pruebas). No se usó `@expo/vector-icons`: carga fuentes nativas. Listas
+vacías que dicen qué hacer.
+
+En la versión web (pruebas), `shadow*` está obsoleto: la sombra va con
+`Platform.select` (`boxShadow` en web).
+
 ### Listas de datos: búsqueda y "Mostrar más"
 
 `src/diseno/BusquedaLista.tsx`: `useBusqueda` + `CampoBusqueda` +
@@ -4486,7 +4532,7 @@ identificador **`com.asistectire.app`**, rojo de la marca **como acento**.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 1133/1133, mobile 1049 + recorrido 669.
+**Verificado:** `npm run verify` con base: raíz 1133/1133, mobile 1068 + recorrido 669.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

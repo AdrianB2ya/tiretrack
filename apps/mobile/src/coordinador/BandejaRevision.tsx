@@ -38,7 +38,7 @@ export function BandejaRevision({ items, ctx, onAbrir }: BandejaRevisionProps) {
   const ordenadas = ordenarBandeja(items, ctx);
 
   if (ordenadas.length === 0) {
-    return <Vacio mensaje="No hay órdenes esperando revisión" />;
+    return <Vacio mensaje="No hay órdenes esperando revisión. Cuando un técnico envíe una, aparece aquí." />;
   }
 
   return (
