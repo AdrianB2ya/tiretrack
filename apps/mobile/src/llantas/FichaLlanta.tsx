@@ -15,6 +15,7 @@ import { Aviso, Boton, Campo, CampoDecimal, Insignia, Tarjeta, Vacio } from "../
 import { colores, espacio, texto } from "../diseno/tokens";
 import { ElegirUno } from "../diseno/ListaBuscable";
 import { COLOR_ESTADO, dondeEsta, nombreLlanta, type LlantaVista } from "./PantallaLlantas";
+import { fechaCorta } from "../diseno/formato";
 
 /**
  * Ficha de una llanta (R8): qué es, dónde está, cuántas vidas lleva, por
@@ -117,7 +118,7 @@ export function FichaLlanta({ fuentes }: { fuentes: FuentesFicha }) {
       {ficha.vidas.map((v) => (
         <Text key={v.numero} style={estilos.linea}>
           {v.numero === 0 ? "Original" : `Reencauche ${v.numero}${v.banda ? ` · banda ${v.banda}` : ""}${v.reencauchadora ? ` · ${v.reencauchadora}` : ""}`}
-          {" · "}desde {v.inicio} · costo {pesos(v.costo)} · prof. inicial {mm(v.profundidadInicial)}
+          {" · "}desde {fechaCorta(v.inicio)} · costo {pesos(v.costo)} · prof. inicial {mm(v.profundidadInicial)}
         </Text>
       ))}
 
@@ -125,7 +126,7 @@ export function FichaLlanta({ fuentes }: { fuentes: FuentesFicha }) {
       {ficha.movimientos.length === 0 ? <Text style={estilos.detalle}>Sin movimientos.</Text> : null}
       {ficha.movimientos.map((m, i) => (
         <Text key={i} style={estilos.linea}>
-          {m.fecha} · {ETIQUETA_MOVIMIENTO[m.tipo as TipoMovimiento] ?? m.tipo}
+          {fechaCorta(m.fecha)} · {ETIQUETA_MOVIMIENTO[m.tipo as TipoMovimiento] ?? m.tipo}
           {m.vehiculoCodigo ? ` · ${m.vehiculoCodigo}${m.posicion ? ` pos. ${etiquetaPosicion(m.posicion)}` : ""}` : ""}
           {m.sedeNombre ? ` · ${m.sedeNombre}` : ""}
           {m.kilometraje !== null ? ` · ${m.kilometraje.toLocaleString("es-CO")} km` : ""}
@@ -138,7 +139,7 @@ export function FichaLlanta({ fuentes }: { fuentes: FuentesFicha }) {
       {ficha.mediciones.length === 0 ? <Text style={estilos.detalle}>Todavía no se ha medido en una orden aprobada.</Text> : null}
       {ficha.mediciones.map((m, i) => (
         <Text key={i} style={estilos.linea}>
-          {m.fecha} · {m.vehiculoCodigo ?? ""} pos. {etiquetaPosicion(m.posicion)} · {mm(m.profundidad)}
+          {fechaCorta(m.fecha)} · {m.vehiculoCodigo ?? ""} pos. {etiquetaPosicion(m.posicion)} · {mm(m.profundidad)}
           {m.folio ? ` · ${m.folio}` : ""}
         </Text>
       ))}

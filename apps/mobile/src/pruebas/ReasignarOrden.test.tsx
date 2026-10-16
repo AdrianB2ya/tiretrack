@@ -7,6 +7,7 @@ import {
   MOTIVOS_REASIGNACION,
 } from "../coordinador/ReasignarOrden";
 import type { TecnicoLocal } from "../datos/repositorio";
+import { abrirLista, elegirOpcion } from "./listas";
 
 /**
  * Reasignación.
@@ -96,6 +97,7 @@ describe("pantalla", () => {
   it("no ofrece al técnico actual como opción", () => {
     // Ofrecerlo invita al error.
     montar();
+    abrirLista("reasignar-tecnico");
     expect(screen.queryByTestId("tecnico-u-tec1")).toBeNull();
     expect(screen.getByTestId("tecnico-u-tec2")).toBeTruthy();
   });
@@ -105,39 +107,41 @@ describe("pantalla", () => {
     expect(screen.getByText(/15 posiciones ya capturadas/)).toBeTruthy();
   });
 
-  it("anuncia cuál está elegido", () => {
+  it("anuncia cuál está elegido", async () => {
     montar();
-    fireEvent.click(screen.getByTestId("tecnico-u-tec2"));
+    await elegirOpcion({ testID: "tecnico-u-tec2" });
+    expect(screen.getByTestId("reasignar-tecnico-abrir").textContent).toContain("Ana");
+    abrirLista("reasignar-tecnico");
     expect(screen.getByTestId("tecnico-u-tec2")).toHaveAttribute("aria-checked", "true");
     expect(screen.getByTestId("tecnico-u-tec3")).toHaveAttribute("aria-checked", "false");
   });
 
-  it("reasigna con técnico y motivo", () => {
+  it("reasigna con técnico y motivo", async () => {
     const { onReasignar } = montar();
-    fireEvent.click(screen.getByTestId("tecnico-u-tec2"));
-    fireEvent.click(screen.getByTestId("motivo-1"));
+    await elegirOpcion({ testID: "tecnico-u-tec2" });
+    await elegirOpcion({ testID: "motivo-1" });
     fireEvent.click(screen.getByTestId("confirmar-reasignacion"));
     expect(onReasignar).toHaveBeenCalledWith("u-tec2", "Cambio de turno");
   });
 
-  it("no reasigna sin elegir técnico", () => {
+  it("no reasigna sin elegir técnico", async () => {
     const { onReasignar } = montar();
-    fireEvent.click(screen.getByTestId("motivo-0"));
+    await elegirOpcion({ testID: "motivo-0" });
     fireEvent.click(screen.getByTestId("confirmar-reasignacion"));
     expect(onReasignar).not.toHaveBeenCalled();
     expect(screen.getByText("Elige a quién reasignar")).toBeTruthy();
   });
 
-  it("no reasigna sin motivo", () => {
+  it("no reasigna sin motivo", async () => {
     const { onReasignar } = montar();
-    fireEvent.click(screen.getByTestId("tecnico-u-tec2"));
+    await elegirOpcion({ testID: "tecnico-u-tec2" });
     fireEvent.click(screen.getByTestId("confirmar-reasignacion"));
     expect(onReasignar).not.toHaveBeenCalled();
   });
 
-  it("permite escribir un motivo propio", () => {
+  it("permite escribir un motivo propio", async () => {
     const { onReasignar } = montar();
-    fireEvent.click(screen.getByTestId("tecnico-u-tec3"));
+    await elegirOpcion({ testID: "tecnico-u-tec3" });
     fireEvent.change(screen.getByLabelText("Detalle del motivo"), {
       target: { value: "El vehículo se movió a otra planta" },
     });
@@ -150,10 +154,10 @@ describe("pantalla", () => {
     expect(screen.getByText("No hay otros técnicos activos en esta sede")).toBeTruthy();
   });
 
-  it("no reasigna dos veces mientras procesa", () => {
+  it("no reasigna dos veces mientras procesa", async () => {
     const { onReasignar } = montar({ procesando: true });
-    fireEvent.click(screen.getByTestId("tecnico-u-tec2"));
-    fireEvent.click(screen.getByTestId("motivo-0"));
+    await elegirOpcion({ testID: "tecnico-u-tec2" });
+    await elegirOpcion({ testID: "motivo-0" });
     fireEvent.click(screen.getByTestId("confirmar-reasignacion"));
     expect(onReasignar).not.toHaveBeenCalled();
   });

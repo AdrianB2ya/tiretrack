@@ -420,7 +420,7 @@ function FormVehiculo({ sede, fuentes, onGuardar, onCancelar }: {
         }).finally(() => setGuardando(false));
       }}
     >
-      <Campo etiqueta="Código interno" value={v.codigo} onChangeText={(x) => setV({ ...v, codigo: x })} placeholder="CA-12" autoCapitalize="characters" {...errorDe(p, "codigo", intentado)} />
+      <Campo etiqueta="Código interno" value={v.codigo} onChangeText={(x) => setV({ ...v, codigo: x })} placeholder="Ej.: CA-12" autoCapitalize="characters" {...errorDe(p, "codigo", intentado)} />
       <Campo etiqueta="Placa" value={v.placa} onChangeText={(x) => setV({ ...v, placa: x })} autoCapitalize="characters" {...errorDe(p, "placa", intentado)} />
       <Campo etiqueta="Nombre" value={v.nombre} onChangeText={(x) => setV({ ...v, nombre: x })} placeholder="Tractocamión #12" {...errorDe(p, "nombre", intentado)} />
       <Campo etiqueta="Tipo" value={v.tipo} onChangeText={(x) => setV({ ...v, tipo: x })} placeholder="Tractocamión, volqueta…" {...errorDe(p, "tipo", intentado)} />

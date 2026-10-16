@@ -179,7 +179,7 @@ export function CasillaLlanta({
       {/* La profundidad se muestra en la casilla: es el dato que el técnico
           compara entre posiciones sin abrir cada una. */}
       {casilla.profundidad !== null ? (
-        <Text style={[estilos.profundidad, { color }]}>{casilla.profundidad}</Text>
+        <Text style={[estilos.profundidad, { color }]}>{String(casilla.profundidad).replace(".", ",")}</Text>
       ) : null}
 
       {casilla.esInterna ? <View style={estilos.marcaInterna} /> : null}
@@ -262,7 +262,8 @@ const estilos = StyleSheet.create({
     justifyContent: "center",
   },
   numeroCasilla: { ...texto.cuerpoFuerte, fontWeight: "700" },
-  profundidad: { fontSize: 11, fontWeight: "600", marginTop: 1 },
+  // 13 como mínimo, igual que todo texto de la app (estaba en 11).
+  profundidad: { fontSize: texto.ayuda.fontSize, fontWeight: "700", marginTop: 1 },
   marcaInterna: {
     position: "absolute",
     bottom: 3,

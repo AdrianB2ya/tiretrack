@@ -41,11 +41,18 @@ export default function PantallaPanel() {
   return (
     <View style={{ flex: 1, backgroundColor: colores.fondo }}>
       <BarraDeSesion />
-      <View style={{ paddingHorizontal: espacio.md, paddingTop: espacio.sm }}>
+      <View style={{ flex: 1 }}>
+        <PanelCoordinador
+          indicadores={calcularIndicadores(locales, hoy, pendientesDeEnviar)}
+          nombre={usuario.nombre}
+          onAbrir={(accion) => router.push(destinos[accion] as never)}
+          // Debajo del saludo, alineados con las tarjetas (antes iban encima
+          // del saludo y con otro margen).
+          acciones={
         <View style={{ flexDirection: "row", gap: espacio.sm }}>
           <View style={{ flex: 1 }}>
             <Boton ancho testID="nueva-orden" onPress={() => router.push("/nueva-orden" as never)}>
-              Programar una orden
+              Programar orden
             </Boton>
           </View>
           <View style={{ flex: 1 }}>
@@ -55,12 +62,7 @@ export default function PantallaPanel() {
             </Boton>
           </View>
         </View>
-      </View>
-      <View style={{ flex: 1 }}>
-        <PanelCoordinador
-          indicadores={calcularIndicadores(locales, hoy, pendientesDeEnviar)}
-          nombre={usuario.nombre}
-          onAbrir={(accion) => router.push(destinos[accion] as never)}
+          }
         />
       </View>
       <NavegacionInferior activa="panel" />

@@ -152,7 +152,7 @@ export function ListaBuscable({
                 {elegida.detalle ? <Text style={estilos.tenue} numberOfLines={1}>{elegida.detalle}</Text> : null}
               </>
             ) : (
-              <Text style={estilos.tenue} numberOfLines={1}>{placeholder}</Text>
+              <Text style={estilos.marcador} numberOfLines={1}>{placeholder}</Text>
             )}
           </View>
           <Text style={estilos.cambiar}>{elegida ? "Cambiar ▾" : "Elegir ▾"}</Text>
@@ -251,7 +251,9 @@ export function ListaBuscable({
 }
 
 const estilos = StyleSheet.create({
-  grupo: { gap: espacio.sm, marginBottom: espacio.md },
+  // Mismo margen, fondo, borde y letra que un campo de texto (Campo): una
+  // lista cerrada y un campo uno debajo del otro deben verse de la misma familia.
+  grupo: { gap: espacio.sm, marginBottom: espacio.lg },
   etiqueta: { ...texto.etiqueta, color: colores.texto },
   fichas: { flexDirection: "row", flexWrap: "wrap", gap: espacio.sm },
   tenue: { ...texto.ayuda, color: colores.textoTenue },
@@ -263,17 +265,19 @@ const estilos = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: espacio.sm,
-    paddingHorizontal: espacio.md,
+    paddingHorizontal: espacio.lg,
     paddingVertical: espacio.sm,
     borderWidth: 1,
     borderColor: colores.borde,
     borderRadius: radio.md,
-    backgroundColor: colores.superficie,
+    backgroundColor: colores.tarjeta,
   },
   presionada: { opacity: 0.7 },
   cerradaTexto: { flex: 1 },
   valor: { ...texto.cuerpoFuerte, color: colores.texto },
-  cambiar: { ...texto.ayuda, color: colores.primario },
+  marcador: { ...texto.cuerpo, color: colores.textoTenue },
+  plegable: { marginBottom: espacio.lg },
+  cambiar: { ...texto.etiqueta, color: colores.textoTenue },
 });
 
 /**
@@ -379,7 +383,7 @@ export function ElegirVarios({
           style={({ pressed }) => [estilos.cerrada, pressed && estilos.presionada]}
         >
           <View style={estilos.cerradaTexto}>
-            <Text style={elegidas.length > 0 ? estilos.valor : estilos.tenue} numberOfLines={2}>
+            <Text style={elegidas.length > 0 ? estilos.valor : estilos.marcador} numberOfLines={2}>
               {elegidas.length > 0 ? resumen : placeholder}
             </Text>
           </View>
@@ -415,5 +419,34 @@ export function ElegirVarios({
         Listo{elegidas.length > 0 ? ` (${elegidas.length})` : ""}
       </Boton>
     </View>
+  );
+}
+
+/**
+ * Un grupo que se abre y se cierra ("Más filtros"), con la misma forma que un
+ * desplegable cerrado: título, una línea de detalle y la flecha.
+ */
+export function Plegable({ titulo, detalle, abierto, onAlternar, testID }: {
+  titulo: string;
+  detalle?: string;
+  abierto: boolean;
+  onAlternar: () => void;
+  testID?: string;
+}) {
+  return (
+    <Pressable
+      onPress={onAlternar}
+      accessibilityRole="button"
+      aria-expanded={abierto}
+      accessibilityLabel={`${titulo}${detalle ? `: ${detalle}` : ""}. ${abierto ? "Tocar para cerrar" : "Tocar para abrir"}`}
+      testID={testID}
+      style={({ pressed }) => [estilos.cerrada, estilos.plegable, pressed && estilos.presionada]}
+    >
+      <View style={estilos.cerradaTexto}>
+        <Text style={estilos.valor}>{titulo}</Text>
+        {detalle ? <Text style={estilos.tenue} numberOfLines={1}>{detalle}</Text> : null}
+      </View>
+      <Text style={estilos.cambiar}>{abierto ? "Cerrar ▴" : "Abrir ▾"}</Text>
+    </Pressable>
   );
 }

@@ -6,6 +6,7 @@ import { colores, espacio, texto } from "../diseno/tokens";
 import { PantallaAuditoria, type PaginaAuditoria } from "../admin/PantallaAuditoria";
 import { PantallaTablero, type FuentesTablero, type Tablero } from "../informe/PantallaTablero";
 import type { RespuestaEnLinea, SesionSoporte } from "./soporte";
+import { fechaHoraCorta } from "../diseno/formato";
 
 /**
  * Vista de soporte (R16): lo que el superadmin ve dentro de una empresa, en
@@ -66,7 +67,7 @@ export function VistaSoporte({
           detalle={
             vencida
               ? "La sesión de soporte venció. Termínala y abre otra si hace falta."
-              : `Vence ${fechaHoraEnColombia(sesion.expiraEn)}. Todo lo que consultes y descargues queda en la auditoría de la empresa.`
+              : `Vence ${fechaHoraCorta(fechaHoraEnColombia(sesion.expiraEn))}. Todo lo que consultes y descargues queda en la auditoría de la empresa.`
           }
         />
         <View style={estilos.fila}>

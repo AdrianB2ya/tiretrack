@@ -3821,6 +3821,52 @@ el mismo componente, pero sin nada elegido se abría solo. Ahora:
 - En pruebas, `src/pruebas/listas.ts` (`elegirOpcion`, `abrirLista`) abre la
   lista antes de tocar la opción, como haría la persona.
 
+### Revisión de diseño con capturas (2026-10-16)
+
+Pedido del usuario antes de compilar: revisar todas las vistas como
+desarrollador y diseñador, sin errores visuales.
+
+**Capturas sin teléfono:** `npm run capturas` (en `apps/mobile`) dibuja cada
+pantalla con el montaje del recorrido (SQLite real, cada rol, datos de
+ejemplo de `herramientas/datosCapturas.ts` para lo que es en línea), guarda el
+HTML con los estilos de react-native-web y lo fotografía con Chrome a 412 px
+en `.capturas/` (ignorada). No muestra las fuentes de Android ni la barra
+nativa real (se dibuja con el título de la disposición). `CAPTURAS_FILTRO`
+limita a las pantallas cuyo nombre lo contiene.
+
+Lo que se encontró y se corrigió:
+
+- **16 pantallas sin título**: la barra habría mostrado "llanta/[id]",
+  "codigos-qr"… Prueba: toda pantalla de `(app)` tiene título.
+- **Textos de 11 y 12** (casillas del diagrama, insignias compactas, estado
+  de las fotos). Prueba: ningún `fontSize` bajo 13 en todo el código.
+- **El botón secundario sin fondo parecía apagado** (texto gris): ahora
+  blanco con borde.
+- **Etiquetas de dos colores** (campos en gris, listas en blanco): todas
+  blancas. **Una sola caja de texto** (`entrada` en tokens): había cuatro, de
+  48 y 56 de alto y con dos fondos; el desplegable cerrado usa el mismo fondo,
+  margen y letra.
+- **Ejemplos que parecían datos** ("9,5" en las profundidades, "3624",
+  "295/80R22.5"): "mm" o "Ej.: …".
+- Editor: la insignia decía "traccion" (ahora "Tracción", con el color del
+  eje); CAMBIO INMEDIATO en rojo, no amarillo.
+- **Detalle de la orden**: continuar captura, datos, firma y enviar van
+  justo debajo del diagrama (estaban al fondo); con todo capturado, enviar es
+  el botón principal; documentos y anular al final.
+- **Aprobar o devolver no decía qué orden era**: ahora arriba el resumen
+  (folio, vehículo, técnico, señales) y los hallazgos.
+- Llantas para cambiar no decía **qué posición**; una orden devuelta decía
+  "En proceso" (ahora "Devuelta"); la ficha del vehículo tenía los estados en
+  gris y con otro nombre.
+- **Fechas legibles** (`src/diseno/formato.ts`): "6 oct 2026" y
+  "16 oct 2026 · 09:05" en listas; los campos donde se escribe siguen en
+  AAAA-MM-DD.
+- Márgenes laterales unificados en 16; aire dentro de las tarjetas (dos
+  botones seguidos quedaban pegados); "Más filtros" del informe como
+  desplegable; panel con el saludo arriba; coma decimal en el diagrama;
+  "1 llanta" en vez de "llanta(s)"; un campo decimal sin valor ya no dice
+  "undefined"; Reasignar con desplegables (los técnicos crecen).
+
 ### Listas de datos: búsqueda y "Mostrar más"
 
 `src/diseno/BusquedaLista.tsx`: `useBusqueda` + `CampoBusqueda` +
@@ -4440,7 +4486,7 @@ identificador **`com.asistectire.app`**, rojo de la marca **como acento**.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 1133/1133, mobile 1047 + recorrido 669.
+**Verificado:** `npm run verify` con base: raíz 1133/1133, mobile 1049 + recorrido 669.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Aviso, Boton, Campo, Vacio } from "../diseno/componentes";
+import { ElegirUno } from "../diseno/ListaBuscable";
 import { colores, conOpacidad, espacio, radio, tactil, texto } from "../diseno/tokens";
 import type { TecnicoLocal } from "../datos/repositorio";
 import type { Veredicto } from "@tiretrack/domain";
@@ -130,41 +131,28 @@ export function ReasignarOrden({
     <ScrollView style={estilos.pantalla} contentContainerStyle={estilos.contenido}>
       <Text style={estilos.titulo}>Reasignar a</Text>
 
-      <View style={estilos.lista}>
-        {candidatos.map((t) => {
-          const activo = elegido === t.id;
-          return (
-            <Pressable
-              key={t.id}
-              onPress={() => setElegido(t.id)}
-              testID={`tecnico-${t.id}`}
-              role="radio"
-              aria-checked={activo}
-              style={[estilos.opcion, activo && estilos.opcionActiva]}
-            >
-              <Text style={[estilos.nombre, activo && { color: colores.primario }]}>{t.nombre}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      {/* Los técnicos crecen con la empresa: desplegable, como todo selector. */}
+      <ElegirUno
+        testID="reasignar-tecnico"
+        placeholder="Elige el técnico"
+        opciones={candidatos.map((t) => ({ id: t.id, texto: t.nombre, testID: `tecnico-${t.id}` }))}
+        seleccionado={elegido}
+        onElegir={setElegido}
+      />
 
       {/* Se dice qué hereda ANTES de confirmar: si la orden va a medias, el
           técnico nuevo no puede empezar de cero sin saberlo. */}
       <Aviso tono="info" titulo="Lo que recibe" detalle={mensajeHerencia(posicionesCapturadas, posicionesTotales)} />
 
       <Text style={estilos.subtitulo}>Motivo</Text>
-      <View style={estilos.fichas}>
-        {MOTIVOS_REASIGNACION.map((m) => (
-          <Pressable
-            key={m}
-            onPress={() => setMotivo(m)}
-            testID={`motivo-${MOTIVOS_REASIGNACION.indexOf(m)}`}
-            style={[estilos.ficha, motivo === m && estilos.fichaActiva]}
-          >
-            <Text style={[estilos.textoFicha, motivo === m && { color: colores.primario }]}>{m}</Text>
-          </Pressable>
-        ))}
-      </View>
+      <ElegirUno
+        enLinea
+        testID="reasignar-motivo"
+        placeholder="Elige un motivo o escríbelo abajo"
+        opciones={MOTIVOS_REASIGNACION.map((m, i) => ({ id: m, texto: m, testID: `motivo-${i}` }))}
+        seleccionado={(MOTIVOS_REASIGNACION as readonly string[]).includes(motivo) ? motivo : null}
+        onElegir={setMotivo}
+      />
       <Campo
         etiqueta="Detalle del motivo"
         value={motivo}
@@ -189,7 +177,7 @@ const estilos = StyleSheet.create({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: espacio.lg, gap: espacio.lg, paddingBottom: espacio.xxl },
   titulo: { ...texto.subtitulo, color: colores.texto },
-  subtitulo: { ...texto.etiqueta, color: colores.textoTenue },
+  subtitulo: { ...texto.etiqueta, color: colores.texto },
   lista: { gap: espacio.sm },
   opcion: {
     minHeight: tactil.comodo,

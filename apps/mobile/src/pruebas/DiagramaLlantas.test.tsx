@@ -137,7 +137,7 @@ describe("estado de las casillas", () => {
         onTocarPosicion={vi.fn()}
       />,
     );
-    expect(screen.getByText("7.5")).toBeTruthy();
+    expect(screen.getByText("7,5")).toBeTruthy();
   });
 
   it("una posición sin medir no muestra profundidad", () => {

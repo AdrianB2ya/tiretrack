@@ -174,7 +174,7 @@ export function EditorPosicion({
             value={borrador.serial ?? ""}
             onChangeText={(v) => cambiar("serial", v || null)}
             autoCapitalize="characters"
-            placeholder="MX10023458"
+            placeholder="Ej.: MX10023458"
             {...avisoProps(avisos, "serial")}
           />
         )}
@@ -185,7 +185,7 @@ export function EditorPosicion({
           onChangeText={(v) => cambiar("dot", v || null)}
           keyboardType="number-pad"
           maxLength={4}
-          placeholder="3624"
+          placeholder="Ej.: 3624"
           ayuda="Semana y año de fabricación"
           {...avisoProps(avisos, "dot")}
         />
@@ -297,7 +297,7 @@ export function EditorPosicion({
               etiqueta="PSI encontrada"
               valor={borrador.psiEncontrada}
               onCambio={(n) => cambiar("psiEncontrada", n)}
-              placeholder="105"
+              placeholder="Ej.: 105"
               {...avisoProps(avisos, "psiEncontrada")}
             />
           </View>
@@ -326,7 +326,8 @@ export function EditorPosicion({
           ].filter(Boolean).join(" · ")}
         />
         {avisoProps(avisos, "profundidad").error || avisoProps(avisos, "profundidad").ayuda ? (
-          <Text style={estilos.avisoProfundidad}>
+          // Cambio inmediato en rojo, como en el diagrama; programar, en amarillo.
+          <Text style={[estilos.avisoProfundidad, (avisoProps(avisos, "profundidad").error || /INMEDIATO/.test(avisoProps(avisos, "profundidad").ayuda ?? "")) && { color: colores.peligro }]}>
             {avisoProps(avisos, "profundidad").error ?? avisoProps(avisos, "profundidad").ayuda}
           </Text>
         ) : null}
@@ -450,8 +451,9 @@ function Cabecera({ casilla }: { casilla: Casilla }) {
       <View style={{ flex: 1, gap: espacio.xs }}>
         <Text style={estilos.tituloCabecera}>{nombrePosicion(casilla.numero)}</Text>
         <View style={estilos.filaInsignias}>
-          <Insignia color={colores.secundario} compacta>
-            {esRepuesto(casilla.numero) ? "Fuera de los ejes" : casilla.tipoEje}
+          {/* El tipo de eje con su nombre y su color del diagrama (decía "traccion"). */}
+          <Insignia color={esRepuesto(casilla.numero) ? colores.textoTenue : (tiposEje as Record<string, { color: string }>)[casilla.tipoEje]?.color ?? colores.textoTenue} compacta>
+            {esRepuesto(casilla.numero) ? "Fuera de los ejes" : (tiposEje as Record<string, { etiqueta: string }>)[casilla.tipoEje]?.etiqueta ?? casilla.tipoEje}
           </Insignia>
           {/* Saber si es interna evita medir la de al lado */}
           {casilla.esInterna ? (
@@ -687,7 +689,7 @@ function TresProfundidades({ titulo, medidas, onCambio, avisos, desmontada, ayud
               etiqueta={ETIQUETA_PUNTO_PROFUNDIDAD[punto]}
               valor={medidas[punto]}
               onCambio={(n) => onCambio({ ...medidas, [punto]: n })}
-              placeholder="9,5"
+              placeholder="mm"
               testID={`${desmontada ? "des-" : ""}prof-${punto}`}
               {...avisoProps(avisos, campoMedida(punto, desmontada))}
             />
@@ -747,7 +749,7 @@ const estilos = StyleSheet.create({
   chips: { flexDirection: "row", flexWrap: "wrap", gap: espacio.sm },
   etiquetaGrupo: {
     ...texto.etiqueta,
-    color: colores.textoTenue,
+    color: colores.texto,
     marginBottom: espacio.sm,
   },
   filaOpciones: { flexDirection: "row", flexWrap: "wrap", gap: espacio.sm },
@@ -761,7 +763,6 @@ const estilos = StyleSheet.create({
     backgroundColor: colores.tarjeta,
   },
   textoFicha: { ...texto.cuerpo, color: colores.texto },
-  marcaNueva: { fontSize: 11, color: colores.advertencia, textAlign: "center" },
   textoError: { ...texto.ayuda, color: colores.peligro, marginTop: espacio.xs },
   desgaste: {
     padding: espacio.md,

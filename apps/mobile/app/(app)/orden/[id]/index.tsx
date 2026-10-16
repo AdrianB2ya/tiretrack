@@ -172,67 +172,13 @@ export default function PantallaDetalle() {
           : {})}
       />
 
-      {/* Fotos de la orden en general (placa, odómetro, estado del vehículo);
-          las de cada llanta se toman en su posición. */}
-      <FotosDe
-        destino={{ ordenId: orden.id, medicionId: null, posicion: null }}
-        cargar={() => fotosDe(orden.id, null)}
-        dependencias={{ camara: camaraDelDispositivo, manipulador: manipuladorDelDispositivo, adjuntar: adjuntarFoto }}
-        maximo={MAXIMO_POR_ORDEN}
-        deshabilitada={!capturar?.habilitada}
-      />
-      {/* La evidencia que está en el servidor, la haya tomado quien sea: antes
-          cada teléfono veía solo las suyas. */}
-      <Boton tipo="secundario" ancho testID="ver-evidencia" onPress={() => router.push(`/orden/${orden.id}/fotos` as never)}>
-        Ver la evidencia en el servidor
-      </Boton>
-      <BotonPdf
-        descargar={() => descargarArchivo(`/ordenes/${orden.id}/pdf`, bajarACache(`${orden.folio ?? orden.codigoReferencia ?? "orden"}.pdf`))}
-        compartir={(uri) => compartirUri(uri, "application/pdf")}
-      />
-      <EnviarPorCorreo
-        etiqueta="Enviar el PDF por correo"
-        testID="correo-orden"
-        enviar={(para, mensaje) => enLinea("POST", `/ordenes/${orden.id}/pdf/enviar`, { para, ...(mensaje ? { mensaje } : {}) })}
-      />
-
-      <Recomendaciones
-        ordenId={orden.id}
-        recomendaciones={recomendaciones}
-        bloqueo={(() => {
-          // Quién: el usuario de la SESIÓN, nunca el de la orden (4.4).
-          const v = puedeGestionarRecomendaciones({ rol: usuario.rol, esTecnicoAsignado: orden.tecnicoId === usuario.id, estadoOrden: orden.estado });
-          return v.permitido ? null : (v.mensaje ?? "No se pueden registrar recomendaciones aquí");
-        })()}
-        onCrear={async (r) => {
-          await crearRecomendacion({ ordenId: orden.id, vehiculoId: orden.vehiculoId, ...r });
-          await recargar();
-        }}
-        onResolver={async (rid, estado) => {
-          await resolverRecomendacion(rid, estado, orden.id);
-          await recargar();
-        }}
-      />
-
-      {esCliente ? (
-        <View style={estilos.requisitos}>
-          {orden.kilometraje !== null ? <Text style={estilos.cliente}>Kilometraje: {orden.kilometraje.toLocaleString("es-CO")}</Text> : null}
-          {orden.hallazgos ? <Text style={estilos.cliente}>Hallazgos: {orden.hallazgos}</Text> : null}
-          {orden.accion ? <Text style={estilos.cliente}>Acción: {orden.accion}</Text> : null}
-          {orden.firmaNombre ? <Text style={estilos.cliente}>Recibió: {orden.firmaNombre}</Text> : null}
-        </View>
-      ) : null}
-      {/* La firma capturada, dibujada. El componente existía y no se mostraba
-          en ningún lado: el coordinador aprobaba sin ver la firma. */}
-      {orden.firmaNombre ? (
-        <FirmaGuardada
-          trazo={deserializarTrazo(orden.firmaTrazo)}
-          nombre={orden.firmaNombre}
-          cedula={orden.firmaCedula}
-          cargo={orden.firmaCargo}
-          fechaHora={orden.firmaFechaHora}
-          invalidada={firma.estado === "invalidada"}
-        />
+      {/* Revisión de diseño: lo que se hace con la orden va justo debajo del
+          diagrama; antes la acción principal quedaba al fondo, debajo de fotos,
+          documentos y recomendaciones. */}
+      {gestor && orden.estado === "en_revision" ? (
+        <Boton ancho testID="decidir" onPress={() => router.push(`/orden/${orden.id}/decidir` as never)}>
+          Aprobar o devolver
+        </Boton>
       ) : null}
       {esCliente && orden.estado === "pendiente_cliente" ? (
         <DecisionCliente
@@ -244,22 +190,16 @@ export default function PantallaDetalle() {
         />
       ) : null}
 
+      {esCliente ? (
+        <View style={estilos.requisitos}>
+          {orden.kilometraje !== null ? <Text style={estilos.cliente}>Kilometraje: {orden.kilometraje.toLocaleString("es-CO")}</Text> : null}
+          {orden.hallazgos ? <Text style={estilos.cliente}>Hallazgos: {orden.hallazgos}</Text> : null}
+          {orden.accion ? <Text style={estilos.cliente}>Acción: {orden.accion}</Text> : null}
+          {orden.firmaNombre ? <Text style={estilos.cliente}>Recibió: {orden.firmaNombre}</Text> : null}
+        </View>
+      ) : null}
       {!esCliente ? (
       <>
-      <View style={estilos.requisitos}>
-        {requisitosParaEnviar(detalle).map((r) => (
-          <Text key={r.clave} style={[estilos.requisito, r.cumplido && estilos.cumplido]}>
-            {r.cumplido ? "✓" : "○"} {r.texto}
-          </Text>
-        ))}
-      </View>
-
-      {/* El motivo del bloqueo se muestra: un botón gris sin explicación en
-          el patio termina en una llamada al coordinador. */}
-      {enviar && !enviar.habilitada && enviar.motivo ? (
-        <Aviso tono="advertencia" titulo="Falta para poder enviar" detalle={enviar.motivo} />
-      ) : null}
-
       {/* Antes este botón no hacía nada: onPress={() => undefined}. */}
       <Boton
         ancho
@@ -292,9 +232,24 @@ export default function PantallaDetalle() {
         {firma.estado === "sin_firmar" ? "Firma de quien recibe" : "Volver a firmar"}
       </Boton>
 
+      <View style={estilos.requisitos}>
+        {requisitosParaEnviar(detalle).map((r) => (
+          <Text key={r.clave} style={[estilos.requisito, r.cumplido && estilos.cumplido]}>
+            {r.cumplido ? "✓" : "○"} {r.texto}
+          </Text>
+        ))}
+      </View>
+
+      {/* El motivo del bloqueo se muestra: un botón gris sin explicación en
+          el patio termina en una llamada al coordinador. */}
+      {enviar && !enviar.habilitada && enviar.motivo ? (
+        <Aviso tono="advertencia" titulo="Falta para poder enviar" detalle={enviar.motivo} />
+      ) : null}
+
+      {/* Con todo capturado, enviar pasa a ser la acción principal. */}
       <Boton
         ancho
-        tipo="secundario"
+        tipo={siguiente === null ? "primario" : "secundario"}
         deshabilitado={!capturar?.habilitada}
         onPress={() => router.push(`/orden/${orden.id}/enviar` as never)}
       >
@@ -303,11 +258,62 @@ export default function PantallaDetalle() {
       </>
       ) : null}
 
-      {gestor && orden.estado === "en_revision" ? (
-        <Boton ancho testID="decidir" onPress={() => router.push(`/orden/${orden.id}/decidir` as never)}>
-          Aprobar o devolver
-        </Boton>
+      {/* La firma capturada, dibujada. El componente existía y no se mostraba
+          en ningún lado: el coordinador aprobaba sin ver la firma. */}
+      {orden.firmaNombre ? (
+        <FirmaGuardada
+          trazo={deserializarTrazo(orden.firmaTrazo)}
+          nombre={orden.firmaNombre}
+          cedula={orden.firmaCedula}
+          cargo={orden.firmaCargo}
+          fechaHora={orden.firmaFechaHora}
+          invalidada={firma.estado === "invalidada"}
+        />
       ) : null}
+      {/* Fotos de la orden en general (placa, odómetro, estado del vehículo);
+          las de cada llanta se toman en su posición. */}
+      <FotosDe
+        destino={{ ordenId: orden.id, medicionId: null, posicion: null }}
+        cargar={() => fotosDe(orden.id, null)}
+        dependencias={{ camara: camaraDelDispositivo, manipulador: manipuladorDelDispositivo, adjuntar: adjuntarFoto }}
+        maximo={MAXIMO_POR_ORDEN}
+        deshabilitada={!capturar?.habilitada}
+      />
+      <Recomendaciones
+        ordenId={orden.id}
+        recomendaciones={recomendaciones}
+        bloqueo={(() => {
+          // Quién: el usuario de la SESIÓN, nunca el de la orden (4.4).
+          const v = puedeGestionarRecomendaciones({ rol: usuario.rol, esTecnicoAsignado: orden.tecnicoId === usuario.id, estadoOrden: orden.estado });
+          return v.permitido ? null : (v.mensaje ?? "No se pueden registrar recomendaciones aquí");
+        })()}
+        onCrear={async (r) => {
+          await crearRecomendacion({ ordenId: orden.id, vehiculoId: orden.vehiculoId, ...r });
+          await recargar();
+        }}
+        onResolver={async (rid, estado) => {
+          await resolverRecomendacion(rid, estado, orden.id);
+          await recargar();
+        }}
+      />
+
+
+      <Text style={estilos.seccion}>Documentos</Text>
+      {/* La evidencia que está en el servidor, la haya tomado quien sea: antes
+          cada teléfono veía solo las suyas. */}
+      <Boton tipo="secundario" ancho testID="ver-evidencia" onPress={() => router.push(`/orden/${orden.id}/fotos` as never)}>
+        Ver la evidencia en el servidor
+      </Boton>
+      <BotonPdf
+        descargar={() => descargarArchivo(`/ordenes/${orden.id}/pdf`, bajarACache(`${orden.folio ?? orden.codigoReferencia ?? "orden"}.pdf`))}
+        compartir={(uri) => compartirUri(uri, "application/pdf")}
+      />
+      <EnviarPorCorreo
+        etiqueta="Enviar el PDF por correo"
+        testID="correo-orden"
+        enviar={(para, mensaje) => enLinea("POST", `/ordenes/${orden.id}/pdf/enviar`, { para, ...(mensaje ? { mensaje } : {}) })}
+      />
+
       {gestor && abierta && !bloqueadaPorOtro ? (
         <Boton ancho tipo="fantasma" testID="reasignar" onPress={() => router.push(`/orden/${orden.id}/reasignar` as never)}>
           Reasignar a otro técnico
@@ -339,6 +345,7 @@ const estilos = StyleSheet.create({
   cliente: { ...texto.cuerpo, color: colores.textoTenue },
   motivo: { ...texto.ayuda, color: colores.advertencia },
   requisitos: { gap: espacio.sm },
+  seccion: { ...texto.subtitulo, color: colores.texto, marginTop: espacio.sm },
   requisito: { ...texto.cuerpo, color: colores.textoTenue },
   cumplido: { color: colores.exito },
 });

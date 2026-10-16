@@ -147,7 +147,7 @@ export function PantallaIngreso({ onIngresar, onDescartarYEntrar, entrando = fal
             autoComplete="one-time-code"
             textContentType="oneTimeCode"
             maxLength={7}
-            placeholder="123456"
+            placeholder="Ej.: 123456"
             testID="codigo-2fa"
             {...(codigoIntentado && problemaCodigo ? { error: problemaCodigo } : {})}
           />
@@ -282,7 +282,7 @@ const estilos = StyleSheet.create({
   ayudaIzq: { ...texto.ayuda, color: colores.textoTenue },
   explicacion: { ...texto.cuerpo, color: colores.texto },
   verClave: { minHeight: tactil.minimo, justifyContent: "center" },
-  textoVerClave: { ...texto.ayuda, color: colores.secundario },
+  textoVerClave: { ...texto.etiqueta, color: colores.texto, textDecorationLine: "underline" },
   bloque: { gap: espacio.md },
   opcionEmpresa: {
     minHeight: tactil.comodo,

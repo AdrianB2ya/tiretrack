@@ -123,3 +123,19 @@ export function conOpacidad(hex: string, alfa: number): string {
     .padStart(2, "0");
   return `${hex}${valor}`;
 }
+
+/**
+ * Caja de texto: la misma para un campo, una búsqueda o un destinatario
+ * (revisión de diseño: había cuatro versiones, de 48 y 56 de alto y con dos
+ * fondos distintos).
+ */
+export const entrada = {
+  minHeight: tactil.comodo,
+  backgroundColor: colores.tarjeta,
+  borderWidth: 1,
+  borderColor: colores.borde,
+  borderRadius: radio.md,
+  paddingHorizontal: espacio.lg,
+  fontSize: texto.cuerpo.fontSize,
+  color: colores.texto,
+} as const;

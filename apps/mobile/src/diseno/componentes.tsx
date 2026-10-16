@@ -9,7 +9,7 @@ import {
   type TextInputProps,
   type ViewStyle,
 } from "react-native";
-import { colores, conOpacidad, espacio, radio, tactil, texto } from "./tokens";
+import { colores, conOpacidad, espacio, radio, tactil, texto, entrada } from "./tokens";
 
 /**
  * Componentes base.
@@ -45,7 +45,8 @@ const textosBoton: Record<TipoBoton, string> = {
   primario: colores.sobrePrimario,
   secundario: colores.texto,
   peligro: colores.blanco,
-  fantasma: colores.textoTenue,
+  // Blanco como el resto: en gris parecía un botón apagado (revisión de diseño).
+  fantasma: colores.texto,
 };
 
 export function Boton({
@@ -115,7 +116,7 @@ export function Insignia({ children, color, compacta = false }: InsigniaProps) {
     >
       {/* El texto lleva el estado, no solo el color: bajo el sol los tonos
           se confunden y hay técnicos con daltonismo. */}
-      <Text style={[estilos.textoInsignia, { color }, compacta && { fontSize: 12 }]}>
+      <Text style={[estilos.textoInsignia, { color }, compacta && { fontSize: texto.ayuda.fontSize }]}>
         {children}
       </Text>
     </View>
@@ -132,6 +133,7 @@ export interface CampoProps extends TextInputProps {
 }
 
 export function Campo({ etiqueta, ayuda, error, requerido, style, ...props }: CampoProps) {
+  // Varias líneas: alto para dos o tres renglones y el texto arriba, no centrado.
   return (
     <View style={estilos.campo}>
       <Text style={estilos.etiquetaCampo}>
@@ -141,7 +143,7 @@ export function Campo({ etiqueta, ayuda, error, requerido, style, ...props }: Ca
       <TextInput
         accessibilityLabel={etiqueta}
         placeholderTextColor={colores.textoTenue}
-        style={[estilos.entrada, error ? { borderColor: colores.peligro } : null, style]}
+        style={[estilos.entrada, props.multiline ? estilos.entradaVariasLineas : null, error ? { borderColor: colores.peligro } : null, style]}
         {...props}
       />
       {/* El error reemplaza a la ayuda: dos textos bajo el campo compiten */}
@@ -183,9 +185,10 @@ export function CampoDecimal({ valor, onCambio, ...props }: Omit<CampoProps, "va
   valor: number | null;
   onCambio: (n: number | null) => void;
 }) {
-  const [texto, setTexto] = useState(valor === null ? "" : String(valor).replace(".", ","));
+  // == null: si el valor llega vacío (undefined) el campo no puede decir "undefined".
+  const [texto, setTexto] = useState(valor == null ? "" : String(valor).replace(".", ","));
   useEffect(() => {
-    if (leerDecimal(texto) !== valor) setTexto(valor === null ? "" : String(valor).replace(".", ","));
+    if (leerDecimal(texto) !== (valor ?? null)) setTexto(valor == null ? "" : String(valor).replace(".", ","));
     // Solo cuando cambia el número de afuera; el texto propio no se pisa.
   }, [valor]);
   return (
@@ -337,7 +340,8 @@ const estilos = StyleSheet.create({
   detalleOpcion: { ...texto.ayuda, color: colores.textoTenue },
   boton: {
     minHeight: tactil.comodo,
-    paddingHorizontal: espacio.xl,
+    // Dos botones lado a lado caben sin partir el texto en dos renglones.
+    paddingHorizontal: espacio.lg,
     borderRadius: radio.md,
     alignItems: "center",
     justifyContent: "center",
@@ -345,6 +349,8 @@ const estilos = StyleSheet.create({
   textoBoton: {
     fontSize: texto.cuerpoFuerte.fontSize,
     fontWeight: "600",
+    // Si igual se parte, centrado (antes quedaba alineado a la izquierda).
+    textAlign: "center",
   },
   insignia: {
     borderRadius: radio.sm,
@@ -363,18 +369,16 @@ const estilos = StyleSheet.create({
   etiquetaCampo: {
     fontSize: texto.etiqueta.fontSize,
     fontWeight: "600",
-    color: colores.textoTenue,
+    // La misma etiqueta en toda la app: campos, listas y opciones.
+    color: colores.texto,
     marginBottom: espacio.sm,
   },
-  entrada: {
-    minHeight: tactil.comodo,
-    backgroundColor: colores.tarjeta,
-    borderWidth: 1,
-    borderColor: colores.borde,
-    borderRadius: radio.md,
-    paddingHorizontal: espacio.lg,
-    fontSize: texto.cuerpo.fontSize,
-    color: colores.texto,
+  entrada: { ...entrada },
+  entradaVariasLineas: {
+    minHeight: 96,
+    paddingTop: espacio.md,
+    paddingBottom: espacio.md,
+    textAlignVertical: "top",
   },
   textoAyuda: {
     fontSize: texto.ayuda.fontSize,
@@ -387,6 +391,9 @@ const estilos = StyleSheet.create({
     marginTop: espacio.xs,
   },
   tarjeta: {
+    // Aire entre lo que va dentro (textos, botones): sin esto dos botones
+    // seguidos quedaban pegados.
+    gap: espacio.sm,
     backgroundColor: colores.tarjeta,
     borderWidth: 1,
     borderColor: colores.borde,

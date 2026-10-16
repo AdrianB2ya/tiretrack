@@ -8,7 +8,8 @@
     "android": "expo run:android",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --exclude src/pruebas/recorrido.test.tsx && npm run test:recorrido",
-    "test:recorrido": "vitest run src/pruebas/recorrido.test.tsx"
+    "test:recorrido": "vitest run src/pruebas/recorrido.test.tsx",
+    "capturas": "vitest run -c vitest.capturas.config.ts && node herramientas/capturas.mjs .capturas"
   },
   "dependencies": {
     "@react-native-community/netinfo": "^11.4.1",

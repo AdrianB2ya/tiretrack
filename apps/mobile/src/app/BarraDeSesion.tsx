@@ -22,7 +22,7 @@ export function BarraDeSesion() {
       {errorDescarga ? (
         // Que la lista no se vea vacía "porque sí": se dice que no se pudo
         // actualizar y con qué error, para poder reportarlo.
-        <View style={{ paddingHorizontal: espacio.md, paddingTop: espacio.sm }}>
+        <View style={{ paddingHorizontal: espacio.lg, paddingTop: espacio.sm }}>
           <Aviso
             tono="advertencia"
             titulo="No se pudo sincronizar con el servidor"

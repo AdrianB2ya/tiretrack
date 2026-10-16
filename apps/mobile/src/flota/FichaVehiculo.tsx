@@ -3,7 +3,8 @@ import { ETIQUETA_ESTADO_ORDEN } from "@tiretrack/domain";
 import type { FichaVehiculoLocal } from "../datos/repositorio";
 import type { OrdenParaLista } from "../ordenes/lista";
 import { Aviso, Boton, Insignia, Tarjeta, Vacio } from "../diseno/componentes";
-import { colores, espacio, texto } from "../diseno/tokens";
+import { colores, espacio, texto, estadosOrden } from "../diseno/tokens";
+import { fechaCorta } from "../diseno/formato";
 
 /**
  * La ficha que abre el QR del vehículo (R15): qué vehículo es, de quién, y
@@ -52,10 +53,13 @@ export function FichaVehiculo({
     <Tarjeta key={o.orden.id} testID={`orden-${o.orden.id}`} onPress={() => onAbrirOrden(o.orden.id)}>
       <View style={estilos.fila}>
         <Text style={estilos.folio}>{o.orden.folio ?? o.orden.codigoReferencia ?? "Sin folio"}</Text>
-        <Insignia color={colores.textoTenue}>{ETIQUETA_ESTADO_ORDEN[o.orden.estado] ?? o.orden.estado}</Insignia>
+        {/* Mismo nombre y color del estado que en la lista de órdenes. */}
+        <Insignia color={estadosOrden[o.orden.estado as keyof typeof estadosOrden]?.color ?? colores.textoTenue} compacta>
+          {estadosOrden[o.orden.estado as keyof typeof estadosOrden]?.etiqueta ?? ETIQUETA_ESTADO_ORDEN[o.orden.estado] ?? o.orden.estado}
+        </Insignia>
       </View>
       <Text style={estilos.detalle}>
-        {o.orden.fecha} · {o.posicionesCapturadas} de {o.posicionesTotales} posiciones
+        {fechaCorta(o.orden.fecha)} · {o.posicionesCapturadas} de {o.posicionesTotales} posiciones
       </Text>
     </Tarjeta>
   );

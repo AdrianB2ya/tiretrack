@@ -124,13 +124,14 @@ describe("decisión", () => {
   it("no se aprueba con la firma invalidada, y se explica", () => {
     montar(enBandeja({ versionContenido: 8 }));
     expect(screen.getByTestId("aprobar")).toHaveAttribute("aria-disabled", "true");
-    expect(screen.getByText("La firma no ampara el contenido actual")).toBeTruthy();
+    // En el resumen de la orden y en el aviso de la decisión.
+    expect(screen.getAllByText("La firma no ampara el contenido actual")).toHaveLength(2);
   });
 
   it("avisa de la autoaprobación en el momento de decidir", () => {
     // Es cuando la persona decide, no solo al mirar la lista.
     montar(enBandeja({ tecnicoId: "u-coo" }));
-    expect(screen.getByText("Tú ejecutaste esta orden")).toBeTruthy();
+    expect(screen.getAllByText("Tú ejecutaste esta orden")).toHaveLength(2);
     expect(screen.getByText(/Quedará registrado/)).toBeTruthy();
   });
 

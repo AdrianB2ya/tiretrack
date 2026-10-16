@@ -102,7 +102,7 @@ export function AltaLlanta({ fuentes, onCreada }: { fuentes: FuentesAlta; onCrea
       <Campo etiqueta="Serial" value={serial} onChangeText={setSerial} autoCapitalize="characters" testID="alta-serial" />
       <Campo etiqueta="Número de calor" value={calor} onChangeText={setCalor} autoCapitalize="characters" testID="alta-calor" />
       <Campo etiqueta="DOT" value={dot} onChangeText={setDot} keyboardType="number-pad" testID="alta-dot" />
-      <Campo etiqueta="Medida" value={medida} onChangeText={setMedida} autoCapitalize="characters" placeholder="295/80R22.5" testID="alta-medida" />
+      <Campo etiqueta="Medida" value={medida} onChangeText={setMedida} autoCapitalize="characters" placeholder="Ej.: 295/80R22.5" testID="alta-medida" />
       <CampoDecimal etiqueta="Costo de compra" ayuda="Con él se calcula el costo por kilómetro." valor={costo} onCambio={setCosto} testID="alta-costo" />
       <CampoDecimal etiqueta="Profundidad inicial (mm)" valor={prof} onCambio={setProf} testID="alta-prof" />
       {falta.length > 0 ? <Text style={estilos.detalle}>Falta {falta.join(", ")}.</Text> : null}

@@ -58,6 +58,22 @@ export default function DisposicionConSesion() {
       <Stack.Screen name="auditoria" options={{ title: "Auditoría" }} />
       <Stack.Screen name="revision-catalogo" options={{ title: "Creado en campo" }} />
       <Stack.Screen name="plataforma" options={{ title: "Plataforma" }} />
+      <Stack.Screen name="catalogo-general" options={{ title: "Catálogo general" }} />
+      <Stack.Screen name="soporte" options={{ title: "Sesión de soporte" }} />
+      <Stack.Screen name="catalogo" options={{ title: "Catálogo de llantas" }} />
+      <Stack.Screen name="limites" options={{ title: "Límites de cambio" }} />
+      <Stack.Screen name="llantas" options={{ title: "Llantas" }} />
+      <Stack.Screen name="llanta/[id]" options={{ title: "Llanta" }} />
+      <Stack.Screen name="llanta-nueva" options={{ title: "Registrar llanta" }} />
+      <Stack.Screen name="stock" options={{ title: "Stock de bodega" }} />
+      <Stack.Screen name="reclamos" options={{ title: "Garantías y reclamos" }} />
+      <Stack.Screen name="causas-retiro" options={{ title: "Causas de retiro" }} />
+      <Stack.Screen name="tablero" options={{ title: "Indicadores" }} />
+      <Stack.Screen name="cotizacion" options={{ title: "Cotización" }} />
+      <Stack.Screen name="carga" options={{ title: "Cargar desde Excel" }} />
+      <Stack.Screen name="codigos-qr" options={{ title: "Códigos QR" }} />
+      <Stack.Screen name="escanear" options={{ title: "Escanear vehículo" }} />
+      <Stack.Screen name="vehiculo/[id]" options={{ title: "Vehículo" }} />
       <Stack.Screen name="orden/[id]/index" options={{ title: "Orden" }} />
       <Stack.Screen name="orden/[id]/reasignar" options={{ title: "Reasignar" }} />
       <Stack.Screen name="orden/[id]/decidir" options={{ title: "Revisar orden" }} />

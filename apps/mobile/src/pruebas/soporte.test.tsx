@@ -31,7 +31,7 @@ describe("sesión de soporte", () => {
     const enLinea = vi.fn().mockResolvedValue({ ok: true, datos: { registros: [], hayMas: false } });
     render(<VistaSoporte sesion={SESION} enLinea={enLinea} onTerminada={vi.fn()} ahora={ahora} />);
     expect(screen.getByText("Soporte en Asistectire · solo lectura")).toBeTruthy();
-    expect(screen.getByText(/Vence 2026-10-14 15:30/)).toBeTruthy();
+    expect(screen.getByText(/Vence 14 oct 2026 · 15:30/)).toBeTruthy();
     await act(async () => { fireEvent.click(screen.getByTestId("soporte-usuarios")); });
     expect(enLinea).toHaveBeenCalledWith("GET", "/usuarios");
   });

@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { ElegirUno } from "../diseno/ListaBuscable";
+import { ElegirUno, Plegable } from "../diseno/ListaBuscable";
 import { etiquetaPosicion } from "@tiretrack/domain";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Aviso, Boton, Campo, Insignia, Opcion, Tarjeta } from "../diseno/componentes";
 import { CampoBusqueda, PieBusqueda, useBusqueda } from "../diseno/BusquedaLista";
 import { EnviarPorCorreo, type Formato } from "./EnviarPorCorreo";
 import { colores, espacio, estadosOrden, texto } from "../diseno/tokens";
+import { fechaCorta } from "../diseno/formato";
 import {
   ESTADOS_FILTRO,
   FILTRO_VACIO,
@@ -220,11 +221,15 @@ export function PantallaInforme({ fuentes }: { fuentes: FuentesInforme }) {
           />
         </>
       ) : null}
-      <Boton tipo="fantasma" ancho testID="mas-filtros" onPress={() => setMasFiltros((x) => !x)}>
-        {masFiltros
-          ? "Ocultar los demás filtros ▴"
-          : `Más filtros: placa, serial, calor, servicio, estado ▾${extras > 0 ? ` (${extras} en uso)` : ""}`}
-      </Boton>
+      {/* Se ve como un desplegable cerrado, igual que las listas (antes era un
+          botón de texto gris en dos renglones). */}
+      <Plegable
+        testID="mas-filtros"
+        titulo="Más filtros"
+        detalle={extras > 0 ? `${extras} en uso` : "Placa, serial, calor, servicio, estado"}
+        abierto={masFiltros}
+        onAlternar={() => setMasFiltros((x) => !x)}
+      />
       {masFiltros ? (
       <>
       <Campo
@@ -328,7 +333,7 @@ export function PantallaInforme({ fuentes }: { fuentes: FuentesInforme }) {
               {desgaste ? <Text style={estilos.detalle}>{desgaste}</Text> : null}
               {traza.pasos.map((p, i) => (
                 <Text key={i} style={estilos.detalle}>
-                  {p.fecha} · {p.vehiculoCodigo ?? "—"} · Pos. {etiquetaPosicion(p.posicion)}
+                  {fechaCorta(p.fecha)} · {p.vehiculoCodigo ?? "—"} · Pos. {etiquetaPosicion(p.posicion)}
                   {p.profundidad === null ? "" : ` · ${String(p.profundidad).replace(".", ",")} mm`}
                 </Text>
               ))}
@@ -347,7 +352,7 @@ export function PantallaInforme({ fuentes }: { fuentes: FuentesInforme }) {
                   multiple
                   activa={elegidas.includes(o.id)}
                   etiqueta={`${o.folio || "Sin folio"} · ${o.vehiculo}`}
-                  detalle={`${o.fecha} · ${estado?.etiqueta ?? o.estado} · ${o.posiciones} ${o.posiciones === 1 ? "llanta" : "llantas"}`}
+                  detalle={`${fechaCorta(o.fecha)} · ${estado?.etiqueta ?? o.estado} · ${o.posiciones} ${o.posiciones === 1 ? "llanta" : "llantas"}`}
                   testID={`elegir-orden-${o.id}`}
                   onPress={() => alternar(o.id)}
                 />
@@ -380,7 +385,7 @@ export function PantallaInforme({ fuentes }: { fuentes: FuentesInforme }) {
                   <Text style={estilos.folio}>{fila.folio || "Sin folio"}</Text>
                   {estado ? <Insignia color={estado.color} compacta>{estado.etiqueta}</Insignia> : null}
                 </View>
-                <Text style={estilos.detalle}>{fila.fecha} · {fila.vehiculo}</Text>
+                <Text style={estilos.detalle}>{fechaCorta(fila.fecha)} · {fila.vehiculo}</Text>
                 <Text style={estilos.cuerpo}>{describirFila(fila)}</Text>
               </Tarjeta>
             );

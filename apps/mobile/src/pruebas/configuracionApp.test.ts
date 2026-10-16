@@ -135,6 +135,36 @@ describe("listas", () => {
   });
 });
 
+describe("títulos", () => {
+  it("toda pantalla con sesión tiene título: sin él la barra muestra el nombre del archivo", () => {
+    // Pasó con 16 pantallas: la barra decía "llanta/[id]", "codigos-qr"...
+    const grupo = join(raiz, "app", "(app)");
+    const disposicion = readFileSync(join(grupo, "_layout.tsx"), "utf8");
+    const sinTitulo = fuentes(grupo)
+      .filter((f) => !f.endsWith("_layout.tsx"))
+      .map((f) => f.slice(grupo.length + 1).split(sep).join("/").replace(/\.tsx$/, ""))
+      .filter((n) => {
+        if (new RegExp(`name="${n.replace(/[[\]]/g, "\\$&")}" options=\\{\\{ title:`).test(disposicion)) return false;
+        // O la pantalla fija su propio título (el de la lista depende del rol).
+        return !/<Stack\.Screen options=\{\{ title:/.test(readFileSync(join(grupo, `${n}.tsx`), "utf8"));
+      });
+    expect(sinTitulo).toEqual([]);
+  });
+});
+
+describe("tamaño de letra", () => {
+  it("ningún texto baja de 13 en ninguna pantalla, tampoco escrito a mano", () => {
+    // Los tokens ya lo cumplían; las casillas del diagrama, las insignias
+    // compactas y el estado de las fotos estaban en 11 y 12.
+    const chicos = [...fuentes(join(raiz, "src")), ...fuentes(join(raiz, "app"))]
+      .filter((f) => !f.includes(`${sep}pruebas${sep}`))
+      .flatMap((f) => [...readFileSync(f, "utf8").matchAll(/fontSize:\s*(\d+)/g)]
+        .filter((m) => Number(m[1]) < 13)
+        .map((m) => `${f.split(sep).slice(-2).join("/")}: ${m[0]}`));
+    expect(chicos).toEqual([]);
+  });
+});
+
 describe("cabecera nativa", () => {
   it("no lleva botones: en Android con la arquitectura nueva no reciben los toques", () => {
     // react-native-screens 4.4 (SDK 52): "Cuenta" en headerRight se veía y no

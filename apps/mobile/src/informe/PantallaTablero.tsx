@@ -96,8 +96,11 @@ export function PantallaTablero({ fuentes }: { fuentes: FuentesTablero }) {
       {filas.map((g) => (
         <Tarjeta key={g.grupo} testID={`rendimiento-${g.grupo}`}>
           <Text style={estilos.nombre}>{vista === "posicion" ? nombreDeEtiqueta(g.grupo) : g.grupo}</Text>
+          {/* Sin ningún dato, una frase; tres rayas seguidas parecían un error. */}
           <Text style={estilos.linea}>
-            Costo por km {pesos(g.cpk)} · {g.kmPorMm === null ? "—" : `${g.kmPorMm.toLocaleString("es-CO")} km/mm`} · proyección {km(g.proyeccionKm)}
+            {g.cpk === null && g.kmPorMm === null && g.proyeccionKm === null
+              ? "Todavía sin datos para calcular el rendimiento"
+              : `Costo por km ${pesos(g.cpk)} · ${g.kmPorMm === null ? "—" : `${g.kmPorMm.toLocaleString("es-CO")} km/mm`} · proyección ${km(g.proyeccionKm)}`}
           </Text>
           <Text style={estilos.detalle}>{g.llantas} {g.llantas === 1 ? "llanta" : "llantas"}</Text>
         </Tarjeta>

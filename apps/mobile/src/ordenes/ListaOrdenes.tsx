@@ -106,20 +106,30 @@ export function TarjetaOrden({
 
         <View style={{ flex: 1 }} />
         {/* La inspección se distingue de reojo: no se va a intervenir (R4). */}
+        {/* Gris: el azul ya es "Programada" y las dos juntas se confundían. */}
         {orden.tipo === "levantamiento" ? (
-          <Insignia color={colores.secundario} compacta>
+          <Insignia color={colores.textoTenue} compacta>
             Levantamiento
           </Insignia>
         ) : null}
-        {estado ? (
+        {/* Una devuelta dice "Devuelta", no "En proceso": es lo que el técnico
+            tiene que ver de reojo (revisión de diseño). */}
+        {devuelta ? (
+          <Insignia color={colores.peligro} compacta>
+            Devuelta
+          </Insignia>
+        ) : estado ? (
           <Insignia color={estado.color} compacta>
             {estado.etiqueta}
           </Insignia>
         ) : null}
       </View>
 
-      <Text style={estilos.vehiculo}>{item.vehiculoCodigo}</Text>
-      <Text style={estilos.cliente}>{item.clienteNombre}</Text>
+      {/* Vehículo y cliente juntos: la tarjeta ya separa sus bloques. */}
+      <View>
+        <Text style={estilos.vehiculo}>{item.vehiculoCodigo}</Text>
+        <Text style={estilos.cliente}>{item.clienteNombre}</Text>
+      </View>
 
       {devuelta ? (
         <View style={estilos.motivo}>
@@ -176,7 +186,6 @@ const estilos = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: espacio.sm,
-    marginBottom: espacio.sm,
   },
   identificador: { ...texto.codigo, color: colores.primario },
   puntoSinEnviar: {
@@ -188,7 +197,7 @@ const estilos = StyleSheet.create({
   vehiculo: { ...texto.subtitulo, color: colores.texto },
   cliente: { ...texto.ayuda, color: colores.textoTenue, marginTop: 2 },
   motivo: {
-    marginTop: espacio.md,
+    marginTop: espacio.xs,
     padding: espacio.md,
     borderRadius: radio.sm,
     backgroundColor: conOpacidad(colores.peligro, 0.12),
@@ -198,7 +207,7 @@ const estilos = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: espacio.md,
-    marginTop: espacio.md,
+    marginTop: espacio.xs,
   },
   rielProgreso: {
     flex: 1,

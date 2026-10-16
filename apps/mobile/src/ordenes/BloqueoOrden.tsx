@@ -4,6 +4,7 @@ import { MOTIVO_MINIMO_LIBERAR, fechaHoraEnColombia } from "@tiretrack/domain";
 import { Aviso, Boton, Campo } from "../diseno/componentes";
 import { colores, espacio, texto } from "../diseno/tokens";
 import { MENSAJE_RETIRADA, type SituacionBloqueoVista } from "./detalle";
+import { fechaHoraCorta } from "../diseno/formato";
 
 /**
  * Bloqueo de la orden en el detalle (R7).
@@ -18,7 +19,7 @@ import { MENSAJE_RETIRADA, type SituacionBloqueoVista } from "./detalle";
  * bloqueo. Por eso se toma ANTES de salir.
  */
 
-const cuando = (iso: string | null) => (iso ? fechaHoraEnColombia(new Date(iso)) : "");
+const cuando = (iso: string | null) => (iso ? fechaHoraCorta(fechaHoraEnColombia(new Date(iso))) : "");
 
 export function BloqueoOrden({
   situacion,

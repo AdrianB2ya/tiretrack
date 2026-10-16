@@ -2,7 +2,7 @@ import { useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 import { MAX_DESTINATARIOS, revisarDestinatarios } from "@tiretrack/domain";
 import { Aviso, Boton, Opcion } from "../diseno/componentes";
-import { colores, espacio, radio, texto } from "../diseno/tokens";
+import { colores, espacio, texto, entrada } from "../diseno/tokens";
 
 /**
  * Enviar un informe por correo, directo desde el servidor (R13): no pasa por
@@ -137,16 +137,7 @@ const estilos = StyleSheet.create({
   bloque: { gap: espacio.sm },
   fila: { flexDirection: "row", flexWrap: "wrap", gap: espacio.sm },
   etiqueta: { ...texto.etiqueta, color: colores.texto },
-  campo: {
-    ...texto.cuerpo,
-    color: colores.texto,
-    minHeight: 48,
-    borderWidth: 1,
-    borderColor: colores.borde,
-    borderRadius: radio.md,
-    paddingHorizontal: espacio.md,
-    backgroundColor: colores.superficie,
-  },
+  campo: { ...entrada },
   mensaje: { minHeight: 96, textAlignVertical: "top", paddingVertical: espacio.sm },
   mal: { ...texto.ayuda, color: colores.advertencia },
 });

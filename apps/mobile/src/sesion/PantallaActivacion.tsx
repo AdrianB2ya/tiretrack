@@ -114,7 +114,7 @@ export function PantallaActivacion({ onActivar, onAbrirAutenticador, onVolver }:
               Escribe el código que te envió el administrador y elige tu contraseña. Solo tú la vas a conocer.
             </Text>
             <Campo etiqueta="Correo" value={d.email} onChangeText={(v) => setD({ ...d, email: v })} autoCapitalize="none" keyboardType="email-address" {...errorDe("email")} />
-            <Campo etiqueta="Código de activación" value={d.codigo} onChangeText={(v) => setD({ ...d, codigo: v })} autoCapitalize="characters" placeholder="K7M2-X9QP" {...errorDe("codigo")} />
+            <Campo etiqueta="Código de activación" value={d.codigo} onChangeText={(v) => setD({ ...d, codigo: v })} autoCapitalize="characters" placeholder="Ej.: K7M2-X9QP" {...errorDe("codigo")} />
             <Campo etiqueta="Contraseña nueva" value={d.password} onChangeText={(v) => setD({ ...d, password: v })} secureTextEntry={!verClave} autoCapitalize="none" {...errorDe("password")} />
             <Campo etiqueta="Repite la contraseña" value={d.confirmacion} onChangeText={(v) => setD({ ...d, confirmacion: v })} secureTextEntry={!verClave} autoCapitalize="none" {...errorDe("confirmacion")} />
             <Pressable onPress={() => setVerClave(!verClave)} role="switch" aria-checked={verClave} style={estilos.verClave}>
@@ -145,7 +145,7 @@ const estilos = StyleSheet.create({
   ayuda: { ...texto.ayuda, color: colores.textoTenue },
   secreto: { ...texto.codigo, color: colores.primario, fontSize: 18, letterSpacing: 1 },
   verClave: { minHeight: tactil.minimo, justifyContent: "center" },
-  textoVerClave: { ...texto.ayuda, color: colores.secundario },
+  textoVerClave: { ...texto.etiqueta, color: colores.texto, textDecorationLine: "underline" },
   opcion: {
     minHeight: tactil.comodo, justifyContent: "center", paddingHorizontal: espacio.lg,
     borderRadius: radio.md, borderWidth: 1, borderColor: colores.borde, backgroundColor: conOpacidad(colores.primario, 0.08),

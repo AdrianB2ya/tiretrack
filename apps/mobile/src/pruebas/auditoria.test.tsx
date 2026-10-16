@@ -23,7 +23,7 @@ describe("pantalla de auditoría", () => {
     const cargar = vi.fn().mockResolvedValue({ ok: true, datos: { registros: [registro("a"), registro("b", { usuarioId: null, usuarioNombre: null, accion: "cambiar_estado", detalle: null })], siguiente: null } });
     render(<PantallaAuditoria cargar={cargar} hoy="2026-10-06" />);
     expect(await screen.findByText("Jorge Ramírez · coordinador")).toBeTruthy();
-    expect(screen.getAllByText("2026-10-06 21:15")).toHaveLength(2);
+    expect(screen.getAllByText("6 oct 2026 · 21:15")).toHaveLength(2);
     expect(screen.getByText("44 registros · 2 sin cerrar")).toBeTruthy();
     expect(screen.getByText("Sistema")).toBeTruthy();
   });

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { StyleSheet, Text, TextInput } from "react-native";
 import { Boton } from "./componentes";
-import { colores, espacio, radio, tactil, texto } from "./tokens";
+import { colores, texto, entrada } from "./tokens";
 
 /**
  * Listas que crecen: clientes, llantas, usuarios, visitas, reclamos…
@@ -87,15 +87,6 @@ export function PieBusqueda<T>({ b, testID = "ver-mas" }: { b: Busqueda<T>; test
 }
 
 const estilos = StyleSheet.create({
-  campo: {
-    ...texto.cuerpo,
-    color: colores.texto,
-    minHeight: tactil.minimo,
-    borderWidth: 1,
-    borderColor: colores.borde,
-    borderRadius: radio.md,
-    paddingHorizontal: espacio.md,
-    backgroundColor: colores.superficie,
-  },
+  campo: { ...entrada },
   tenue: { ...texto.ayuda, color: colores.textoTenue },
 });

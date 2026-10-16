@@ -157,7 +157,7 @@ export function CapturaFirma({ onFirmar, onCancelar, guardando = false }: Captur
         editable={acepta}
         aria-disabled={!acepta}
         keyboardType="number-pad"
-        placeholder="77221004"
+        placeholder="Ej.: 77221004"
         ayuda="Se puede escribir con puntos"
       />
       <Campo

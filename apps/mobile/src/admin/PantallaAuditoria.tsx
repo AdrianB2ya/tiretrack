@@ -11,6 +11,7 @@ import { Aviso, Boton, Insignia, Tarjeta, Vacio } from "../diseno/componentes";
 import { ElegirUno } from "../diseno/ListaBuscable";
 import { colores, espacio, texto } from "../diseno/tokens";
 import { rangoRapido } from "../informe/reglasInforme";
+import { fechaHoraCorta } from "../diseno/formato";
 
 /**
  * Auditoría (5.4), solo administrador. Quién sacó datos, quién cambió qué y
@@ -141,7 +142,7 @@ export function PantallaAuditoria({ cargar, hoy = fechaEnColombia() }: {
               {r.usuarioId ? r.usuarioNombre ?? r.usuarioId : "Sistema"}
               {r.rol && r.usuarioId ? ` · ${r.rol}` : ""}
             </Text>
-            <Text style={estilos.detalle}>{fechaHoraEnColombia(r.creadoEn)}</Text>
+            <Text style={estilos.detalle}>{fechaHoraCorta(fechaHoraEnColombia(r.creadoEn))}</Text>
             {resumen ? <Text style={estilos.cuerpo}>{resumen}</Text> : null}
             {abierto === r.id ? (
               <Text style={estilos.json} selectable>

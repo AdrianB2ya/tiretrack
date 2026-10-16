@@ -41,7 +41,7 @@ const estilos = StyleSheet.create({
   barra: {
     flexDirection: "row",
     alignItems: "center",
-    paddingLeft: espacio.md,
+    paddingLeft: espacio.lg,
     backgroundColor: colores.superficie,
     borderBottomWidth: 1,
     borderBottomColor: colores.borde,

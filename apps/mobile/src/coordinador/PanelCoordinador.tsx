@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { colores, conOpacidad, espacio, radio, tactil, texto } from "../diseno/tokens";
 import type { OrdenLocal } from "../datos/repositorio";
@@ -116,16 +117,20 @@ export function PanelCoordinador({
   indicadores,
   nombre,
   onAbrir,
+  acciones,
 }: {
   indicadores: Indicadores;
   nombre: string;
   onAbrir: (accion: Accion) => void;
+  /** Accesos rápidos, debajo del saludo y antes de las tarjetas. */
+  acciones?: ReactNode;
 }) {
   const tarjetas = tarjetasDelPanel(indicadores);
 
   return (
     <ScrollView style={estilos.pantalla} contentContainerStyle={estilos.contenido}>
       <Text style={estilos.saludo}>Hola, {nombre.split(" ")[0]}</Text>
+      {acciones}
 
       {indicadores.sinEnviar > 0 ? (
         <Text style={estilos.sinEnviar}>

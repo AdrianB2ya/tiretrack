@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { nombrePosicion } from "@tiretrack/domain";
 import { Aviso, Boton, Insignia, Tarjeta, Vacio } from "../diseno/componentes";
 import { CampoBusqueda, PieBusqueda, useBusqueda } from "../diseno/BusquedaLista";
 import { EnviarPorCorreo } from "../informe/EnviarPorCorreo";
@@ -135,9 +136,16 @@ export function AlertasLlantas({
               const s = TIPO_ALERTA[a.tipo] ?? SEVERIDAD[a.severidad];
               return (
                 <View key={`${a.posicion}-${a.tipo}-${i}`} style={estilos.alerta}>
-                  <Insignia color={s?.color ?? colores.textoTenue} compacta>
-                    {s?.etiqueta ?? a.severidad}
-                  </Insignia>
+                  {/* Qué llanta es: sin la posición la alerta no se puede atender. */}
+                  <View style={estilos.filaAlerta}>
+                    <Insignia color={s?.color ?? colores.textoTenue} compacta>
+                      {s?.etiqueta ?? a.severidad}
+                    </Insignia>
+                    <Text style={estilos.posicion}>
+                      {nombrePosicion(a.posicion)}
+                      {a.serial ? ` · ${a.serial}` : ""}
+                    </Text>
+                  </View>
                   <Text style={estilos.cuerpo}>{a.mensaje}</Text>
                 </View>
               );
@@ -161,5 +169,7 @@ const estilos = StyleSheet.create({
   codigo: { ...texto.codigo, color: colores.texto },
   cuerpo: { ...texto.cuerpo, color: colores.texto, flexShrink: 1 },
   detalle: { ...texto.ayuda, color: colores.textoTenue },
-  alerta: { flexDirection: "row", alignItems: "flex-start", gap: espacio.sm },
+  alerta: { gap: espacio.xs, paddingVertical: espacio.xs },
+  filaAlerta: { flexDirection: "row", alignItems: "center", gap: espacio.sm, flexWrap: "wrap" },
+  posicion: { ...texto.etiqueta, color: colores.texto },
 });

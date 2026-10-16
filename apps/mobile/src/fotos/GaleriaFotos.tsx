@@ -94,7 +94,7 @@ export function GaleriaFotos({
           ))}
         </ScrollView>
       ) : (
-        <Text style={estilos.vacio}>Sin fotos en esta posición</Text>
+        <Text style={estilos.vacio}>Sin fotos todavía</Text>
       )}
 
       <Boton
@@ -113,13 +113,13 @@ export function GaleriaFotos({
 const estilos = StyleSheet.create({
   contenedor: { gap: espacio.md },
   encabezado: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  titulo: { ...texto.etiqueta, color: colores.textoTenue },
+  titulo: { ...texto.etiqueta, color: colores.texto },
   pendientes: { ...texto.ayuda, color: colores.advertencia, fontWeight: "600" },
   tira: { gap: espacio.md, paddingVertical: espacio.xs },
   miniatura: { width: 96, height: 96, borderRadius: radio.md, overflow: "hidden", backgroundColor: colores.tarjeta },
   imagen: { width: "100%", height: "100%" },
   estado: { position: "absolute", left: 0, right: 0, bottom: 0, paddingVertical: 3, paddingHorizontal: 4 },
-  textoEstado: { fontSize: 11, fontWeight: "700", color: colores.blanco, textAlign: "center" },
+  textoEstado: { fontSize: texto.ayuda.fontSize, fontWeight: "700", color: colores.blanco, textAlign: "center" },
   quitar: {
     position: "absolute",
     top: 0,

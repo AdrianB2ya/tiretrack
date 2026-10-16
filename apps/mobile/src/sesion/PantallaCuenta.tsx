@@ -121,7 +121,7 @@ export function PantallaCuenta({
 
 const estilos = StyleSheet.create({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
-  contenido: { padding: espacio.md, gap: espacio.md },
+  contenido: { padding: espacio.lg, gap: espacio.md },
   bloque: { gap: espacio.md },
   etiqueta: { ...texto.ayuda, color: colores.textoTenue },
   nombre: { ...texto.subtitulo, color: colores.texto, marginTop: espacio.xs },

@@ -122,7 +122,7 @@ export function FormularioDatosOrden({
             setConfirmando(false);
           }}
           keyboardType="number-pad"
-          placeholder="78950"
+          placeholder="Ej.: 78950"
           editable={!soloLectura}
           {...(problemaDe("kilometraje") ? { error: problemaDe("kilometraje") } : {})}
         />

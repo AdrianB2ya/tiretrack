@@ -124,7 +124,7 @@ export function revisarEnvio(e: EstadoEnvio): PuntoRevision[] {
       clave: "alertas",
       cumplido: false,
       clase: "advierte",
-      texto: `${diagrama.conAlerta.length} llanta(s) bajo el mínimo: ${diagrama.conAlerta.map(etiquetaPosicion).join(", ")}`,
+      texto: `${diagrama.conAlerta.length} ${diagrama.conAlerta.length === 1 ? "llanta" : "llantas"} bajo el mínimo: ${diagrama.conAlerta.map(etiquetaPosicion).join(", ")}`,
       comoResolver: "Verifica que quedó registrado en los hallazgos",
     });
   }

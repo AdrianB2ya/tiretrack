@@ -10,7 +10,7 @@ import { useUsuario } from "../../src/app/ProveedorSesion";
 import { BarraDeSesion } from "../../src/app/BarraDeSesion";
 import { NavegacionInferior } from "../../src/app/NavegacionInferior";
 import { Boton } from "../../src/diseno/componentes";
-import { colores, espacio, texto } from "../../src/diseno/tokens";
+import { colores, entrada, espacio, texto } from "../../src/diseno/tokens";
 
 /**
  * "Mis órdenes".
@@ -127,15 +127,12 @@ export default function PantallaOrdenes() {
 
 const estilos = StyleSheet.create({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
-  accion: { flexDirection: "row", gap: espacio.sm, paddingHorizontal: espacio.md, paddingTop: espacio.sm },
+  accion: { flexDirection: "row", gap: espacio.sm, paddingHorizontal: espacio.lg, paddingTop: espacio.md },
   mitad: { flex: 1 },
-  buscar: {
-    ...texto.cuerpo, color: colores.texto, minHeight: 48, borderWidth: 1, borderColor: colores.borde,
-    borderRadius: 8, paddingHorizontal: espacio.md, backgroundColor: colores.superficie,
-  },
+  buscar: { ...entrada, flex: 1 },
   filtro: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    paddingHorizontal: espacio.md, paddingTop: espacio.sm,
+    paddingHorizontal: espacio.lg, paddingTop: espacio.sm,
   },
   textoFiltro: { ...texto.cuerpoFuerte, color: colores.texto, flexShrink: 1 },
   centrado: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colores.fondo },

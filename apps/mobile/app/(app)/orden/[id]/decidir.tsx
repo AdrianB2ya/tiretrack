@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { DecisionRevision } from "../../../../src/coordinador/BandejaRevision";
 import type { OrdenEnBandeja } from "../../../../src/coordinador/bandeja";
@@ -65,7 +65,7 @@ export default function RutaDecidir() {
   }
 
   return (
-    <View style={estilos.pantalla}>
+    <ScrollView style={estilos.pantalla}>
       <DecisionRevision
         item={item}
         // Quien decide es quien mira: el rol y el id salen de la sesión.
@@ -86,7 +86,7 @@ export default function RutaDecidir() {
           Reasignar a otro técnico
         </Boton>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -97,5 +97,5 @@ const estilos = StyleSheet.create({
     padding: espacio.lg, backgroundColor: colores.fondo,
   },
   texto: { ...texto.cuerpo, color: colores.texto, textAlign: "center" },
-  pie: { padding: espacio.md, gap: espacio.sm },
+  pie: { paddingHorizontal: espacio.lg, paddingBottom: espacio.xxl, gap: espacio.md },
 });

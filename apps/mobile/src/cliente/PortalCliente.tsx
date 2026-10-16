@@ -3,6 +3,7 @@ import { Insignia, Tarjeta, Vacio, Boton } from "../diseno/componentes";
 import { colores, espacio, texto } from "../diseno/tokens";
 import type { OrdenParaLista } from "../ordenes/lista";
 import { diasHasta } from "./DecisionCliente";
+import { fechaCorta } from "../diseno/formato";
 
 /**
  * Portal del cliente, dentro de la misma app (decisión del usuario).
@@ -68,7 +69,7 @@ export function PortalCliente({
               ) : null}
             </View>
             <Text style={estilos.vehiculo}>{o.vehiculoCodigo}</Text>
-            <Text style={estilos.detalle}>{o.orden.fecha}</Text>
+            <Text style={estilos.detalle}>{fechaCorta(o.orden.fecha)}</Text>
           </Tarjeta>
         );
       })}
@@ -78,7 +79,7 @@ export function PortalCliente({
         <Tarjeta key={o.orden.id} onPress={() => onAbrir(o.orden.id)}>
           <Text style={estilos.folio}>{o.orden.folio ?? o.orden.codigoReferencia}</Text>
           <Text style={estilos.vehiculo}>{o.vehiculoCodigo}</Text>
-          <Text style={estilos.detalle}>{o.orden.fecha}</Text>
+          <Text style={estilos.detalle}>{fechaCorta(o.orden.fecha)}</Text>
         </Tarjeta>
       ))}
     </ScrollView>

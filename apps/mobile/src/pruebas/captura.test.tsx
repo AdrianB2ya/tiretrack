@@ -157,7 +157,7 @@ describe("galería", () => {
 
   it("sin fotos lo dice en vez de quedar en blanco", () => {
     montar([]);
-    expect(screen.getByText("Sin fotos en esta posición")).toBeTruthy();
+    expect(screen.getByText("Sin fotos todavía")).toBeTruthy();
   });
 
   it("toma una foto", () => {

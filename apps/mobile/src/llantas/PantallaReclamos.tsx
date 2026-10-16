@@ -10,6 +10,7 @@ import {
 import { Aviso, Boton, Campo, CampoDecimal, Insignia, Opcion, Tarjeta, Vacio } from "../diseno/componentes";
 import { CampoBusqueda, PieBusqueda, useBusqueda } from "../diseno/BusquedaLista";
 import { colores, espacio, texto } from "../diseno/tokens";
+import { fechaCorta } from "../diseno/formato";
 
 /**
  * Garantías y reclamos (R10): cada reclamo al proveedor por una llanta que
@@ -133,7 +134,7 @@ function TarjetaReclamo({ r, fuentes, onCambio, onAbrirLlanta }: {
         {r.proveedor} · {ETIQUETA_MOTIVO_RETIRO[r.motivoRetiro as MotivoRetiro] ?? r.motivoRetiro}
       </Text>
       <Text style={estilos.detalle}>
-        {r.clienteNombre} · desde {r.fecha}
+        {r.clienteNombre} · desde {fechaCorta(r.fecha)}
         {r.valorReconocido !== null ? ` · reconocido $${Math.round(r.valorReconocido).toLocaleString("es-CO")}` : ""}
       </Text>
       {r.notas ? <Text style={estilos.notas}>{r.notas}</Text> : null}

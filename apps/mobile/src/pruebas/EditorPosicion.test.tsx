@@ -71,7 +71,7 @@ describe("cabecera", () => {
 
   it("muestra el tipo de eje", () => {
     montar();
-    expect(screen.getByText("traccion")).toBeTruthy();
+    expect(screen.getByText("Tracción")).toBeTruthy();
   });
 });
 

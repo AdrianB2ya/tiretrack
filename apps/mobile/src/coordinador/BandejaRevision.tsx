@@ -60,14 +60,15 @@ export function TarjetaRevision({
 }: {
   item: OrdenEnBandeja;
   ctx: ContextoCoordinador;
-  onPress: () => void;
+  /** Sin onPress es solo resumen (arriba de la decisión). */
+  onPress?: () => void;
 }) {
   const senales = senalesDe(item, ctx);
   const critica = senales.some((s) => s.clase === "critica");
 
   return (
     <Tarjeta
-      onPress={onPress}
+      {...(onPress ? { onPress } : {})}
       acento={critica ? colores.peligro : colores.secundario}
       testID={`revisar-${item.orden.id}`}
     >
@@ -79,10 +80,12 @@ export function TarjetaRevision({
         </Text>
       </View>
 
-      <Text style={estilos.vehiculo}>{item.vehiculoCodigo}</Text>
-      <Text style={estilos.secundario}>
-        {item.clienteNombre} · {item.tecnicoNombre}
-      </Text>
+      <View>
+        <Text style={estilos.vehiculo}>{item.vehiculoCodigo}</Text>
+        <Text style={estilos.secundario}>
+          {item.clienteNombre} · {item.tecnicoNombre}
+        </Text>
+      </View>
 
       {senales.length > 0 ? (
         <View style={estilos.senales}>
@@ -188,6 +191,15 @@ export function DecisionRevision({
 
   return (
     <View style={estilos.panel}>
+      {/* Revisión de diseño: la pantalla de decidir no decía qué orden era; el
+          coordinador aprobaba viendo solo dos botones. */}
+      <TarjetaRevision item={item} ctx={ctx} />
+      {item.orden.hallazgos ? (
+        <View style={estilos.hallazgos}>
+          <Text style={estilos.tituloHallazgos}>Hallazgos del técnico</Text>
+          <Text style={estilos.textoHallazgos}>{item.orden.hallazgos}</Text>
+        </View>
+      ) : null}
       {/* La autoaprobación se avisa aquí, no solo en la tarjeta: es el
           momento en que la persona decide. */}
       {senalesDe(item, ctx)
@@ -233,12 +245,12 @@ export function DecisionRevision({
 
 const estilos = StyleSheet.create({
   lista: { padding: espacio.lg },
-  filaSuperior: { flexDirection: "row", alignItems: "center", marginBottom: espacio.sm },
+  filaSuperior: { flexDirection: "row", alignItems: "center" },
   folio: { ...texto.codigo, color: colores.primario },
   avance: { ...texto.ayuda, color: colores.textoTenue },
   vehiculo: { ...texto.subtitulo, color: colores.texto },
   secundario: { ...texto.ayuda, color: colores.textoTenue, marginTop: 2 },
-  senales: { flexDirection: "row", flexWrap: "wrap", gap: espacio.sm, marginTop: espacio.md },
+  senales: { flexDirection: "row", flexWrap: "wrap", gap: espacio.sm, marginTop: espacio.xs },
   panel: { padding: espacio.lg, gap: espacio.lg },
   tituloPanel: { ...texto.subtitulo, color: colores.texto },
   ayudaPanel: { ...texto.ayuda, color: colores.textoTenue },
@@ -254,4 +266,7 @@ const estilos = StyleSheet.create({
   },
   textoSugerencia: { ...texto.ayuda, color: colores.secundario },
   acciones: { gap: espacio.md },
+  hallazgos: { gap: espacio.xs },
+  tituloHallazgos: { ...texto.etiqueta, color: colores.texto },
+  textoHallazgos: { ...texto.cuerpo, color: colores.textoTenue },
 });

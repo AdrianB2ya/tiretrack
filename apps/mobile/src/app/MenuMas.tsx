@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, TextInput } from "react-native";
 import { Tarjeta, Vacio } from "../diseno/componentes";
-import { colores, espacio, radio, texto } from "../diseno/tokens";
+import { colores, espacio, texto, entrada } from "../diseno/tokens";
 import { agruparOpciones, buscarOpciones, MAX_MAS_SIN_BUSQUEDA, type OpcionMas } from "./navegacion";
 
 /**
@@ -47,16 +47,7 @@ export function MenuMas({ opciones, onAbrir }: { opciones: readonly OpcionMas[];
 const estilos = StyleSheet.create({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: espacio.lg, gap: espacio.sm, paddingBottom: espacio.xxl },
-  buscar: {
-    ...texto.cuerpo,
-    color: colores.texto,
-    minHeight: 48,
-    borderWidth: 1,
-    borderColor: colores.borde,
-    borderRadius: radio.md,
-    paddingHorizontal: espacio.md,
-    backgroundColor: colores.superficie,
-  },
+  buscar: { ...entrada },
   seccion: { ...texto.etiqueta, color: colores.textoTenue, marginTop: espacio.md, textTransform: "uppercase" },
   titulo: { ...texto.cuerpoFuerte, color: colores.texto },
   detalle: { ...texto.ayuda, color: colores.textoTenue },

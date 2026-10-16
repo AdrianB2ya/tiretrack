@@ -97,7 +97,7 @@ export function senalesDe(item: OrdenEnBandeja, ctx: ContextoCoordinador): Senal
     senales.push({
       clave: "alertas",
       clase: "atencion",
-      texto: `${diagrama.conAlerta.length} llanta(s) bajo el mínimo`,
+      texto: `${diagrama.conAlerta.length} ${diagrama.conAlerta.length === 1 ? "llanta" : "llantas"} bajo el mínimo`,
     });
   }
 
