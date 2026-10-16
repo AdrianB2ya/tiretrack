@@ -81,7 +81,7 @@ export default function RutaDecidir() {
           Ver las fotos
         </Boton>
         <Boton tipo="fantasma" ancho onPress={() => router.push(`/orden/${item.orden.id}` as never)}>
-          Ver el diagrama completo
+          Abrir la orden completa
         </Boton>
         <Boton tipo="fantasma" ancho onPress={() => router.push(`/orden/${item.orden.id}/reasignar` as never)}>
           Reasignar a otro técnico

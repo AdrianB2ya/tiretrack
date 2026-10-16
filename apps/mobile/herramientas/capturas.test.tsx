@@ -224,6 +224,15 @@ it("capturas de todas las pantallas", async () => {
         await act(async () => { await new Promise((r) => setTimeout(r, 150)); });
         const archivoHtml = `${corto.replace(/[/[\]().]/g, "_")}${rol ? `__${rol}` : ""}${ids.length > 1 ? `__${id}` : ""}.html`;
         guardar(archivoHtml, container.innerHTML);
+        // Además, con la primera lista desplegada: cómo se ve abierta.
+        if (["auditoria.tsx", "llantas.tsx"].includes(corto) || (corto === "orden/[id]/posicion/[numero].tsx" && id === "ord-1")) {
+          const listas = Array.from(container.querySelectorAll('[data-testid$="-abrir"]')) as HTMLElement[];
+          const lista = corto.startsWith("orden/") ? listas.find((l) => l.dataset["testid"] === "lista-estado-llanta-abrir") ?? listas[0] : listas[0];
+          if (lista) {
+            await act(async () => { lista.click(); await new Promise((r) => setTimeout(r, 50)); });
+            guardar(archivoHtml.replace(/\.html$/, "__lista-abierta.html"), container.innerHTML);
+          }
+        }
         cleanup();
         await db.cerrar();
       }
