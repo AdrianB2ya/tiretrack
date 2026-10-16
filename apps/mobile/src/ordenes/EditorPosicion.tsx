@@ -634,14 +634,13 @@ function ServiciosPorLlanta({
               aria-label={s.nombre}
               style={({ pressed }) => [
                 estilos.ficha,
-                activo && {
-                  backgroundColor: conOpacidad(colores.exito, 0.18),
-                  borderColor: colores.exito,
-                },
-                pressed && { opacity: 0.7 },
+                // Marcado = blanco lleno, como todo lo elegido en la app.
+                activo && { backgroundColor: colores.primario, borderColor: colores.primario },
+                pressed && !activo && { backgroundColor: colores.elevado },
               ]}
             >
-              <Text style={[estilos.textoFicha, activo && { color: colores.exito }]}>
+              <Text style={[estilos.textoFicha, activo && { color: colores.sobrePrimario, fontWeight: "700" }]}>
+                {activo ? "✓ " : ""}
                 {s.nombre}
               </Text>
             </Pressable>
@@ -757,10 +756,10 @@ const estilos = StyleSheet.create({
     minHeight: tactil.minimo,
     paddingHorizontal: espacio.lg,
     justifyContent: "center",
-    borderRadius: radio.completo,
+    // Misma forma que las demás opciones de la app (antes eran píldoras).
+    borderRadius: radio.md,
     borderWidth: 1,
-    borderColor: colores.borde,
-    backgroundColor: colores.tarjeta,
+    borderColor: colores.bordeFuerte,
   },
   textoFicha: { ...texto.cuerpo, color: colores.texto },
   textoError: { ...texto.ayuda, color: colores.peligro, marginTop: espacio.xs },

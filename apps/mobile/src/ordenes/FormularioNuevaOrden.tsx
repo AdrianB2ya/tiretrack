@@ -3,7 +3,7 @@ import { ListaBuscable } from "../diseno/ListaBuscable";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { type Prioridad, type TipoServicio, TIPOS_SERVICIO, ETIQUETA_TIPO_SERVICIO } from "@tiretrack/domain";
 import { Aviso, Boton, Campo } from "../diseno/componentes";
-import { colores, conOpacidad, espacio, radio, tactil, texto } from "../diseno/tokens";
+import { colores, espacio, radio, tactil, texto } from "../diseno/tokens";
 import {
   cambiar,
   formularioVacio,
@@ -374,9 +374,9 @@ const estilos = StyleSheet.create({
     backgroundColor: colores.superficie,
   },
   opcionEnLinea: { flexGrow: 1, alignItems: "center" },
-  opcionActiva: { borderColor: colores.primario, backgroundColor: conOpacidad(colores.primario, 0.12) },
+  opcionActiva: { borderColor: colores.primario, backgroundColor: colores.primario },
   presionada: { opacity: 0.7 },
   textoOpcion: { ...texto.cuerpo, color: colores.texto },
-  textoActivo: { fontWeight: "700", color: colores.primario },
+  textoActivo: { fontWeight: "700", color: colores.sobrePrimario },
   detalleOpcion: { ...texto.ayuda, color: colores.textoTenue },
 });

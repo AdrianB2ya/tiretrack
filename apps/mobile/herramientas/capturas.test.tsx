@@ -177,9 +177,9 @@ function guardar(archivo: string, cuerpo: string) {
     .replace(/url\(&quot;(\/[^&]+\.(png|jpg))&quot;\)/g, (_m, r: string) => `url(&quot;${pathToFileURL(join(RAIZ_REPO, r)).href}&quot;)`);
   writeFileSync(join(SALIDA, archivo), `<!doctype html><html><head><meta charset="utf-8">
 <style>${css()}</style>
-<style>html,body{margin:0;background:#090706;font-family:Roboto,"Segoe UI",Arial,sans-serif}
+<style>html,body{margin:0;background:#15181C;font-family:Roboto,"Segoe UI",Arial,sans-serif}
 #marco{width:412px;min-height:200px;display:flex;flex-direction:column}
-.cabecera{height:56px;display:flex;align-items:center;padding:0 16px;background:#141211;color:#F2F0EF;font:700 20px Roboto,"Segoe UI",sans-serif;border-bottom:1px solid #37312F}</style>
+.cabecera{height:56px;display:flex;align-items:center;padding:0 16px;background:#1C2026;color:#F2F4F7;font:700 20px Roboto,"Segoe UI",sans-serif;border-bottom:1px solid #3B424C}</style>
 </head><body><div id="marco">${titulo === "(sin barra)" ? "" : `<div class="cabecera">${titulo || "«sin título»"}</div>`}${html}</div></body></html>`);
 }
 

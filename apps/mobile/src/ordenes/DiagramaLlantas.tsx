@@ -154,6 +154,9 @@ export function CasillaLlanta({
 }) {
   const color = coloresEstado[casilla.estado];
   const vacia = casilla.estado === "vacia";
+  // Bajo el mínimo: casilla llena de rojo, para que salte a la vista en el diagrama.
+  const alerta = casilla.estado === "alerta_profundidad";
+  const colorTexto = alerta ? colores.sobrePrimario : vacia ? colores.textoTenue : color;
 
   return (
     <Pressable
@@ -165,27 +168,68 @@ export function CasillaLlanta({
       style={({ pressed }) => [
         estilos.casilla,
         {
-          backgroundColor: vacia ? colores.tarjeta : conOpacidad(color, 0.18),
-          borderColor: activa ? colores.primario : color,
+          backgroundColor: alerta ? colores.peligro : vacia ? "transparent" : conOpacidad(color, 0.16),
+          borderColor: activa ? colores.primario : vacia ? colores.bordeFuerte : color,
           borderWidth: activa ? 3 : 2,
+          // Vacía = contorno punteado: "aquí falta", sin parecer otro estado.
+          borderStyle: vacia && !activa ? "dashed" : "solid",
         },
         pressed && { opacity: 0.7 },
       ]}
     >
-      <Text style={[estilos.numeroCasilla, { color: vacia ? colores.textoTenue : color }]}>
+      <Text style={[estilos.numeroCasilla, { color: colorTexto }]}>
         {etiquetaPosicion(casilla.numero)}
       </Text>
 
       {/* La profundidad se muestra en la casilla: es el dato que el técnico
           compara entre posiciones sin abrir cada una. */}
       {casilla.profundidad !== null ? (
-        <Text style={[estilos.profundidad, { color }]}>{String(casilla.profundidad).replace(".", ",")}</Text>
+        <Text style={[estilos.profundidad, { color: colorTexto }]}>{String(casilla.profundidad).replace(".", ",")}</Text>
       ) : null}
 
-      {casilla.esInterna ? <View style={estilos.marcaInterna} /> : null}
+      {casilla.esInterna ? <View style={[estilos.marcaInterna, alerta && { backgroundColor: colores.sobrePrimario }]} /> : null}
     </Pressable>
   );
 }
+
+/**
+ * Qué significa cada casilla. Sin esto, borde verde, casilla roja o la raya
+ * bajo el número había que adivinarlos (revisión de diseño).
+ */
+export function LeyendaDiagrama() {
+  const muestra = (estado: Casilla["estado"]) => {
+    const c = coloresEstado[estado];
+    return [
+      estilos.muestra,
+      estado === "vacia"
+        ? { borderStyle: "dashed" as const, borderColor: colores.bordeFuerte }
+        : estado === "alerta_profundidad"
+          ? { backgroundColor: colores.peligro, borderColor: colores.peligro }
+          : { backgroundColor: conOpacidad(c, 0.16), borderColor: c },
+    ];
+  };
+  return (
+    <View style={estilos.leyenda} testID="leyenda-diagrama">
+      {(["capturada", "vacia", "no_identificada", "alerta_profundidad"] as const).map((e) => (
+        <View key={e} style={estilos.itemLeyenda}>
+          <View style={muestra(e)} />
+          <Text style={estilos.textoLeyenda}>{TEXTO_LEYENDA[e]}</Text>
+        </View>
+      ))}
+      <View style={estilos.itemLeyenda}>
+        <View style={estilos.muestraInterna} />
+        <Text style={estilos.textoLeyenda}>Rueda interna</Text>
+      </View>
+    </View>
+  );
+}
+
+const TEXTO_LEYENDA: Record<Casilla["estado"], string> = {
+  capturada: "Medida",
+  vacia: "Falta",
+  no_identificada: "Sin identificar",
+  alerta_profundidad: "Bajo el mínimo",
+};
 
 /** Resumen del avance, para mostrar sobre el diagrama. */
 export function ResumenDiagrama({ diagrama }: { diagrama: Diagrama }) {
@@ -273,6 +317,11 @@ const estilos = StyleSheet.create({
     backgroundColor: colores.textoTenue,
   },
   resumen: { gap: espacio.xs, marginBottom: espacio.sm },
+  leyenda: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", columnGap: espacio.lg, rowGap: espacio.sm },
+  itemLeyenda: { flexDirection: "row", alignItems: "center", gap: espacio.xs },
+  muestra: { width: 16, height: 16, borderRadius: 4, borderWidth: 2 },
+  muestraInterna: { width: 14, height: 2, borderRadius: radio.completo, backgroundColor: colores.textoTenue },
+  textoLeyenda: { ...texto.ayuda, color: colores.textoTenue },
   textoResumen: { ...texto.cuerpoFuerte, color: colores.texto },
   textoFaltan: { ...texto.ayuda, color: colores.textoTenue },
   textoAlerta: { ...texto.ayuda, color: colores.peligro, fontWeight: "600" },

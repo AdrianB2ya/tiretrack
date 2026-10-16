@@ -161,16 +161,45 @@ export function ListaBuscable({
     );
   }
 
+  const cerrar = () => {
+    setTermino("");
+    setAbierta(false);
+  };
+
   return (
     <View style={estilos.grupo} testID={testID}>
       {etiqueta ? <Text style={estilos.etiqueta}>{etiqueta}</Text> : null}
 
+      {/* Abierta se distingue del resto: la caja queda con borde blanco y las
+          opciones van en un panel más claro que flota debajo (antes quedaban
+          sueltas sobre el fondo y no se sabía dónde terminaba la lista). */}
+      {opciones.length > 0 || elegida ? (
+        <Pressable
+          onPress={cerrar}
+          accessibilityRole="button"
+          accessibilityLabel={`${etiqueta ?? "Lista"} abierta. Tocar para cerrar`}
+          testID={`${testID}-cerrar`}
+          style={({ pressed }) => [estilos.cerrada, estilos.cabeceraAbierta, pressed && estilos.presionada]}
+        >
+          <View style={estilos.cerradaTexto}>
+            {elegida ? (
+              <Text style={estilos.valor} numberOfLines={1}>{elegida.texto}</Text>
+            ) : (
+              <Text style={estilos.marcador} numberOfLines={1}>{placeholder}</Text>
+            )}
+          </View>
+          <Text style={estilos.cambiarAbierta}>Cerrar ▴</Text>
+        </Pressable>
+      ) : null}
+
+      <View style={estilos.panel}>
       {conBusqueda ? (
         <Campo
           etiqueta={alta ? "Buscar o escribir una nueva" : "Buscar"}
           value={termino}
           onChangeText={cambiarTermino}
           autoCorrect={false}
+          style={estilos.busquedaEnPanel}
           testID={`${testID}-buscar`}
         />
       ) : null}
@@ -194,11 +223,6 @@ export function ListaBuscable({
         <Text style={estilos.tenue} testID={`${testID}-mas`}>
           Hay {filtradas.length - tope} más: escribe para encontrarlas.
         </Text>
-      ) : null}
-      {elegida || !abrirSola ? (
-        <Boton tipo="fantasma" testID={`${testID}-cerrar`} onPress={() => { setTermino(""); setAbierta(false); }}>
-          {elegida ? `Dejar ${elegida.texto}` : "Cerrar"}
-        </Boton>
       ) : null}
       {termino.trim() !== "" && filtradas.length === 0 && !alta ? (
         <Text style={estilos.tenue}>Nada coincide con “{termino.trim()}”.</Text>
@@ -246,6 +270,7 @@ export function ListaBuscable({
         </View>
       ) : null}
       {error ? <Text style={estilos.error}>{error}</Text> : null}
+      </View>
     </View>
   );
 }
@@ -276,8 +301,27 @@ const estilos = StyleSheet.create({
   cerradaTexto: { flex: 1 },
   valor: { ...texto.cuerpoFuerte, color: colores.texto },
   marcador: { ...texto.cuerpo, color: colores.textoTenue },
+  busquedaEnPanel: { backgroundColor: colores.superficie },
   plegable: { marginBottom: espacio.lg },
   cambiar: { ...texto.etiqueta, color: colores.textoTenue },
+  cambiarAbierta: { ...texto.etiqueta, color: colores.primario },
+  // 2 px blancos: "esta es la que está abierta".
+  cabeceraAbierta: { borderWidth: 2, borderColor: colores.primario, paddingHorizontal: espacio.lg - 1 },
+  panel: {
+    gap: espacio.sm,
+    padding: espacio.md,
+    marginTop: -espacio.xs,
+    borderRadius: radio.md,
+    borderWidth: 1,
+    borderColor: colores.bordeFuerte,
+    backgroundColor: colores.elevado,
+    // Sombra: el panel queda por encima de lo que hay detrás.
+    shadowColor: "#000",
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+  },
 });
 
 /**
@@ -396,6 +440,14 @@ export function ElegirVarios({
   return (
     <View style={estilos.grupo} testID={testID}>
       {etiqueta ? <Text style={estilos.etiqueta}>{etiqueta}</Text> : null}
+      <View style={[estilos.cerrada, estilos.cabeceraAbierta]}>
+        <View style={estilos.cerradaTexto}>
+          <Text style={elegidas.length > 0 ? estilos.valor : estilos.marcador} numberOfLines={2}>
+            {elegidas.length > 0 ? elegidas.map((o) => o.texto).join(", ") : placeholder}
+          </Text>
+        </View>
+      </View>
+      <View style={estilos.panel}>
       {opciones.length > MAX_SIN_BUSQUEDA ? (
         <Campo etiqueta="Buscar" value={termino} onChangeText={setTermino} autoCorrect={false} testID={`${testID}-buscar`} />
       ) : null}
@@ -418,6 +470,7 @@ export function ElegirVarios({
       <Boton tipo="secundario" testID={`${testID}-listo`} onPress={() => { setTermino(""); setAbierta(false); }}>
         Listo{elegidas.length > 0 ? ` (${elegidas.length})` : ""}
       </Boton>
+      </View>
     </View>
   );
 }

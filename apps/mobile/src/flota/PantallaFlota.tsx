@@ -3,7 +3,7 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text
 import { puedeGestionarFlota, type Rol } from "@tiretrack/domain";
 import { Aviso, Boton, Campo, Tarjeta, Vacio } from "../diseno/componentes";
 import { CampoBusqueda, PieBusqueda, useBusqueda } from "../diseno/BusquedaLista";
-import { colores, conOpacidad, espacio, radio, tactil, texto } from "../diseno/tokens";
+import { colores, espacio, radio, tactil, texto } from "../diseno/tokens";
 import {
   puedeCrearCliente,
   puedeCrearVehiculo,
@@ -470,7 +470,7 @@ const estilos = StyleSheet.create({
     minHeight: tactil.comodo, justifyContent: "center", paddingHorizontal: espacio.md,
     borderRadius: radio.md, borderWidth: 1, borderColor: colores.borde, backgroundColor: colores.superficie,
   },
-  opcionActiva: { borderColor: colores.primario, backgroundColor: conOpacidad(colores.primario, 0.12) },
+  opcionActiva: { borderColor: colores.primario, backgroundColor: colores.primario },
   textoOpcion: { ...texto.cuerpo, color: colores.texto },
-  textoActivo: { fontWeight: "700", color: colores.primario },
+  textoActivo: { fontWeight: "700", color: colores.sobrePrimario },
 });

@@ -17,28 +17,46 @@
  * El fondo es el negro del logo: el logo se ve sin recuadro sobre la app.
  */
 export const colores = {
-  fondo: "#090706",
-  superficie: "#141211",
-  tarjeta: "#1E1B1A",
-  borde: "#37312F",
+  /*
+   * Grafito neutro en escalones (revisión de diseño 2026-10-16). Antes el
+   * fondo era casi negro puro (3 % de luminosidad), las capas no se
+   * distinguían (contraste 1,08 y 1,17 contra el fondo) y los grises tiraban
+   * a café junto al rojo. Cada capa sube un escalón parejo: fondo → barras →
+   * tarjetas → campos → paneles abiertos.
+   */
+  fondo: "#15181C",
+  superficie: "#1C2026",
+  tarjeta: "#242930",
+  /** Campos de texto y listas cerradas: un escalón sobre la tarjeta. */
+  campo: "#2C323A",
+  /** Lo que flota encima (una lista desplegada). */
+  elevado: "#353C46",
+  borde: "#3B424C",
+  /** Borde de lo que se puede tocar (contornos, brillo de las tarjetas). */
+  bordeFuerte: "#4F5865",
 
-  /** Lo interactivo y lo elegido: blanco, como las letras del logo. */
-  primario: "#F4F2F1",
+  /**
+   * Blanco = lo elegido y la acción principal (lleno), o lo que está en foco
+   * o abierto (borde). Es la única luz fuerte de la pantalla.
+   */
+  primario: "#F2F4F7",
   primarioClaro: "#FFFFFF",
-  /** El rojo de la marca. Solo como acento, nunca para botones ni estados. */
+  /** El rojo de la marca. Solo identidad (pestaña, logo), nunca estados ni botones. */
   marca: "#ED1C24",
-  secundario: "#4A90D9",
+  secundario: "#5EA8F2",
 
-  exito: "#2ECC71",
-  advertencia: "#F1C40F",
-  peligro: "#E74C3C",
-  morado: "#9B59B6",
+  /* Estados, calibrados para fondo oscuro: todos pasan 4,5 sobre las tarjetas. */
+  exito: "#3DD68C",
+  advertencia: "#F5C84C",
+  /** Rojo coral: distinto del rojo de marca, para no confundir adorno con alarma. */
+  peligro: "#FF6B5E",
+  morado: "#B78CF2",
 
-  texto: "#F2F0EF",
-  textoTenue: "#A59E9B",
+  texto: "#F2F4F7",
+  textoTenue: "#A9B1BC",
   blanco: "#FFFFFF",
-  /** Texto sobre lo primario (blanco): el negro del fondo. */
-  sobrePrimario: "#090706",
+  /** Texto sobre lo blanco y sobre los colores de estado llenos. */
+  sobrePrimario: "#15181C",
 } as const;
 
 /**
@@ -131,7 +149,7 @@ export function conOpacidad(hex: string, alfa: number): string {
  */
 export const entrada = {
   minHeight: tactil.comodo,
-  backgroundColor: colores.tarjeta,
+  backgroundColor: colores.campo,
   borderWidth: 1,
   borderColor: colores.borde,
   borderRadius: radio.md,

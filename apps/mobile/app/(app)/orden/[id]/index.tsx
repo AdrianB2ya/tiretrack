@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { BloqueoOrden } from "../../../../src/ordenes/BloqueoOrden";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { DiagramaLlantas, ResumenDiagrama } from "../../../../src/ordenes/DiagramaLlantas";
+import { DiagramaLlantas, ResumenDiagrama, LeyendaDiagrama } from "../../../../src/ordenes/DiagramaLlantas";
 import { Aviso, Boton, Insignia } from "../../../../src/diseno/componentes";
 import { useDatos, type DatosOrden } from "../../../../src/app/ProveedorDatos";
 import { useUsuario } from "../../../../src/app/ProveedorSesion";
@@ -171,6 +171,7 @@ export default function PantallaDetalle() {
           ? { onAgregarRepuesto: () => router.push(`/orden/${orden.id}/posicion/${posicionRepuesto(diagrama.repuestos.length + 1)}` as never) }
           : {})}
       />
+      <LeyendaDiagrama />
 
       {/* Revisión de diseño: lo que se hace con la orden va justo debajo del
           diagrama; antes la acción principal quedaba al fondo, debajo de fotos,

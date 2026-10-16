@@ -36,7 +36,8 @@ export interface BotonProps {
 
 const fondosBoton: Record<TipoBoton, string> = {
   primario: colores.primario,
-  secundario: colores.tarjeta,
+  // Un escalón sobre la tarjeta, para que se vea botón también dentro de una.
+  secundario: colores.campo,
   peligro: colores.peligro,
   fantasma: "transparent",
 };
@@ -44,7 +45,8 @@ const fondosBoton: Record<TipoBoton, string> = {
 const textosBoton: Record<TipoBoton, string> = {
   primario: colores.sobrePrimario,
   secundario: colores.texto,
-  peligro: colores.blanco,
+  // Sobre el rojo coral se lee el texto oscuro (el blanco no llega a 3:1).
+  peligro: colores.sobrePrimario,
   // Blanco como el resto: en gris parecía un botón apagado (revisión de diseño).
   fantasma: colores.texto,
 };
@@ -76,7 +78,8 @@ export function Boton({
       style={({ pressed }) => [
         estilos.boton,
         { backgroundColor: fondosBoton[tipo] },
-        tipo === "fantasma" && { borderWidth: 1, borderColor: colores.borde },
+        tipo === "fantasma" && { borderWidth: 1, borderColor: colores.bordeFuerte },
+        tipo === "secundario" && { borderWidth: 1, borderColor: colores.borde },
         ancho && { alignSelf: "stretch" },
         // La respuesta al toque es visual: con guantes no se siente el clic
         pressed && !inactivo && { opacity: 0.7 },
@@ -132,7 +135,9 @@ export interface CampoProps extends TextInputProps {
   requerido?: boolean;
 }
 
-export function Campo({ etiqueta, ayuda, error, requerido, style, ...props }: CampoProps) {
+export function Campo({ etiqueta, ayuda, error, requerido, style, onFocus, onBlur, ...props }: CampoProps) {
+  // Borde blanco mientras se escribe: antes no había señal de dónde estaba el cursor.
+  const [enFoco, setEnFoco] = useState(false);
   // Varias líneas: alto para dos o tres renglones y el texto arriba, no centrado.
   return (
     <View style={estilos.campo}>
@@ -143,8 +148,16 @@ export function Campo({ etiqueta, ayuda, error, requerido, style, ...props }: Ca
       <TextInput
         accessibilityLabel={etiqueta}
         placeholderTextColor={colores.textoTenue}
-        style={[estilos.entrada, props.multiline ? estilos.entradaVariasLineas : null, error ? { borderColor: colores.peligro } : null, style]}
+        style={[estilos.entrada, props.multiline ? estilos.entradaVariasLineas : null, enFoco ? estilos.entradaEnFoco : null, error ? { borderColor: colores.peligro } : null, style]}
         {...props}
+        onFocus={(e) => {
+          setEnFoco(true);
+          onFocus?.(e);
+        }}
+        onBlur={(e) => {
+          setEnFoco(false);
+          onBlur?.(e);
+        }}
       />
       {/* El error reemplaza a la ayuda: dos textos bajo el campo compiten */}
       {error ? (
@@ -223,6 +236,8 @@ export function Tarjeta({ children, onPress, acento, estilo, testID }: TarjetaPr
       testID={onPress ? undefined : testID}
       style={[
         estilos.tarjeta,
+        // Las que se tocan llevan un brillo arriba: se ven "levantadas".
+        onPress ? { borderTopColor: colores.bordeFuerte } : null,
         acento ? { borderLeftWidth: 4, borderLeftColor: acento } : null,
         estilo,
       ]}
@@ -238,7 +253,8 @@ export function Tarjeta({ children, onPress, acento, estilo, testID }: TarjetaPr
       testID={testID}
       onPress={onPress}
       accessibilityRole="button"
-      style={({ pressed }) => (pressed ? { opacity: 0.75 } : undefined)}
+      // Al presionarla se aclara un escalón (la transparencia dejaba ver el fondo).
+      style={({ pressed }) => (pressed ? { opacity: 0.85 } : undefined)}
     >
       {contenido}
     </Pressable>
@@ -269,7 +285,9 @@ export function Aviso({ titulo, detalle, tono = "info" }: AvisoProps) {
       accessibilityRole="alert"
       style={[
         estilos.aviso,
-        { backgroundColor: conOpacidad(color, 0.1), borderColor: conOpacidad(color, 0.35) },
+        // Franja del color a la izquierda sobre fondo de tarjeta: las cajas
+        // teñidas al 10 % se veían turbias sobre lo oscuro.
+        { backgroundColor: colores.tarjeta, borderColor: colores.borde, borderLeftColor: color },
       ]}
     >
       <Text style={[estilos.tituloAviso, { color }]}>{titulo}</Text>
@@ -312,13 +330,13 @@ export function Opcion({ activa, etiqueta, detalle, onPress, testID, multiple = 
       aria-checked={activa}
       accessibilityLabel={detalle ? `${etiqueta}, ${detalle}` : etiqueta}
       testID={testID}
-      style={({ pressed }) => [estilos.opcion, activa && estilos.opcionActiva, pressed && { opacity: 0.7 }]}
+      style={({ pressed }) => [estilos.opcion, activa && estilos.opcionActiva, pressed && !activa && { backgroundColor: colores.elevado }]}
     >
       <Text style={[estilos.textoOpcion, activa && estilos.textoOpcionActiva]}>
         {activa ? "✓ " : ""}
         {etiqueta}
       </Text>
-      {detalle ? <Text style={estilos.detalleOpcion}>{detalle}</Text> : null}
+      {detalle ? <Text style={[estilos.detalleOpcion, activa && estilos.detalleOpcionActiva]}>{detalle}</Text> : null}
     </Pressable>
   );
 }
@@ -332,12 +350,14 @@ const estilos = StyleSheet.create({
     paddingHorizontal: espacio.md,
     borderRadius: radio.md,
     borderWidth: 1,
-    borderColor: colores.borde,
+    borderColor: colores.bordeFuerte,
   },
-  opcionActiva: { borderColor: colores.primario, backgroundColor: conOpacidad(colores.primario, 0.12) },
+  // Lo elegido, invertido: se distingue de un vistazo, también bajo el sol.
+  opcionActiva: { borderColor: colores.primario, backgroundColor: colores.primario },
   textoOpcion: { ...texto.cuerpo, color: colores.texto },
-  textoOpcionActiva: { fontWeight: "700", color: colores.primario },
+  textoOpcionActiva: { fontWeight: "700", color: colores.sobrePrimario },
   detalleOpcion: { ...texto.ayuda, color: colores.textoTenue },
+  detalleOpcionActiva: { color: colores.sobrePrimario },
   boton: {
     minHeight: tactil.comodo,
     // Dos botones lado a lado caben sin partir el texto en dos renglones.
@@ -374,6 +394,8 @@ const estilos = StyleSheet.create({
     marginBottom: espacio.sm,
   },
   entrada: { ...entrada },
+  // 2 px para que se note con el sol de frente; el relleno baja 1 px y el texto no salta.
+  entradaEnFoco: { borderWidth: 2, borderColor: colores.primario, paddingHorizontal: espacio.lg - 1 },
   entradaVariasLineas: {
     minHeight: 96,
     paddingTop: espacio.md,
@@ -402,6 +424,7 @@ const estilos = StyleSheet.create({
   },
   aviso: {
     borderWidth: 1,
+    borderLeftWidth: 4,
     borderRadius: radio.md,
     padding: espacio.lg,
     marginBottom: espacio.lg,
@@ -413,7 +436,7 @@ const estilos = StyleSheet.create({
   },
   detalleAviso: {
     fontSize: texto.ayuda.fontSize,
-    color: colores.textoTenue,
+    color: colores.texto,
   },
   vacio: {
     padding: espacio.xxl,
