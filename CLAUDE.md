@@ -3917,17 +3917,17 @@ En la versión web (pruebas), `shadow*` está obsoleto: la sombra va con
 
 El usuario copió la clave desde una captura y el celular la leyó mal (0 por
 O, 1 por I): la clave base32 solo admite A–Z y 2–7. En el paso de doble
-factor de la activación ahora hay **"Copiar la clave"** (
+factor de la activación ahora hay **"Copiar la clave"** (`expo-clipboard`
 ~7.0, cargado al tocar; copia sin espacios) y un **código QR** del enlace
- para agregarla en otro celular. El QR se arma en el teléfono
-con el núcleo de  (, JavaScript puro) y se
-dibuja con  (), negro sobre
+`otpauth://` para agregarla en otro celular. El QR se arma en el teléfono
+con el núcleo de `qrcode` (`qrcode/lib/core/qrcode`, JavaScript puro) y se
+dibuja con `react-native-svg` (`src/diseno/CodigoQR.tsx`), negro sobre
 blanco con margen. Prueba: los tres cuadros de posición en las esquinas.
 
 Para verlo otra vez después de activar: Usuarios → "Código para recuperar la
 cuenta" (un administrador puede pedírselo a sí mismo) → "Tengo un código de
 activación": como la clave ya existe, la activación la vuelve a mostrar.
-**Requiere APK nuevo** ( es nativo).
+**Requiere APK nuevo** (`expo-clipboard` es nativo).
 
 ### Listas de datos: búsqueda y "Mostrar más"
 
