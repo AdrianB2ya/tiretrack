@@ -1315,6 +1315,17 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
         expect(d.json().ordenes.find((x: { id: string }) => x.id === o.id)).toMatchObject({ historica: true, referenciaAnterior: "1234" });
       });
 
+      it("un repuesto (R1) también se carga y queda montado como repuesto", async () => {
+        // Lo destapó la prueba de las plantillas con datos: el esquema de
+        // pruebas seguía con la llave vieja por posición y el 101 no entraba.
+        await enSede();
+        const r = await cargar("ordenes", csv("9;2025-03-14;FUN;800.123.456-7;CA-12;;;R1;Michelin;;;HX-R;;16;;;"));
+        expect(r.statusCode, r.body).toBe(200);
+        const m = (await pool.query(`SELECT posicion, "posicionEnEje" FROM "LlantaRegistro"`)).rows;
+        expect(m).toEqual([{ posicion: 101, posicionEnEje: null }]);
+        expect((await pool.query(`SELECT posicion FROM "Llanta" WHERE serial = 'HXR'`)).rows).toEqual([{ posicion: 101 }]);
+      });
+
       it("volver a subir el mismo archivo no duplica", async () => {
         await enSede();
         expect((await cargar("ordenes", unaOrden)).statusCode).toBe(200);

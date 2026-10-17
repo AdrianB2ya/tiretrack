@@ -3953,6 +3953,11 @@ todo** (historia de llantas, km, indicadores, alertas).
   la lista y en el portal del cliente). El detalle ya no muestra "lo que
   falta para enviar" en una orden cerrada.
 - **Despliegue**: aplicar la migración en Neon antes de subir el servidor.
+- **Plantillas con datos de prueba** (fuera del repo, `C:devplantillas-carga`):
+  se verificaron cargándolas por el servidor real. Destaparon que el esquema
+  de pruebas seguía con la llave vieja de la medición (por `posicion`, de
+  antes de los repuestos): un repuesto no entraba en las pruebas. Ahora va por
+  `posicionEnEje`, como en producción.
 
 ### Clave del autenticador: copiar y QR (2026-10-17)
 

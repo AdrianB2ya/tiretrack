@@ -41,7 +41,10 @@ const RESTRICCIONES: Record<string, string[]> = {
   PosicionEje: [`UNIQUE ("configuracionEjeId", numero)`],
   LlantaRegistro: [
     `UNIQUE ("ordenId", posicion)`,
-    `FOREIGN KEY ("configuracionEjeId", posicion)
+    // Como en producción desde la migración de repuestos (20261016120000): la
+    // llave va por posicionEnEje, nula en un repuesto. Aquí seguía la vieja,
+    // por posición, y un repuesto (101) no se podía guardar en las pruebas.
+    `FOREIGN KEY ("configuracionEjeId", "posicionEnEje")
        REFERENCES "PosicionEje" ("configuracionEjeId", numero)`,
     `FOREIGN KEY ("ordenId") REFERENCES "OrdenServicio"(id)`,
   ],
