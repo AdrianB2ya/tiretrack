@@ -4,6 +4,7 @@ import { Aviso, Boton, Campo } from "../diseno/componentes";
 import { colores, conOpacidad, espacio, radio, tactil, texto } from "../diseno/tokens";
 import { revisarActivacion, secretoLegible, type DatosActivacion, type ResultadoActivacion } from "./activacion";
 import { revisarCodigo } from "./ingreso";
+import { CodigoQR } from "../diseno/CodigoQR";
 
 /**
  * Activar la cuenta con el código del administrador.
@@ -16,10 +17,13 @@ export interface PantallaActivacionProps {
   onActivar: (d: DatosActivacion) => Promise<ResultadoActivacion>;
   /** Abre la app autenticadora con la cuenta lista para guardar (enlace otpauth). */
   onAbrirAutenticador: (uri: string) => void;
+  /** Copia la clave al portapapeles; false si no se pudo. */
+  onCopiar?: (texto: string) => Promise<boolean>;
   onVolver: () => void;
 }
 
-export function PantallaActivacion({ onActivar, onAbrirAutenticador, onVolver }: PantallaActivacionProps) {
+export function PantallaActivacion({ onActivar, onAbrirAutenticador, onCopiar, onVolver }: PantallaActivacionProps) {
+  const [copiada, setCopiada] = useState<"si" | "no" | null>(null);
   const [d, setD] = useState({ email: "", codigo: "", password: "", confirmacion: "" });
   const [empresaId, setEmpresaId] = useState<string | null>(null);
   const [empresas, setEmpresas] = useState<{ id: string; nombre: string }[] | null>(null);
@@ -94,10 +98,27 @@ export function PantallaActivacion({ onActivar, onAbrirAutenticador, onVolver }:
             <Boton ancho tipo="secundario" testID="abrir-autenticador" onPress={() => onAbrirAutenticador(dosFA.uri)}>
               Abrir la app autenticadora
             </Boton>
-            <Text style={estilos.ayuda}>Si no se abre sola, agrega la cuenta a mano con esta clave:</Text>
+            {/* Para otro celular: se escanea este código con su app autenticadora.
+                Copiar la clave evita leerla de una captura (el celular confunde
+                0 con O y 1 con I, y la clave queda inválida). */}
+            <Text style={estilos.ayuda}>Para agregarla también en otro celular, escanea este código con su app autenticadora:</Text>
+            <CodigoQR texto={dosFA.uri} testID="qr-2fa" />
+            <Text style={estilos.ayuda}>O agrega la cuenta a mano con esta clave:</Text>
             <Text style={estilos.secreto} selectable testID="secreto-2fa">
               {secretoLegible(dosFA.secreto)}
             </Text>
+            {onCopiar ? (
+              <Boton
+                ancho
+                tipo="secundario"
+                testID="copiar-secreto"
+                onPress={() => void onCopiar(dosFA.secreto).then((ok) => setCopiada(ok ? "si" : "no"))}
+              >
+                {copiada === "si" ? "✓ Clave copiada" : "Copiar la clave"}
+              </Boton>
+            ) : null}
+            {copiada === "no" ? <Text style={estilos.ayuda}>No se pudo copiar: escríbela a mano, de a cuatro letras.</Text> : null}
+            <Text style={estilos.ayuda}>Guárdala también en tu gestor de contraseñas: con ella recuperas los códigos si pierdes el celular. No se la envíes a nadie.</Text>
             <Campo
               etiqueta="Código de la app autenticadora"
               value={codigo2fa}

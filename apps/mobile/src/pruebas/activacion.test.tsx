@@ -102,3 +102,44 @@ describe("pantalla", () => {
     expect(await screen.findByText("No se pudo activar")).toBeTruthy();
   });
 });
+
+describe("clave del autenticador para otro celular", () => {
+  const escribir = (etiqueta: string, valor: string) =>
+    fireEvent.change(screen.getByLabelText(etiqueta), { target: { value: valor } });
+  function llenar() {
+    escribir("Correo", datos.email);
+    escribir("Código de activación", datos.codigo);
+    escribir("Contraseña nueva", datos.password);
+    escribir("Repite la contraseña", datos.confirmacion);
+  }
+  const preparar =(onCopiar = vi.fn().mockResolvedValue(true)) => {
+    const onActivar = vi.fn().mockResolvedValueOnce({
+      tipo: "configurar_2fa",
+      secreto: "JBSWY3DPEHPK3PXP",
+      uri: "otpauth://totp/Asistectire:m@x.co?secret=JBSWY3DPEHPK3PXP&issuer=Asistectire",
+    });
+    render(<PantallaActivacion onActivar={onActivar} onAbrirAutenticador={vi.fn()} onCopiar={onCopiar} onVolver={vi.fn()} />);
+    llenar();
+    fireEvent.click(screen.getByTestId("activar"));
+    return onCopiar;
+  };
+
+  it("muestra un QR para escanearla desde otro celular", async () => {
+    preparar();
+    const qr = await screen.findByTestId("qr-2fa");
+    expect(qr.querySelector("path")?.getAttribute("d")).toMatch(/^M\d+ \d+h1v1h-1z/);
+  });
+
+  it("copia la clave sin espacios (como la piden las apps) y lo confirma", async () => {
+    const onCopiar = preparar();
+    fireEvent.click(await screen.findByTestId("copiar-secreto"));
+    expect(onCopiar).toHaveBeenCalledWith("JBSWY3DPEHPK3PXP");
+    expect(await screen.findByText("✓ Clave copiada")).toBeTruthy();
+  });
+
+  it("si no se puede copiar, dice que se escriba a mano", async () => {
+    preparar(vi.fn().mockResolvedValue(false));
+    fireEvent.click(await screen.findByTestId("copiar-secreto"));
+    expect(await screen.findByText(/No se pudo copiar/)).toBeTruthy();
+  });
+});

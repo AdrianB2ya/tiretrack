@@ -3913,6 +3913,22 @@ vacías que dicen qué hacer.
 En la versión web (pruebas), `shadow*` está obsoleto: la sombra va con
 `Platform.select` (`boxShadow` en web).
 
+### Clave del autenticador: copiar y QR (2026-10-17)
+
+El usuario copió la clave desde una captura y el celular la leyó mal (0 por
+O, 1 por I): la clave base32 solo admite A–Z y 2–7. En el paso de doble
+factor de la activación ahora hay **"Copiar la clave"** (
+~7.0, cargado al tocar; copia sin espacios) y un **código QR** del enlace
+ para agregarla en otro celular. El QR se arma en el teléfono
+con el núcleo de  (, JavaScript puro) y se
+dibuja con  (), negro sobre
+blanco con margen. Prueba: los tres cuadros de posición en las esquinas.
+
+Para verlo otra vez después de activar: Usuarios → "Código para recuperar la
+cuenta" (un administrador puede pedírselo a sí mismo) → "Tengo un código de
+activación": como la clave ya existe, la activación la vuelve a mostrar.
+**Requiere APK nuevo** ( es nativo).
+
 ### Listas de datos: búsqueda y "Mostrar más"
 
 `src/diseno/BusquedaLista.tsx`: `useBusqueda` + `CampoBusqueda` +
@@ -4532,7 +4548,7 @@ identificador **`com.asistectire.app`**, rojo de la marca **como acento**.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 1133/1133, mobile 1068 + recorrido 669.
+**Verificado:** `npm run verify` con base: raíz 1133/1133, mobile 1075 + recorrido 669.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

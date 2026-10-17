@@ -21,6 +21,15 @@ export default function RutaActivar() {
       onVolver={() => router.replace("/ingresar" as never)}
       // El enlace otpauth abre la app autenticadora con la cuenta lista.
       onAbrirAutenticador={(uri) => void Linking.openURL(uri).catch(() => undefined)}
+      // Se carga al tocar: el portapapeles es nativo y no hace falta antes.
+      onCopiar={async (texto) => {
+        try {
+          const { setStringAsync } = await import("expo-clipboard");
+          return await setStringAsync(texto);
+        } catch {
+          return false;
+        }
+      }}
       onActivar={async (d) => {
         const r = await activar({ baseUrl: apiUrl }, d);
         if (r.tipo !== "ok") return r;
