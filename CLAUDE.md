@@ -3913,6 +3913,47 @@ vacías que dicen qué hacer.
 En la versión web (pruebas), `shadow*` está obsoleto: la sombra va con
 `Platform.select` (`boxShadow` en web).
 
+### Órdenes anteriores desde Excel (2026-10-17)
+
+Pedido del usuario: cargar las operaciones hechas antes de usar la app.
+**Decisiones del usuario:** desde Excel; entran **cerradas y marcadas
+históricas** (sin firma digital); folio de **serie aparte HIS**
+(HIS-FUN-000001) con el número anterior como referencia; y **cuentan para
+todo** (historia de llantas, km, indicadores, alertas).
+
+- **Carga** (`ordenes` en `TIPOS_CARGA`, "Más → Cargar desde Excel"): una
+  fila por llanta. Las del mismo SEDE + NIT CLIENTE + VEHICULO (código o
+  placa) + FECHA + NUMERO ANTERIOR son una orden (`claveOrdenHistorica`).
+  FECHA en AAAA-MM-DD o DD/MM/AAAA, no futura; POSICION 1–60 o R1–R10; la
+  posición tiene que existir en la plantilla del vehículo. Marca y diseño se
+  buscan en el catálogo (se cargan antes); sin marca ni serial la llanta queda
+  **no identificada** (motivo "otro"): no se inventa. La profundidad es la
+  mínima de las tres.
+- **Base** (migración `20261017120000_ordenes_historicas`):
+  `OrdenServicio.historica` y `referenciaAnterior`. El CHECK
+  `orden_cerrada_requiere_firma` exime **solo** a la histórica, y
+  `orden_historica_cerrada` impide que una histórica quede abierta (así la
+  excepción no sirve para cerrar una orden normal). Prueba con el SQL real de
+  la migración (`historicas.test.ts`).
+- **Folio**: `siguienteFolioDe(db, …, prefijo)`; cada serie tiene su contador
+  por sede en `Consecutivo.tipo`. `parsearFolio` acepta prefijos de 2 o 3
+  letras; `esFolioHistorico`.
+- **Quién**: la base exige un técnico de la sede, así que la orden queda a
+  nombre de quien carga (tiene que pertenecer a la sede) y quien hizo el
+  trabajo va en `tecnicoNombre` (TECNICO, o "No registrado").
+- **Llantas**: se procesan **de la más vieja a la más nueva**
+  (`procesarOrden(…, { historica: true })`), y la vida de una llanta nueva
+  empieza en la fecha de la orden. Si el vehículo ya tiene una orden más
+  reciente procesada, la histórica **solo enlaza sus mediciones** (no mueve
+  llantas ni crea movimientos fuera de orden, que descuadrarían los km).
+- Volver a subir el archivo no duplica (misma fecha, vehículo y número).
+- **Se dice en todas partes**: PDF ("ORDEN HISTÓRICA… No tiene firma
+  digital", en vez de "Sin firma"), CSV ("CERRADA (HISTÓRICA, SIN FIRMA)"),
+  descarga y app (migración 20 del celular: aviso en el detalle, insignia en
+  la lista y en el portal del cliente). El detalle ya no muestra "lo que
+  falta para enviar" en una orden cerrada.
+- **Despliegue**: aplicar la migración en Neon antes de subir el servidor.
+
 ### Clave del autenticador: copiar y QR (2026-10-17)
 
 El usuario copió la clave desde una captura y el celular la leyó mal (0 por
@@ -4548,7 +4589,7 @@ identificador **`com.asistectire.app`**, rojo de la marca **como acento**.
 Ingreso con doble factor, cuenta y cierre de sesión ya están en la app.
 Firma, fotos, creación de órdenes, flota, usuarios, sedes, plantillas, informe y visitas recurrentes ya tienen pantalla.
 
-**Verificado:** `npm run verify` con base: raíz 1133/1133, mobile 1075 + recorrido 669.
+**Verificado:** `npm run verify` con base: raíz 1149/1149, mobile 1081 + recorrido 669.
 Flujo completo por la API real sin respuestas inesperadas.
 
 **Entorno local** (no versionado):

@@ -67,6 +67,8 @@ ALTER TABLE "OrdenServicio"
   ADD CONSTRAINT orden_cerrada_requiere_firma
   CHECK (
     estado <> 'cerrada'
+    -- Órdenes anteriores cargadas desde Excel (migración 20261017120000).
+    OR historica
     OR ("firmaNombre" IS NOT NULL AND "firmaCedula" IS NOT NULL)
   );
 

@@ -1,7 +1,9 @@
 import { claveIdentificador } from "../llanta/activo";
 import { leerDOT } from "../llanta/dot";
 import { medidaValida, normalizarMedida } from "../catalogo/ambito";
-import { TIPOS_EJE } from "../tipos";
+import { TIPOS_EJE, TIPOS_SERVICIO } from "../tipos";
+import { BASE_REPUESTO, MAX_REPUESTOS } from "../llanta/repuestos";
+import { fechaEnColombia } from "../tiempo/zona";
 
 /**
  * Carga masiva desde Excel (R12, brecha E).
@@ -19,13 +21,14 @@ import { TIPOS_EJE } from "../tipos";
  *   número interno, la marca por su nombre.
  */
 
-export const TIPOS_CARGA = ["flota", "llantas", "catalogo"] as const;
+export const TIPOS_CARGA = ["flota", "llantas", "catalogo", "ordenes"] as const;
 export type TipoCarga = (typeof TIPOS_CARGA)[number];
 
 export const ETIQUETA_CARGA: Record<TipoCarga, string> = {
   flota: "Clientes y vehículos",
   llantas: "Llantas",
   catalogo: "Catálogo de llantas",
+  ordenes: "Órdenes anteriores",
 };
 
 interface Columna {
@@ -61,6 +64,32 @@ export const PLANTILLAS: Record<TipoCarga, readonly Columna[]> = {
     { nombre: "TIPO EJE", obligatoria: true, ejemplo: "direccional" },
     { nombre: "MEDIDA", obligatoria: true, ejemplo: "295/80R22.5" },
     { nombre: "PROF FABRICA", obligatoria: false, ejemplo: "16" },
+  ],
+  // Órdenes hechas antes de usar la app (2026-10-17): una fila por llanta.
+  // Las filas del mismo vehículo, fecha y número anterior son una orden.
+  ordenes: [
+    { nombre: "NUMERO ANTERIOR", obligatoria: false, ejemplo: "1234" },
+    { nombre: "FECHA", obligatoria: true, ejemplo: "2025-03-14" },
+    { nombre: "SEDE", obligatoria: true, ejemplo: "FUN" },
+    { nombre: "NIT CLIENTE", obligatoria: true, ejemplo: "800.112.334-1" },
+    { nombre: "VEHICULO", obligatoria: true, ejemplo: "CA-12" },
+    { nombre: "TIPO", obligatoria: false, ejemplo: "preventivo" },
+    { nombre: "KM", obligatoria: false, ejemplo: "65400" },
+    { nombre: "TECNICO", obligatoria: false, ejemplo: "Carlos Méndez" },
+    { nombre: "HALLAZGOS", obligatoria: false, ejemplo: "Desgaste irregular en el eje 2" },
+    { nombre: "POSICION", obligatoria: true, ejemplo: "1" },
+    { nombre: "MARCA", obligatoria: false, ejemplo: "Michelin" },
+    { nombre: "DISEÑO", obligatoria: false, ejemplo: "XZE" },
+    { nombre: "MEDIDA", obligatoria: false, ejemplo: "295/80R22.5" },
+    { nombre: "SERIAL", obligatoria: false, ejemplo: "MX10023458" },
+    { nombre: "DOT", obligatoria: false, ejemplo: "3624" },
+    { nombre: "CALOR", obligatoria: false, ejemplo: "H2201" },
+    { nombre: "PROF EXT", obligatoria: false, ejemplo: "12,5" },
+    { nombre: "PROF CEN", obligatoria: false, ejemplo: "12" },
+    { nombre: "PROF INT", obligatoria: false, ejemplo: "11,5" },
+    { nombre: "PSI ENCONTRADA", obligatoria: false, ejemplo: "100" },
+    { nombre: "PSI CALIBRADA", obligatoria: false, ejemplo: "110" },
+    { nombre: "OBSERVACIONES", obligatoria: false, ejemplo: "" },
   ],
 };
 
@@ -142,7 +171,11 @@ const numero = (v: string) => {
 };
 
 /** Las columnas que faltan y las filas imposibles, todas juntas. */
-export function validarCarga(tipo: TipoCarga, csv: { columnas: string[]; filas: Record<string, string>[] }): Validacion {
+export function validarCarga(
+  tipo: TipoCarga,
+  csv: { columnas: string[]; filas: Record<string, string>[] },
+  hoy: string = fechaEnColombia(),
+): Validacion {
   const errores: ErrorFila[] = [];
   const faltan = PLANTILLAS[tipo].filter((c) => c.obligatoria && !csv.columnas.includes(normalizarColumna(c.nombre)));
   if (faltan.length > 0) {
@@ -177,6 +210,7 @@ export function validarCarga(tipo: TipoCarga, csv: { columnas: string[]; filas: 
       if (id && vistos.has(clave)) errores.push({ fila: n, mensaje: "Llanta repetida en el archivo" });
       vistos.add(clave);
     }
+    if (tipo === "ordenes") validarFilaOrden(v, n, hoy, errores, vistos);
     if (tipo === "catalogo") {
       if (v("TIPO EJE") && !TIPOS_EJE.includes(v("TIPO EJE").toLowerCase() as never)) {
         errores.push({ fila: n, mensaje: `TIPO EJE debe ser ${TIPOS_EJE.join(", ")}` });
@@ -187,6 +221,79 @@ export function validarCarga(tipo: TipoCarga, csv: { columnas: string[]; filas: 
     }
   });
   return { filas: csv.filas.length, errores };
+}
+
+// ── Órdenes anteriores ─────────────────────────────────────────────────────
+
+/** "2025-03-14" o "14/03/2025" → "2025-03-14". Fecha imposible: null. */
+export function fechaDeCarga(v: string): string | null {
+  const t = v.trim();
+  const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(t);
+  const dma = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(t);
+  const [a, m, d] = iso ? [iso[1], iso[2], iso[3]] : dma ? [dma[3], dma[2], dma[1]] : [];
+  if (!a || !m || !d) return null;
+  const f = new Date(Date.UTC(Number(a), Number(m) - 1, Number(d)));
+  if (f.getUTCFullYear() !== Number(a) || f.getUTCMonth() !== Number(m) - 1 || f.getUTCDate() !== Number(d)) return null;
+  return f.toISOString().slice(0, 10);
+}
+
+/** "3" → 3; "R1" → 101 (el repuesto 1). Lo que no es una posición: null. */
+export function posicionDeCarga(v: string): number | null {
+  const t = v.trim().toUpperCase();
+  const r = /^R(\d{1,2})$/.exec(t);
+  if (r) {
+    const n = Number(r[1]);
+    return n >= 1 && n <= MAX_REPUESTOS ? BASE_REPUESTO + n : null;
+  }
+  if (!/^\d{1,2}$/.test(t)) return null;
+  const n = Number(t);
+  return n >= 1 && n <= 60 ? n : null;
+}
+
+/** Las filas del mismo vehículo, fecha y número anterior son una sola orden. */
+export function claveOrdenHistorica(v: (c: string) => string): string {
+  return [
+    v("SEDE").toUpperCase(),
+    v("NIT CLIENTE").replace(/\D/g, ""),
+    v("VEHICULO").toUpperCase().replace(/[\s-]/g, ""),
+    fechaDeCarga(v("FECHA")) ?? v("FECHA"),
+    v("NUMERO ANTERIOR").trim().toUpperCase(),
+  ].join("|");
+}
+
+function validarFilaOrden(
+  v: (c: string) => string,
+  n: number,
+  hoy: string,
+  errores: ErrorFila[],
+  vistos: Set<string>,
+): void {
+  const fecha = fechaDeCarga(v("FECHA"));
+  if (v("FECHA") && !fecha) errores.push({ fila: n, mensaje: "FECHA inválida: AAAA-MM-DD o DD/MM/AAAA" });
+  if (fecha && fecha > hoy) errores.push({ fila: n, mensaje: "FECHA en el futuro: aquí van órdenes ya hechas" });
+  const posicion = posicionDeCarga(v("POSICION"));
+  if (v("POSICION") && posicion === null) errores.push({ fila: n, mensaje: "POSICION inválida: un número (1, 2…) o R1 para el repuesto 1" });
+  if (v("TIPO") && !(TIPOS_SERVICIO as readonly string[]).includes(v("TIPO").toLowerCase())) {
+    errores.push({ fila: n, mensaje: `TIPO debe ser ${TIPOS_SERVICIO.join(", ")}` });
+  }
+  const km = numero(v("KM"));
+  if (km !== null && (!Number.isFinite(km) || km < 0)) errores.push({ fila: n, mensaje: "KM no es un número" });
+  if (v("DOT") && !leerDOT(v("DOT"))) errores.push({ fila: n, mensaje: "DOT inválido: son 4 dígitos, semana y año" });
+  if (v("MEDIDA") && !medidaValida(normalizarMedida(v("MEDIDA")))) errores.push({ fila: n, mensaje: "Medida inválida (ej. 295/80R22.5)" });
+  if ((v("DISEÑO") || v("MEDIDA")) && !v("MARCA")) errores.push({ fila: n, mensaje: "Hay diseño o medida sin MARCA" });
+  for (const c of ["PROF EXT", "PROF CEN", "PROF INT"]) {
+    const p = numero(v(c));
+    if (p !== null && (!Number.isFinite(p) || p < 0 || p > 60)) errores.push({ fila: n, mensaje: `${c} debe estar entre 0 y 60 mm` });
+  }
+  for (const c of ["PSI ENCONTRADA", "PSI CALIBRADA"]) {
+    const p = numero(v(c));
+    if (p !== null && (!Number.isFinite(p) || p < 0 || p > 250)) errores.push({ fila: n, mensaje: `${c} debe estar entre 0 y 250` });
+  }
+  if (posicion !== null) {
+    const clave = `${claveOrdenHistorica(v)}|${posicion}`;
+    if (vistos.has(clave)) errores.push({ fila: n, mensaje: `Posición ${v("POSICION")} repetida en la misma orden` });
+    vistos.add(clave);
+  }
 }
 
 /** Número del archivo a número: acepta "1.850.000" y "16,5". */

@@ -91,3 +91,13 @@ describe("documento de la orden", () => {
     expect(nombreArchivoOrden({ ...base, orden: { ...base.orden, folio: null, codigoReferencia: "FUN-K7M2" } })).toBe("FUN-K7M2.pdf");
   });
 });
+
+describe("orden histórica (cargada desde Excel)", () => {
+  it("lo dice con su número anterior y no aparenta firma; tampoco grita 'sin firma' como si fuera un descuido", () => {
+    const doc = armarDocumentoOrden({ ...base, firma: null, orden: { ...base.orden, estado: "cerrada", historica: true, referenciaAnterior: "1234" } });
+    const avisos = doc.avisos.join(" ");
+    expect(avisos).toMatch(/ORDEN HISTÓRICA: cargada desde un registro anterior al sistema \(número 1234\)\. No tiene firma digital\./);
+    expect(avisos).not.toMatch(/Sin firma de quien recibió/);
+    expect(doc.firma).toBeNull();
+  });
+});

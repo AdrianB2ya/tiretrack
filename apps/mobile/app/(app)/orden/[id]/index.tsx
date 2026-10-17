@@ -136,6 +136,15 @@ export default function PantallaDetalle() {
         ) : null;
       })()}
 
+      {/* Orden anterior al sistema, cargada desde Excel: se dice antes que
+          nada, y que no tiene firma digital (no es un descuido). */}
+      {orden.historica ? (
+        <Aviso
+          tono="info"
+          titulo="Orden histórica"
+          detalle={`Cargada desde un registro anterior al sistema${orden.referenciaAnterior ? ` (número ${orden.referenciaAnterior})` : ""}. No tiene firma digital.`}
+        />
+      ) : null}
       {orden.motivoDevolucion ? (
         <Aviso tono="peligro" titulo="Devuelta para corregir" detalle={orden.motivoDevolucion} />
       ) : null}
@@ -199,7 +208,7 @@ export default function PantallaDetalle() {
           {orden.firmaNombre ? <Text style={estilos.cliente}>Recibió: {orden.firmaNombre}</Text> : null}
         </View>
       ) : null}
-      {!esCliente ? (
+      {!esCliente && abierta ? (
       <>
       {/* Antes este botón no hacía nada: onPress={() => undefined}. */}
       <Boton

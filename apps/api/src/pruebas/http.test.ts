@@ -1268,6 +1268,112 @@ describe.skipIf(!disponible)("servidor HTTP", () => {
       expect(cat.json().creados).toEqual({ marcas: 1, disenos: 1, medidas: 1 });
     });
 
+    describe("órdenes anteriores (2026-10-17)", () => {
+      const ENCABEZADO = "NUMERO ANTERIOR;FECHA;SEDE;NIT CLIENTE;VEHICULO;KM;TECNICO;POSICION;MARCA;DISEÑO;MEDIDA;SERIAL;DOT;PROF EXT;PROF CEN;PROF INT;PSI ENCONTRADA";
+      const csv = (...filas: string[]) => [ENCABEZADO, ...filas].join("\n");
+      const unaOrden = csv(
+        "1234;14/03/2025;FUN;800.123.456-7;sxk 482;65.400;Pedro Ruiz;1;Michelin;XDN-2;295/80r22.5;HX-1;3624;12,5;12;11,5;100",
+        "1234;14/03/2025;FUN;800.123.456-7;sxk 482;65.400;Pedro Ruiz;2;;;;;;9;;;",
+      );
+      // El coordinador de la semilla no está en ninguna sede.
+      const enSede = () => pool.query(`INSERT INTO "UsuarioSede" ("usuarioId","sedeId") VALUES ($1,$2) ON CONFLICT DO NOTHING`, [SEMILLA.coordinador, SEMILLA.sede]);
+
+      it("entra cerrada, histórica, con folio HIS y su número anterior; arma la llanta desde esa fecha", async () => {
+        await enSede();
+        const r = await cargar("ordenes", unaOrden);
+        expect(r.statusCode, r.body).toBe(200);
+        expect(r.json().creados).toEqual({ ordenes: 1, mediciones: 2 });
+        const o = (await pool.query(
+          `SELECT id, folio, estado, historica, "referenciaAnterior", to_char(fecha,'YYYY-MM-DD') AS fecha, kilometraje,
+                  "tecnicoNombre", "vehiculoCodigo", "firmaNombre", tecnico_id
+             FROM "OrdenServicio" WHERE historica`,
+        )).rows[0];
+        expect(o).toMatchObject({
+          folio: "HIS-FUN-000001", estado: "cerrada", historica: true, referenciaAnterior: "1234", fecha: "2025-03-14",
+          kilometraje: 65400, tecnicoNombre: "Pedro Ruiz", vehiculoCodigo: "CA-12", firmaNombre: null, tecnico_id: SEMILLA.coordinador,
+        });
+        const meds = (await pool.query(
+          `SELECT posicion, serial, profundidad::float AS p, "noIdentificada", "motivoNoIdentificada" FROM "LlantaRegistro" WHERE "ordenId" = $1 ORDER BY posicion`,
+          [o.id],
+        )).rows;
+        // La mínima de las tres; sin marca ni serial, no identificada (no se inventa).
+        expect(meds).toEqual([
+          { posicion: 1, serial: "HX-1", p: 11.5, noIdentificada: false, motivoNoIdentificada: null },
+          { posicion: 2, serial: null, p: 9, noIdentificada: true, motivoNoIdentificada: "otro" },
+        ]);
+        const llanta = (await pool.query(
+          `SELECT l.estado, l.posicion, to_char(v.inicio,'YYYY-MM-DD') AS inicio
+             FROM "Llanta" l JOIN "LlantaVida" v ON v."llantaId" = l.id WHERE l.serial = 'HX1'`,
+        )).rows[0];
+        expect(llanta).toEqual({ estado: "montada", posicion: 1, inicio: "2025-03-14" });
+        // El consecutivo real no se tocó.
+        const os = await pool.query(`SELECT valor FROM "Consecutivo" WHERE tipo = 'OS'`);
+        expect(os.rows).toEqual([]);
+        // El cliente la recibe en su portal, marcada.
+        const d = await app.inject({ method: "GET", url: `${PREFIJO_API}/sincronizacion`, headers: { authorization: "Bearer tok-cliente" } });
+        expect(d.statusCode, d.body).toBe(200);
+        expect(d.json().ordenes.find((x: { id: string }) => x.id === o.id)).toMatchObject({ historica: true, referenciaAnterior: "1234" });
+      });
+
+      it("volver a subir el mismo archivo no duplica", async () => {
+        await enSede();
+        expect((await cargar("ordenes", unaOrden)).statusCode).toBe(200);
+        const otra = await cargar("ordenes", unaOrden);
+        expect(otra.json()).toMatchObject({ creados: { ordenes: 0, mediciones: 0 }, existentes: 1 });
+        expect((await pool.query(`SELECT count(*)::int AS n FROM "OrdenServicio" WHERE historica`)).rows[0].n).toBe(1);
+      });
+
+      it("se procesan de la más vieja a la más nueva, aunque el archivo venga desordenado", async () => {
+        await enSede();
+        const r = await cargar("ordenes", csv(
+          "B;2025-06-01;FUN;800.123.456-7;CA-12;70000;;1;Michelin;;;HX-2;;8;;;",
+          "A;2025-01-10;FUN;800.123.456-7;CA-12;60000;;1;Michelin;;;HX-1;;14;;;",
+        ));
+        expect(r.statusCode, r.body).toBe(200);
+        // La de junio deja montada a HX-2 y saca a HX-1 de la posición 1.
+        const est = (await pool.query(`SELECT serial, estado, posicion FROM "Llanta" ORDER BY serial`)).rows;
+        expect(est).toEqual([
+          // En la ficha el serial va normalizado (sin guiones), como siempre.
+          { serial: "HX1", estado: "bodega", posicion: null },
+          { serial: "HX2", estado: "montada", posicion: 1 },
+        ]);
+        const folios = (await pool.query(`SELECT folio, "referenciaAnterior" AS ref FROM "OrdenServicio" WHERE historica ORDER BY fecha`)).rows;
+        expect(folios).toEqual([{ folio: "HIS-FUN-000001", ref: "A" }, { folio: "HIS-FUN-000002", ref: "B" }]);
+      });
+
+      it("una orden vieja no mueve las llantas de un vehículo que ya tiene una más reciente procesada", async () => {
+        await enSede();
+        expect((await cargar("ordenes", csv("B;2025-06-01;FUN;800.123.456-7;CA-12;;;1;Michelin;;;HX-2;;8;;;"))).statusCode).toBe(200);
+        const r = await cargar("ordenes", csv("A;2025-01-10;FUN;800.123.456-7;CA-12;;;1;Michelin;;;HX-2;;14;;;"));
+        expect(r.statusCode, r.body).toBe(200);
+        const est = (await pool.query(`SELECT serial, estado, posicion FROM "Llanta"`)).rows;
+        expect(est).toEqual([{ serial: "HX2", estado: "montada", posicion: 1 }]);
+        // Su medición sí queda enlazada a la llanta (aparece en su ficha).
+        const enlazadas = await pool.query(`SELECT count(*)::int AS n FROM "LlantaRegistro" WHERE "llantaId" IS NOT NULL`);
+        expect(enlazadas.rows[0].n).toBe(2);
+      });
+
+      it("con un vehículo o una posición que no existen no se carga nada, y se dice la fila", async () => {
+        await enSede();
+        const r = await cargar("ordenes", csv(
+          "1;2025-03-14;FUN;800.123.456-7;CA-12;;;9;;;;;;;;;",
+          "2;2025-03-14;FUN;800.123.456-7;ZZZ-1;;;1;;;;;;;;;",
+        ));
+        expect(r.statusCode).toBe(422);
+        expect(r.json().errores).toEqual([
+          { fila: 2, mensaje: "El vehículo CA-12 no tiene la posición 9" },
+          { fila: 3, mensaje: 'Transportes Reyna no tiene un vehículo "ZZZ-1" (código o placa)' },
+        ]);
+        expect((await pool.query(`SELECT count(*)::int AS n FROM "OrdenServicio" WHERE historica`)).rows[0].n).toBe(0);
+      });
+
+      it("quien carga tiene que pertenecer a la sede (la orden queda a su nombre)", async () => {
+        const r = await cargar("ordenes", unaOrden);
+        expect(r.statusCode).toBe(422);
+        expect(r.json().errores[0].mensaje).toBe("Para cargar órdenes de la sede FUN tienes que pertenecer a ella (Usuarios → tus sedes)");
+      });
+    });
+
     it("el técnico no hace cargas masivas", async () => {
       const r = await cargar("catalogo", "MARCA;DISEÑO;TIPO EJE;MEDIDA\nX;Y;traccion;11R22.5\n", "tok-tecnico");
       expect(r.statusCode).toBe(422);

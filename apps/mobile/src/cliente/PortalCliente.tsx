@@ -94,7 +94,11 @@ export function PortalCliente({
       {cerradas.length === 0 ? <Vacio mensaje="Todavía no hay servicios cerrados. Aquí quedan los que apruebes." /> : null}
       {cerradas.map((o) => (
         <Tarjeta key={o.orden.id} onPress={() => onAbrir(o.orden.id)}>
-          <Text style={estilos.folio}>{o.orden.folio ?? o.orden.codigoReferencia}</Text>
+          <View style={estilos.fila}>
+            <Text style={estilos.folio}>{o.orden.folio ?? o.orden.codigoReferencia}</Text>
+            {/* Anterior al sistema: sin firma digital, y se dice. */}
+            {o.orden.historica ? <Insignia color={colores.textoTenue} compacta>Histórica</Insignia> : null}
+          </View>
           <Text style={estilos.vehiculo}>
             {o.vehiculoCodigo}
             {o.vehiculoPlaca ? ` · ${o.vehiculoPlaca}` : ""}

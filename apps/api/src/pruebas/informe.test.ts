@@ -56,6 +56,7 @@ describe.skipIf(!disponible)("informe", () => {
         "vehiculoId" text,
         folio text, "codigoReferencia" text,
         estado "EstadoOrden" NOT NULL DEFAULT 'cerrada',
+        historica boolean NOT NULL DEFAULT false,
         fecha date NOT NULL,
         kilometraje integer,
         "vehiculoCodigo" text, "vehiculoPlaca" text,

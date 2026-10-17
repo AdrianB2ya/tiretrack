@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { PantallaCarga, type FuentesCarga } from "../carga/PantallaCarga";
+import { elegirOpcion } from "./listas";
 
 /** Carga masiva desde Excel (R12) en el teléfono. */
 
@@ -53,7 +54,7 @@ describe("carga masiva", () => {
   it("baja la plantilla del tipo elegido", async () => {
     const f = fuentes();
     render(<PantallaCarga fuentes={f} />);
-    await act(async () => { fireEvent.click(screen.getByTestId("carga-catalogo")); });
+    await elegirOpcion({ testID: "carga-catalogo" });
     await act(async () => { fireEvent.click(screen.getByTestId("bajar-plantilla")); });
     expect(f.compartirPlantilla).toHaveBeenCalledWith("plantilla-catalogo.csv", expect.stringContaining("MARCA;DISEÑO;TIPO EJE"));
   });

@@ -58,6 +58,9 @@ export interface DatosDocumentoOrden {
     accion: string | null;
     cierreTacito: boolean;
     versionContenido: number;
+    /** Orden anterior al sistema, cargada desde Excel (2026-10-17). Opcional: un llamador anterior no la manda. */
+    historica?: boolean;
+    referenciaAnterior?: string | null;
   };
   readonly cliente: { nombre: string; nit: string | null; sede: string | null };
   readonly vehiculo: { codigo: string; placa: string | null };
@@ -117,7 +120,12 @@ export function armarDocumentoOrden(d: DatosDocumentoOrden): Documento {
   if (d.firma && d.firma.version !== null && d.firma.version !== o.versionContenido) {
     avisos.push("La firma no ampara el contenido actual: la orden cambió después de firmarse.");
   }
-  if (!d.firma && o.estado !== "anulada") avisos.push("Sin firma de quien recibió el servicio.");
+  if (o.historica) {
+    // Lo dice con todas las letras: una orden histórica nunca aparenta firma.
+    avisos.push(
+      `ORDEN HISTÓRICA: cargada desde un registro anterior al sistema${o.referenciaAnterior ? ` (número ${o.referenciaAnterior})` : ""}. No tiene firma digital.`,
+    );
+  } else if (!d.firma && o.estado !== "anulada") avisos.push("Sin firma de quien recibió el servicio.");
 
   const identificador = o.folio ?? (o.codigoReferencia ? `Referencia ${o.codigoReferencia}` : "Sin folio");
 

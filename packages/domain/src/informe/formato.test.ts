@@ -255,3 +255,11 @@ describe("trazabilidad de una llanta", () => {
     expect(d?.servicios).toBe(3);
   });
 });
+
+describe("orden histórica en el archivo", () => {
+  it("el estado dice que es histórica y sin firma, para que nadie la tome por una aprobada", () => {
+    const estado = encabezados().indexOf("ESTADO ORDEN");
+    expect(aCeldas({ ...fila, historica: true })[estado]).toBe("CERRADA (HISTÓRICA, SIN FIRMA)");
+    expect(aCeldas(fila)[estado]).toBe("CERRADA");
+  });
+});

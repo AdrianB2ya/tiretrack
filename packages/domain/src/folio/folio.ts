@@ -16,6 +16,12 @@
  */
 
 export const PREFIJO_ORDEN = "OS";
+/**
+ * Órdenes anteriores al sistema, cargadas desde Excel (2026-10-17): serie
+ * aparte, HIS-FUN-000001, para no mezclarse con el consecutivo real ni dejar
+ * números nuevos con fechas viejas.
+ */
+export const PREFIJO_HISTORICA = "HIS";
 export const DIGITOS_CONSECUTIVO = 6;
 
 export interface FolioPartes {
@@ -24,17 +30,17 @@ export interface FolioPartes {
   readonly consecutivo: number;
 }
 
-export function formatearFolio(codigoSede: string, consecutivo: number): string {
+export function formatearFolio(codigoSede: string, consecutivo: number, prefijo: string = PREFIJO_ORDEN): string {
   if (!codigoSede.trim()) throw new Error("El folio necesita el código de la sede");
   if (!Number.isInteger(consecutivo) || consecutivo < 1) {
     throw new Error("El consecutivo debe ser un entero positivo");
   }
   const numero = String(consecutivo).padStart(DIGITOS_CONSECUTIVO, "0");
-  return `${PREFIJO_ORDEN}-${codigoSede.toUpperCase()}-${numero}`;
+  return `${prefijo}-${codigoSede.toUpperCase()}-${numero}`;
 }
 
 export function parsearFolio(folio: string): FolioPartes | null {
-  const m = /^([A-Z]{2})-([A-Z0-9]{2,6})-(\d{4,})$/.exec(folio.trim().toUpperCase());
+  const m = /^([A-Z]{2,3})-([A-Z0-9]{2,6})-(\d{4,})$/.exec(folio.trim().toUpperCase());
   if (!m) return null;
   const [, prefijo, codigoSede, numero] = m;
   return {
@@ -42,6 +48,11 @@ export function parsearFolio(folio: string): FolioPartes | null {
     codigoSede: codigoSede ?? "",
     consecutivo: Number.parseInt(numero ?? "0", 10),
   };
+}
+
+/** HIS-FUN-000001: orden anterior al sistema, cargada desde Excel. */
+export function esFolioHistorico(folio: string | null | undefined): boolean {
+  return !!folio && parsearFolio(folio)?.prefijo === PREFIJO_HISTORICA;
 }
 
 export function esFolioValido(folio: string): boolean {

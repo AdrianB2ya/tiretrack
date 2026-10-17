@@ -107,6 +107,9 @@ export interface OrdenDescargada {
    * —pesa y el celular que firmó ya lo tiene—; el resumen sí.
    */
   readonly codigoReferencia: string | null;
+  /** Orden anterior al sistema, cargada desde Excel (2026-10-17). */
+  readonly historica: boolean;
+  readonly referenciaAnterior: string | null;
   readonly accion: string | null;
   readonly firmaNombre: string | null;
   readonly firmaCedula: string | null;
@@ -289,7 +292,7 @@ export class ServicioDescarga {
               o.tecnico_id, o."configuracionEjeId", o.folio, o.tipo, o.estado,
               o.fecha, o.kilometraje, o.hallazgos, o."motivoDevolucion",
               o."notaCoordinador", o.version, o."versionContenido",
-              o."codigoReferencia", o.accion, o."firmaNombre", o."firmaCedula", o."firmaCargo",
+              o."codigoReferencia", o.historica, o."referenciaAnterior", o.accion, o."firmaNombre", o."firmaCedula", o."firmaCargo",
               o."firmaVersion", o."firmaFechaHora",
               to_char(o."limiteCliente", 'YYYY-MM-DD') AS "limiteCliente",
               -- El servidor no guarda cuándo entró a revisión: sale del historial.
@@ -326,6 +329,8 @@ export class ServicioDescarga {
       version: Number(f["version"]),
       versionContenido: Number(f["versionContenido"]),
       codigoReferencia: (f["codigoReferencia"] as string) ?? null,
+      historica: Boolean(f["historica"]),
+      referenciaAnterior: (f["referenciaAnterior"] as string) ?? null,
       accion: (f["accion"] as string) ?? null,
       firmaNombre: (f["firmaNombre"] as string) ?? null,
       firmaCedula: (f["firmaCedula"] as string) ?? null,

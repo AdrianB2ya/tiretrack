@@ -107,6 +107,11 @@ export function TarjetaOrden({
 
         <View style={{ flex: 1 }} />
         {/* La inspección se distingue de reojo: no se va a intervenir (R4). */}
+        {orden.historica ? (
+          <Insignia color={colores.textoTenue} compacta>
+            Histórica
+          </Insignia>
+        ) : null}
         {/* Gris: el azul ya es "Programada" y las dos juntas se confundían. */}
         {orden.tipo === "levantamiento" ? (
           <Insignia color={colores.textoTenue} compacta>

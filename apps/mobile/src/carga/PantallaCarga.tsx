@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text } from "react-native";
 import {
   ETIQUETA_CARGA,
   PLANTILLAS,
@@ -10,7 +10,8 @@ import {
   type ErrorFila,
   type TipoCarga,
 } from "@tiretrack/domain";
-import { Aviso, Boton, Opcion, Tarjeta } from "../diseno/componentes";
+import { Aviso, Boton, Tarjeta } from "../diseno/componentes";
+import { ElegirUno } from "../diseno/ListaBuscable";
 import { colores, espacio, texto } from "../diseno/tokens";
 import type { ArchivoElegido } from "./elegirArchivo";
 
@@ -42,6 +43,7 @@ export interface FuentesCarga {
 const NOMBRE_CREADO: Record<string, string> = {
   clientes: "clientes", sedes: "sedes", vehiculos: "vehículos", llantas: "llantas",
   marcas: "marcas", disenos: "diseños", medidas: "medidas",
+  ordenes: "órdenes anteriores", mediciones: "mediciones",
 };
 
 export function PantallaCarga({ fuentes }: { fuentes: FuentesCarga }) {
@@ -100,21 +102,27 @@ export function PantallaCarga({ fuentes }: { fuentes: FuentesCarga }) {
         Llena la plantilla en Excel, guárdala como CSV y elígela aquí. Antes de cargar se revisa fila por fila; si
         una fila está mal no se carga nada, y lo que ya existe no se duplica.
       </Text>
-      <Text style={estilos.etiqueta}>Qué vas a cargar</Text>
-      <View style={estilos.fila}>
-        {TIPOS_CARGA.map((t) => (
-          <Opcion
-            key={t}
-            etiqueta={ETIQUETA_CARGA[t]}
-            activa={tipo === t}
-            testID={`carga-${t}`}
-            onPress={() => {
-              setTipo(t);
-              if (archivo) revisar(t, archivo.texto);
-            }}
-          />
-        ))}
-      </View>
+      {/* Cuatro tipos: desplegable, como toda lista de más de tres. */}
+      <ElegirUno
+        enLinea
+        etiqueta="Qué vas a cargar"
+        testID="tipo-carga"
+        opciones={TIPOS_CARGA.map((t) => ({ id: t, texto: ETIQUETA_CARGA[t], testID: `carga-${t}` }))}
+        seleccionado={tipo}
+        onElegir={(id) => {
+          const t = id as TipoCarga;
+          setTipo(t);
+          if (archivo) revisar(t, archivo.texto);
+        }}
+      />
+      {tipo === "ordenes" ? (
+        // Lo que pasa con cada orden, antes de cargar: decisiones del usuario (2026-10-17).
+        <Aviso
+          tono="info"
+          titulo="Cómo quedan las órdenes anteriores"
+          detalle={"Una fila por llanta; las del mismo vehículo, fecha y número anterior son una orden. Entran cerradas y marcadas «Histórica», sin firma digital, con folio HIS-sede-000001 y su número anterior para buscarlas. Arman la historia de cada llanta, los km y los indicadores. Primero carga los vehículos y el catálogo de llantas."}
+        />
+      ) : null}
       <Text style={estilos.detalle}>
         Columnas: {PLANTILLAS[tipo].map((c) => (c.obligatoria ? c.nombre : `${c.nombre} (opcional)`)).join(", ")}.
       </Text>

@@ -1,5 +1,5 @@
 import type pg from "pg";
-import { repuestosTrasInspeccion, type EstadoOrden } from "@tiretrack/domain";
+import { formatearFolio, PREFIJO_ORDEN, repuestosTrasInspeccion, type EstadoOrden } from "@tiretrack/domain";
 
 /**
  * Acceso a datos de órdenes de servicio.
@@ -147,30 +147,7 @@ export class RepositorioOrdenesPg implements RepositorioOrdenes {
    * número y generarían el mismo folio. Es el error que traía el prototipo.
    */
   async siguienteFolio(empresaId: string, sedeId: string, codigoSede: string): Promise<string> {
-    const r = await this.db.query<{ valor: number }>(
-      `UPDATE "Consecutivo"
-          SET valor = valor + 1
-        WHERE "empresaId" = $1 AND "sedeId" = $2 AND tipo = 'OS'
-      RETURNING valor`,
-      [empresaId, sedeId],
-    );
-
-    if (r.rowCount === 0) {
-      // Primera orden de esta sede: se crea el contador en 1. Si dos
-      // peticiones llegan a la vez, la restricción única hace fallar a una
-      // y el ON CONFLICT la resuelve incrementando.
-      const creado = await this.db.query<{ valor: number }>(
-        `INSERT INTO "Consecutivo" (id, "empresaId", "sedeId", tipo, prefijo, valor)
-         VALUES (gen_random_uuid()::text, $1, $2, 'OS', 'OS', 1)
-         ON CONFLICT ("empresaId", "sedeId", tipo)
-         DO UPDATE SET valor = "Consecutivo".valor + 1
-         RETURNING valor`,
-        [empresaId, sedeId],
-      );
-      return formatear(codigoSede, creado.rows[0]?.valor ?? 1);
-    }
-
-    return formatear(codigoSede, r.rows[0]?.valor ?? 1);
+    return siguienteFolioDe(this.db, empresaId, sedeId, codigoSede);
   }
 
   async crear(o: Omit<Orden, "version" | "versionContenido" | "estado" | "bloqueadaPorId" | "bloqueadaEn"> & { estado: EstadoOrden }): Promise<Orden> {
@@ -400,6 +377,36 @@ export class RepositorioOrdenesPg implements RepositorioOrdenes {
   }
 }
 
-function formatear(codigoSede: string, consecutivo: number): string {
-  return `OS-${codigoSede.toUpperCase()}-${String(consecutivo).padStart(6, "0")}`;
+/**
+ * Siguiente folio de una serie, atómico (ver arriba). Cada serie tiene su
+ * contador por sede: OS para las órdenes, HIS para las anteriores cargadas
+ * desde Excel. Así las históricas no consumen números del consecutivo real.
+ */
+export async function siguienteFolioDe(
+  db: { query<T>(sql: string, params?: unknown[]): Promise<{ rows: T[]; rowCount?: number | null }> },
+  empresaId: string,
+  sedeId: string,
+  codigoSede: string,
+  prefijo: string = PREFIJO_ORDEN,
+): Promise<string> {
+  const r = await db.query<{ valor: number }>(
+    `UPDATE "Consecutivo"
+        SET valor = valor + 1
+      WHERE "empresaId" = $1 AND "sedeId" = $2 AND tipo = $3
+    RETURNING valor`,
+    [empresaId, sedeId, prefijo],
+  );
+  if (r.rows.length > 0) return formatearFolio(codigoSede, r.rows[0]?.valor ?? 1, prefijo);
+  // Primera orden de esta serie en la sede: se crea el contador en 1. Si dos
+  // peticiones llegan a la vez, la restricción única hace fallar a una y el
+  // ON CONFLICT la resuelve incrementando.
+  const creado = await db.query<{ valor: number }>(
+    `INSERT INTO "Consecutivo" (id, "empresaId", "sedeId", tipo, prefijo, valor)
+     VALUES (gen_random_uuid()::text, $1, $2, $3, $3, 1)
+     ON CONFLICT ("empresaId", "sedeId", tipo)
+     DO UPDATE SET valor = "Consecutivo".valor + 1
+     RETURNING valor`,
+    [empresaId, sedeId, prefijo],
+  );
+  return formatearFolio(codigoSede, creado.rows[0]?.valor ?? 1, prefijo);
 }

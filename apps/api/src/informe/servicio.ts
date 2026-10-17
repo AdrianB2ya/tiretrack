@@ -187,7 +187,7 @@ export class ServicioInforme {
          to_char(o.fecha,'YYYY-MM-DD') AS fecha,
          coalesce(o."vehiculoCodigo", v.codigo) AS "vehiculoCodigo",
          coalesce(o."vehiculoPlaca", v.placa)   AS "vehiculoPlaca",
-         o.folio, o."codigoReferencia", o.estado::text AS estado, o.kilometraje,
+         o.folio, o."codigoReferencia", o.estado::text AS estado, o.historica, o.kilometraje,
          lr.posicion,
          coalesce(
            -- Códigos, no nombres: el informe los traduce a columnas con el

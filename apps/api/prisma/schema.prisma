@@ -551,6 +551,11 @@ model OrdenServicio {
   folio String?
   /// Referencia temporal de las imprevistas: FUN-K7M2
   codigoReferencia String?
+  /// Orden anterior al sistema, cargada desde Excel: cerrada y sin firma
+  /// digital (CHECK orden_cerrada_requiere_firma la exime solo a ella).
+  historica          Boolean @default(false)
+  /// Número que tenía en el papel o en el sistema anterior.
+  referenciaAnterior String?
 
   tipo      TipoServicio
   prioridad Prioridad    @default(normal)

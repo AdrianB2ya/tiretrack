@@ -519,6 +519,15 @@ export const MIGRACIONES: readonly Migracion[] = [
       ALTER TABLE vehiculo ADD COLUMN repuestos INTEGER NOT NULL DEFAULT 0;
     `,
   },
+  {
+    version: 20,
+    nombre: "ordenes historicas",
+    sql: `
+      -- Órdenes anteriores al sistema, cargadas desde Excel: la app lo dice.
+      ALTER TABLE orden ADD COLUMN historica INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE orden ADD COLUMN referencia_anterior TEXT;
+    `,
+  },
 ];
 
 export const VERSION_ESQUEMA = MIGRACIONES[MIGRACIONES.length - 1]?.version ?? 0;

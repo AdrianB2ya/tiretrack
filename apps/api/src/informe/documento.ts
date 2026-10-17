@@ -54,7 +54,7 @@ export class ServicioDocumento {
   async datos(ctx: Contexto, ordenId: string): Promise<DatosDocumentoOrden | null> {
     const r = await this.db.query<Record<string, unknown>>(
       `SELECT o.folio, o."codigoReferencia", to_char(o.fecha,'YYYY-MM-DD') AS fecha, o.estado::text AS estado,
-              o.tipo::text AS tipo, o.kilometraje, o.hallazgos, o.accion, o."cierreTacito", o."versionContenido",
+              o.tipo::text AS tipo, o.kilometraje, o.hallazgos, o.accion, o."cierreTacito", o."versionContenido", o.historica, o."referenciaAnterior",
               o."firmaNombre", o."firmaCedula", o."firmaCargo", o."firmaVersion", o."firmaTrazo",
               to_char(o."firmaFechaHora" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Bogota', 'YYYY-MM-DD HH24:MI') AS "firmaFechaHora",
               -- Los datos congelados al aprobar mandan sobre los vivos: un
@@ -103,7 +103,7 @@ export class ServicioDocumento {
       orden: {
         folio: t(o["folio"]), codigoReferencia: t(o["codigoReferencia"]), fecha: String(o["fecha"]),
         estado: String(o["estado"]), tipo: String(o["tipo"]), kilometraje: n(o["kilometraje"]),
-        hallazgos: t(o["hallazgos"]), accion: t(o["accion"]), cierreTacito: Boolean(o["cierreTacito"]),
+        hallazgos: t(o["hallazgos"]), accion: t(o["accion"]), cierreTacito: Boolean(o["cierreTacito"]), historica: Boolean(o["historica"]), referenciaAnterior: t(o["referenciaAnterior"]),
         versionContenido: Number(o["versionContenido"] ?? 0),
       },
       cliente: { nombre: String(o["clienteNombre"] ?? ""), nit: t(o["clienteNit"]), sede: t(o["sedeClienteNombre"]) },

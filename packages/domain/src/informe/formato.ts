@@ -37,6 +37,8 @@ export interface FilaCruda {
   readonly folio: string | null;
   readonly codigoReferencia: string | null;
   readonly estado: string;
+  /** Orden anterior al sistema, cargada desde Excel: el archivo lo dice. */
+  readonly historica?: boolean;
   readonly kilometraje: number | null;
   readonly posicion: number;
 
@@ -158,7 +160,7 @@ export function aCeldas(f: FilaCruda): string[] {
     texto(f.vehiculoCodigo),
     texto(f.vehiculoPlaca),
     identificador,
-    f.estado.toUpperCase(),
+    f.historica ? `${f.estado.toUpperCase()} (HISTÓRICA, SIN FIRMA)` : f.estado.toUpperCase(),
     texto(f.kilometraje),
     etiquetaPosicion(f.posicion),
 

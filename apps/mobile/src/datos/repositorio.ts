@@ -33,6 +33,10 @@ export interface OrdenLocal {
    * Se conserva porque tiene trabajo sin enviar; se muestra y no se captura.
    */
   readonly retirada?: boolean;
+  /** Orden anterior al sistema, cargada desde Excel: cerrada y sin firma digital. */
+  readonly historica?: boolean;
+  /** Su número en el papel o en el sistema anterior. */
+  readonly referenciaAnterior?: string | null;
   readonly codigoReferencia: string | null;
   readonly sedeId: string;
   readonly vehiculoId: string;
@@ -326,6 +330,8 @@ export interface OrdenDescargada {
   limiteCliente?: string | null; enviadaRevisionEn?: string | null; tecnicoNombre?: string | null;
   /** R7. Opcionales: un servidor anterior no los manda. */
   bloqueadaPorId?: string | null; bloqueadaPorNombre?: string | null; bloqueadaEn?: string | null;
+  /** Órdenes anteriores (2026-10-17). Opcionales: un servidor anterior no los manda. */
+  historica?: boolean; referenciaAnterior?: string | null;
 }
 
 /** Quita lo vacío: el contrato espera ausencia, no null ni "" (tarea 5.1). */
@@ -1455,8 +1461,9 @@ export class RepositorioLocal {
           firma_nombre, firma_cedula, firma_cargo, firma_version, firma_fecha_hora,
           limite_cliente, enviada_revision_en, tecnico_nombre,
           bloqueada_por_id, bloqueada_por_nombre, bloqueada_en, retirada,
+          historica, referencia_anterior,
           version, version_contenido, sincronizada, actualizada_en)
-       VALUES (?,?,?,?,?,?,?,?,?,?,'normal',?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,1,?)
+       VALUES (?,?,?,?,?,?,?,?,?,?,'normal',?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?,?,1,?)
        ON CONFLICT (id) DO UPDATE SET
          folio = excluded.folio,
          codigo_referencia = coalesce(excluded.codigo_referencia, orden.codigo_referencia),
@@ -1477,6 +1484,7 @@ export class RepositorioLocal {
          tecnico_nombre = coalesce(excluded.tecnico_nombre, orden.tecnico_nombre),
          bloqueada_por_id = excluded.bloqueada_por_id, bloqueada_por_nombre = excluded.bloqueada_por_nombre,
          bloqueada_en = excluded.bloqueada_en, retirada = 0,
+         historica = excluded.historica, referencia_anterior = excluded.referencia_anterior,
          version = excluded.version, version_contenido = excluded.version_contenido,
          sincronizada = 1, actualizada_en = excluded.actualizada_en`,
       [
@@ -1486,6 +1494,7 @@ export class RepositorioLocal {
         o.firmaNombre, o.firmaCedula, o.firmaCargo, o.firmaVersion, o.firmaFechaHora,
         o.limiteCliente ?? null, o.enviadaRevisionEn ?? null, o.tecnicoNombre ?? null,
         o.bloqueadaPorId ?? null, o.bloqueadaPorNombre ?? null, o.bloqueadaEn ?? null,
+        o.historica ? 1 : 0, o.referenciaAnterior ?? null,
         o.version, o.versionContenido, this.ahora(),
       ],
     );
@@ -2030,6 +2039,7 @@ export const COLUMNAS_ORDEN = [
   "id", "folio", "codigo_referencia", "sede_id", "vehiculo_id", "cliente_id", "tecnico_id",
   "tecnico_nombre", "enviada_revision_en", "limite_cliente", "estado", "tipo",
   "bloqueada_por_id", "bloqueada_por_nombre", "bloqueada_en", "retirada",
+  "historica", "referencia_anterior",
   "motivo_devolucion", "nota_coordinador", "fecha", "configuracion_eje_id",
   "kilometraje", "hallazgos", "accion",
   "firma_nombre", "firma_cedula", "firma_version", "firma_trazo", "firma_cargo", "firma_fecha_hora",
@@ -2045,6 +2055,8 @@ function aOrden(f: Record<string, unknown>): OrdenLocal {
     bloqueadaPorNombre: (f["bloqueada_por_nombre"] as string) ?? null,
     bloqueadaEn: (f["bloqueada_en"] as string) ?? null,
     retirada: aBool(f["retirada"]),
+    historica: aBool(f["historica"]),
+    referenciaAnterior: (f["referencia_anterior"] as string) ?? null,
     codigoReferencia: (f["codigo_referencia"] as string) ?? null,
     sedeId: String(f["sede_id"]),
     vehiculoId: String(f["vehiculo_id"]),

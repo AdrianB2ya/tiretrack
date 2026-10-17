@@ -288,8 +288,16 @@ export class ServicioLlantas {
    *
    * Una sola vez por orden: si ya dejó movimientos, no se repite la historia
    * (las órdenes aprobadas antes de este cambio ya la tienen).
+   *
+   * Orden HISTÓRICA (cargada desde Excel, 2026-10-17): la vida de una llanta
+   * nueva empieza en la fecha de la orden, no hoy. Y si el vehículo ya tiene
+   * una orden más reciente procesada, la histórica solo enlaza sus
+   * mediciones con las llantas, sin cambiar dónde está hoy cada
+   * llanta: una orden de 2025 no puede volver a montar lo que una de 2026 ya
+   * movió. En ese caso las llantas que hoy no existen no se crean (no se sabe
+   * dónde están); sus mediciones siguen buscándose por serial en el informe.
    */
-  async procesarOrden(ctx: Contexto, ordenId: string): Promise<{ montadas: number; desmontadas: number }> {
+  async procesarOrden(ctx: Contexto, ordenId: string, opciones: { historica?: boolean } = {}): Promise<{ montadas: number; desmontadas: number }> {
     const hecho = await this.db.query(`SELECT 1 FROM "LlantaMovimiento" WHERE "ordenId" = $1 LIMIT 1`, [ordenId]);
     const resumen = { montadas: 0, desmontadas: 0 };
     if (hecho.rows.length > 0) return resumen;
@@ -299,6 +307,14 @@ export class ServicioLlantas {
       [ordenId],
     )).rows[0];
     if (!o) return resumen;
+
+    const soloHistoria = opciones.historica === true && (await this.db.query(
+      `SELECT 1 FROM "LlantaMovimiento" m JOIN "OrdenServicio" x ON x.id = m."ordenId"
+        WHERE x."vehiculoId" = $1 AND x.fecha > $2::date LIMIT 1`,
+      [o.vehiculoId, o.fecha],
+    )).rows.length > 0;
+    const inicioVida = opciones.historica ? o.fecha : undefined;
+    if (soloHistoria) return this.soloHistoria(ctx, ordenId, o);
 
     const filas = (await this.db.query<Record<string, unknown>>(
       `SELECT id, posicion, serial, "numCalor", dot, "marcaId", "disenoId", medida, "noIdentificada", costo,
@@ -315,7 +331,7 @@ export class ServicioLlantas {
       const destino = estadoTrasDesmontaje(f["desDestino"] as string | null);
       const id = await this.buscarOCrear(ctx, o.clienteId, serial, {
         numCalor: f["desNumCalor"], dot: f["desDot"], marcaId: f["desMarcaId"], disenoId: f["desDisenoId"], medida: f["desMedida"],
-      }, destino);
+      }, destino, inicioVida);
       await this.db.query(
         `UPDATE "Llanta" SET estado = $2, "vehiculoId" = NULL, posicion = NULL WHERE id = $1`,
         [id, destino],
@@ -335,7 +351,7 @@ export class ServicioLlantas {
       const posicion = Number(f["posicion"]);
       const id = await this.buscarOCrear(ctx, o.clienteId, serial, {
         numCalor: f["numCalor"], dot: f["dot"], marcaId: f["marcaId"], disenoId: f["disenoId"], medida: f["medida"],
-      }, "montada");
+      }, "montada", inicioVida);
       const actual = (await this.db.query<{ estado: string; vehiculoId: string | null; posicion: number | null }>(
         `SELECT estado, "vehiculoId", posicion FROM "Llanta" WHERE id = $1`, [id],
       )).rows[0];
@@ -380,6 +396,7 @@ export class ServicioLlantas {
     serial: string,
     datos: Record<string, unknown>,
     estadoInicial: EstadoActivo,
+    inicioVida?: string,
   ): Promise<string> {
     const r = await this.db.query<{ id: string }>(`SELECT id FROM "Llanta" WHERE "clienteId" = $1 AND serial = $2`, [clienteId, serial]);
     if (r.rows[0]) return r.rows[0].id;
@@ -393,8 +410,38 @@ export class ServicioLlantas {
        datos["marcaId"] ?? null, datos["disenoId"] ?? null, datos["medida"] ?? null,
        estadoInicial === "montada" ? "bodega" : estadoInicial],
     );
-    await this.vida(ctx, id, 0, {});
+    await this.vida(ctx, id, 0, inicioVida ? { inicio: inicioVida } : {});
     return id;
+  }
+
+  /**
+   * Orden histórica anterior a otra ya procesada del mismo vehículo: enlaza
+   * sus mediciones con las llantas que existen, sin moverlas de donde están
+   * hoy ni crear movimientos fuera de orden.
+   */
+  private async soloHistoria(
+    _ctx: Contexto,
+    ordenId: string,
+    o: { clienteId: string },
+  ): Promise<{ montadas: number; desmontadas: number }> {
+    const filas = (await this.db.query<{ id: string; posicion: number; serial: string | null; noIdentificada: boolean }>(
+      `SELECT id, posicion, serial, "noIdentificada" FROM "LlantaRegistro" WHERE "ordenId" = $1 ORDER BY posicion`,
+      [ordenId],
+    )).rows;
+    let enlazadas = 0;
+    for (const f of filas) {
+      const serial = claveIdentificador(f.serial);
+      if (!serial || f.noIdentificada) continue;
+      const id = (await this.db.query<{ id: string }>(
+        `SELECT id FROM "Llanta" WHERE "clienteId" = $1 AND serial = $2`, [o.clienteId, serial],
+      )).rows[0]?.id;
+      if (!id) continue;
+      // Sin movimiento: un montaje viejo sin su desmontaje descuadraría los km
+      // por tramos. La medición enlazada sí aparece en la ficha de la llanta.
+      await this.db.query(`UPDATE "LlantaRegistro" SET "llantaId" = $2 WHERE id = $1`, [f.id, id]);
+      enlazadas++;
+    }
+    return { montadas: enlazadas, desmontadas: 0 };
   }
 
   private async vida(
